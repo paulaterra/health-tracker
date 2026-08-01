@@ -1,0 +1,66 @@
+/* ============================================================
+   TOKENS — identitat visual: "quadern de laboratori personal"
+   Paper fred, tinta profunda, dos accents funcionals:
+   sàlvia = factor protector / positiu · terracota-argila = desencadenant / alerta
+   ============================================================ */
+:root {
+  /* Color — superfícies */
+  --paper: #F2F4EE;
+  --paper-alt: #E7EAE1;
+  --paper-raised: #FBFCF9;
+  --line: #D6DACE;
+  --line-strong: #B7BDAC;
+
+  /* Color — tinta */
+  --ink: #1E2B26;
+  --ink-soft: #48564D;
+  --ink-faint: #7C8A80;
+
+  /* Color — accents funcionals */
+  --sage: #4F7462;
+  --sage-light: #A9C4B2;
+  --sage-bg: #E3EBE2;
+  --clay: #AE5A3D;
+  --clay-light: #E4BBA8;
+  --clay-bg: #F4E4DB;
+  --amber: #B98A2E;
+  --amber-bg: #F1E4C4;
+  --teal: #2C5B5E;
+  --teal-light: #6E9C9E;
+
+  /* Tipografia */
+  --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
+  --font-body: "Inter", -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.875rem;
+  --fs-base: 1rem;
+  --fs-md: 1.125rem;
+  --fs-lg: 1.5rem;
+  --fs-xl: 2.1rem;
+  --fs-xxl: 3rem;
+
+  /* Espaiat */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+  --sp-8: 64px;
+
+  /* Forma */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --shadow-card: 0 1px 2px rgba(30,43,38,0.06), 0 4px 14px rgba(30,43,38,0.06);
+  --shadow-raised: 0 2px 6px rgba(30,43,38,0.10), 0 10px 28px rgba(30,43,38,0.10);
+
+  --ease: cubic-bezier(.4,0,.2,1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
