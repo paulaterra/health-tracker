@@ -14,6 +14,8 @@ import { renderConclusions } from "./modules/conclusions/conclusions.js";
 import { renderDashboard } from "./modules/dashboard/dashboard.js";
 import { renderReports } from "./modules/reports/reports.js";
 import { renderAbout } from "./modules/about/about.js";
+import { renderProfile } from "./modules/profile/profile.js";
+import { renderAssistant } from "./modules/assistant/assistant.js";
 import { APP_INFO } from "./app-info.js";
 
 // Rutes construïdes fins ara (Fase 0 a Fase 3, completa).
@@ -32,7 +34,9 @@ const ROUTES = {
   conclusions: { label: "Conclusions i recomanacions", index: "11", render: renderConclusions },
   dashboard: { label: "Dashboard", index: "12", render: renderDashboard },
   informes:  { label: "Informes", index: "13", render: renderReports },
-  configuracio: { label: "Versió i estat", index: "14", render: renderAbout },
+  perfil:    { label: "El meu cos", index: "14", render: renderProfile },
+  assistent: { label: "Pregunta a la IA", index: "15", render: renderAssistant },
+  configuracio: { label: "Versió i estat", index: "16", render: renderAbout },
 };
 
 
@@ -186,6 +190,8 @@ function renderShell() {
           <button data-sheet-route="dashboard" type="button"><span>⌂</span><span><strong>Dashboard</strong><small>Resum i evolució</small></span><b>›</b></button>
           <button data-sheet-route="patrons" type="button"><span>⌁</span><span><strong>Patrons detectats</strong><small>Relacions entre dades</small></span><b>›</b></button>
           <button data-sheet-route="conclusions" type="button"><span>✓</span><span><strong>Conclusions</strong><small>Resum i recomanacions</small></span><b>›</b></button>
+          <button data-sheet-route="perfil" type="button"><span>◎</span><span><strong>El meu cos</strong><small>Perfil personal viu</small></span><b>›</b></button>
+          <button data-sheet-route="assistent" type="button"><span>✦</span><span><strong>Pregunta a la IA</strong><small>Respostes del teu historial</small></span><b>›</b></button>
           <button data-sheet-route="informes" type="button"><span>▤</span><span><strong>Informes</strong><small>PDF i exportació</small></span><b>›</b></button>
           <button data-sheet-route="configuracio" type="button"><span>ⓘ</span><span><strong>Versió i estat</strong><small>v${APP_INFO.version} · Connexions</small></span><b>›</b></button>
           <button id="mobile-sheet-logout" class="danger" type="button"><span>↪</span><span><strong>Tancar sessió</strong><small>${currentUser?.email ?? ""}</small></span><b>›</b></button>

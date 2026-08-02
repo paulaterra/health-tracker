@@ -4,6 +4,8 @@ import { computeWellbeingByDay, averageWellbeing, wellbeingColor } from "../../e
 import { escapeHtml, formatDate, formatDateTime } from "../../utils/dom.js";
 import { generateIntelligence } from "../../engine/intelligence.js";
 import { intelligentSummaryHtml } from "../../engine/intelligence-view.js";
+import { renderBodyMapSvg } from "../pain/zones.js";
+import { buildPersonalProfile, buildPredictions, calendarIconsForDay } from "../../engine/personal-insights.js";
 
 const MODULES = [
   { key: "daily_checkin", label: "Check-in ràpid", dateField: "date" },
@@ -29,6 +31,7 @@ const METRICS = [
 
 let currentMetric = "wellbeing";
 let selectedDate = null;
+let calendarMonth = null;
 
 function dateOnly(v) {
   return (v || "").slice(0, 10);
@@ -47,6 +50,7 @@ function lastNDates(n, endDate = new Date()) {
 export async function renderDashboard(container) {
   currentMetric = "wellbeing";
   selectedDate = new Date().toISOString().slice(0, 10);
+  calendarMonth = selectedDate.slice(0, 7);
 
   container.innerHTML = `
     <div class="view-header">
@@ -75,7 +79,9 @@ export async function renderDashboard(container) {
   const avg30 = averageWellbeing(byDay, last30);
   const todayScore = byDay[today] ?? null;
 
-  const moduleStats = await getModuleStats();
+  const [moduleStats, dailyRecordCounts] = await Promise.all([getModuleStats(), getDailyRecordCounts()]);
+  const personalProfile = buildPersonalProfile(matrix, intel);
+  const predictions = buildPredictions(matrix, intel);
 
   container.innerHTML = `
     <div class="view-header">
@@ -84,13 +90,18 @@ export async function renderDashboard(container) {
       <p class="view-sub">Vista general de com evolucionen les teves dades. Toca qualsevol dia del calendari per veure'n el detall complet.</p>
     </div>
 
-    ${healthAssistantHtml(matrix, byDay, intel)}
+    ${smartTodayHtml(matrix, byDay, intel, personalProfile, predictions)}
 
     ${intelligentSummaryHtml(intel, { compact: true, title: "Què destaca ara" })}
+
 
     <div class="grid-2" style="grid-template-columns: 1fr 1fr;">
       ${wellbeingCard(todayScore, avg7, avgPrev7, avg30)}
       ${heatmapCard(byDay)}
+    </div>
+
+    <div class="card dashboard-calendar-card" style="margin-top: var(--sp-6);">
+      <div id="detailed-calendar-wrap">${detailedCalendarHtml(byDay, dailyRecordCounts, calendarMonth, selectedDate, matrix)}</div>
     </div>
 
     <div class="card" style="margin-top: var(--sp-6);" id="day-detail-card">
@@ -111,12 +122,12 @@ export async function renderDashboard(container) {
     </div>
   `;
 
-  container.querySelectorAll("[data-date-cell]").forEach(cell => {
-    cell.addEventListener("click", async () => {
-      selectedDate = cell.dataset.dateCell;
-      container.querySelector("#day-detail-card").innerHTML = await dayDetailHtml(selectedDate);
-    });
-  });
+  wireDateCells(container);
+  wireDetailedCalendar(container, byDay, dailyRecordCounts, matrix);
+  container.querySelectorAll("[data-smart-route]").forEach(button => button.addEventListener("click", () => {
+    const route = button.dataset.smartRoute;
+    document.querySelector(`[data-route="${route}"]`)?.click();
+  }));
 
   container.querySelectorAll("[data-metric]").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -125,6 +136,100 @@ export async function renderDashboard(container) {
       container.querySelector("#line-chart-wrap").innerHTML = lineChart(matrix, byDay, allDates, currentMetric);
     });
   });
+}
+
+
+function wireDateCells(container, root = container) {
+  root.querySelectorAll("[data-date-cell]").forEach(cell => {
+    cell.addEventListener("click", async () => {
+      selectedDate = cell.dataset.dateCell;
+      container.querySelectorAll("[data-date-cell]").forEach(c => c.classList.toggle("is-selected", c.dataset.dateCell === selectedDate));
+      const detail = container.querySelector("#day-detail-card");
+      if (detail) {
+        detail.innerHTML = await dayDetailHtml(selectedDate);
+        detail.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  });
+}
+
+function wireDetailedCalendar(container, byDay, dailyRecordCounts, matrix) {
+  const wrap = container.querySelector("#detailed-calendar-wrap");
+  if (!wrap) return;
+  wrap.querySelectorAll("[data-calendar-nav]").forEach(button => {
+    button.addEventListener("click", () => {
+      const [year, month] = calendarMonth.split("-").map(Number);
+      const next = new Date(year, month - 1 + Number(button.dataset.calendarNav), 1);
+      calendarMonth = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
+      wrap.innerHTML = detailedCalendarHtml(byDay, dailyRecordCounts, calendarMonth, selectedDate, matrix);
+      wireDateCells(container, wrap);
+      wireDetailedCalendar(container, byDay, dailyRecordCounts, matrix);
+    });
+  });
+}
+
+function monthLabel(monthKey) {
+  const [year, month] = monthKey.split("-").map(Number);
+  return new Intl.DateTimeFormat("ca-ES", { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1));
+}
+
+function detailedCalendarHtml(byDay, dailyRecordCounts, monthKey, activeDate, matrix = {}) {
+  const [year, month] = monthKey.split("-").map(Number);
+  const first = new Date(year, month - 1, 1);
+  const lastDay = new Date(year, month, 0).getDate();
+  const mondayOffset = (first.getDay() + 6) % 7;
+  const today = new Date().toISOString().slice(0, 10);
+  const blanks = Array.from({ length: mondayOffset }, () => `<div class="month-calendar-cell is-empty" aria-hidden="true"></div>`).join("");
+  const days = Array.from({ length: lastDay }, (_, index) => {
+    const day = index + 1;
+    const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const score = byDay[date];
+    const records = dailyRecordCounts[date] || 0;
+    const color = score != null ? wellbeingColor(score) : "var(--paper-alt)";
+    const selected = date === activeDate ? " is-selected" : "";
+    const current = date === today ? " is-today" : "";
+    const hasData = records > 0 ? " has-data" : "";
+    const icons = calendarIconsForDay(matrix[date] || {});
+    return `<button type="button" class="month-calendar-cell${selected}${current}${hasData}" data-date-cell="${date}" aria-label="${date}: ${records ? `${records} registres` : "sense dades"}">
+      <span class="month-calendar-day">${day}</span>
+      <span class="month-calendar-score" style="--day-color:${color};">${score != null ? `${score}/100` : "—"}</span>
+      <span class="month-calendar-icons">${icons.map(item=>`<i class="calendar-symptom-icon tone-${item.tone}" title="${escapeHtml(item.label)}">${item.icon}</i>`).join("")}</span>
+      <span class="month-calendar-count">${records ? `${records} ${records === 1 ? "registre" : "registres"}` : "Tot OK / sense registres"}</span>
+    </button>`;
+  }).join("");
+  return `
+    <div class="detailed-calendar-heading">
+      <div>
+        <span class="view-eyebrow">Calendari detallat</span>
+        <h2 class="card-title">${escapeHtml(monthLabel(monthKey))}</h2>
+        <p class="detailed-calendar-help">Toca qualsevol dia per veure, per separat, el dolor, el son, el digestiu, l'exercici, el cicle, la pell, la medicació i la resta de registres.</p>
+      </div>
+      <div class="detailed-calendar-nav" aria-label="Canviar de mes">
+        <button type="button" class="btn btn-ghost" data-calendar-nav="-1" aria-label="Mes anterior">←</button>
+        <button type="button" class="btn btn-ghost" data-calendar-nav="1" aria-label="Mes següent">→</button>
+      </div>
+    </div>
+    <div class="month-calendar-weekdays" aria-hidden="true">
+      ${["Dl", "Dt", "Dc", "Dj", "Dv", "Ds", "Dg"].map(d => `<span>${d}</span>`).join("")}
+    </div>
+    <div class="month-calendar-grid">${blanks}${days}</div>
+    <div class="month-calendar-legend">
+      <span><i class="calendar-legend-dot has-records"></i> Amb registres</span>
+      <span><i class="calendar-legend-dot selected"></i> Dia seleccionat</span>
+      <span>La barra de color indica el benestar estimat del dia.</span>
+    </div>`;
+}
+
+async function getDailyRecordCounts() {
+  const counts = {};
+  for (const module of MODULES) {
+    const all = await new Repository(module.key).getAll();
+    for (const record of all) {
+      const date = dateOnly(record[module.dateField]);
+      if (date) counts[date] = (counts[date] || 0) + 1;
+    }
+  }
+  return counts;
 }
 
 function numericAverage(matrix, dates, key) {
@@ -138,6 +243,28 @@ function changeDescriptor(current, previous, meta) {
   if (Math.abs(diff) < 0.5) return { icon: "→", word: "estable", tone: "neutral", diff };
   const improved = meta?.valence === "negative" ? diff < 0 : diff > 0;
   return { icon: diff > 0 ? "↑" : "↓", word: improved ? "millor" : "pitjor", tone: improved ? "good" : "bad", diff };
+}
+
+function smartTodayHtml(matrix, byDay, intel, profile, predictions) {
+  const today = new Date().toISOString().slice(0, 10);
+  const score = byDay[today];
+  const todayDay = matrix[today] || {};
+  const icons = calendarIconsForDay(todayDay);
+  const main = intel.patterns?.[0]?.text || intel.cycle?.detected?.[0]?.text || "Encara estic recollint dades per trobar un patró consistent.";
+  const status = score == null ? "Encara no hi ha dades d’avui" : score >= 75 ? "Avui sembla un dia favorable" : score >= 50 ? "Avui hi ha alguns símptomes a observar" : "Avui és un dia més complicat que la teva mitjana";
+  const predictionItems = predictions.items.length ? predictions.items.slice(0,2).map(x=>`<li>${escapeHtml(x.label)} <span>confiança ${escapeHtml(x.confidence)}</span></li>`).join("") : `<li>${escapeHtml(predictions.note)}</li>`;
+  return `<section class="smart-dashboard card">
+    <div class="smart-dashboard-main">
+      <span class="view-eyebrow">Avui</span><h2 class="card-title">${escapeHtml(status)}</h2>
+      <div class="smart-score">${score ?? "—"}<small>/100</small></div>
+      <div class="smart-today-icons">${icons.length?icons.map(i=>`<span class="tone-${i.tone}">${i.icon} ${escapeHtml(i.label)}</span>`).join(""):`<span class="all-ok">✓ Cap símptoma registrat: s’interpreta com a tot OK</span>`}</div>
+    </div>
+    <div class="smart-dashboard-side">
+      <div><span class="view-eyebrow">El més destacat</span><p>${escapeHtml(main)}</p></div>
+      <div><span class="view-eyebrow">Predicció personal</span><ul>${predictionItems}</ul></div>
+      <div class="smart-links"><button type="button" class="btn btn-ghost" data-smart-route="perfil">Veure el meu perfil</button><button type="button" class="btn btn-ghost" data-smart-route="assistent">Fer una pregunta</button></div>
+    </div>
+  </section>`;
 }
 
 function healthAssistantHtml(matrix, byDay, intel) {
@@ -236,7 +363,7 @@ function heatmapCard(byDay) {
     const score = byDay[d];
     const color = score != null ? wellbeingColor(score) : "var(--paper-alt)";
     const opacity = score != null ? 0.35 + (score / 100) * 0.65 : 1;
-    return `<div data-date-cell="${d}" title="${d}${score != null ? `: ${score}/100` : ": sense dades"}" style="width:12px;height:12px;border-radius:2px;background:${color};opacity:${opacity};cursor:pointer;"></div>`;
+    return `<button type="button" class="compact-calendar-cell ${d === selectedDate ? "is-selected" : ""}" data-date-cell="${d}" title="${d}${score != null ? `: ${score}/100` : ": sense dades"}" style="--cell-color:${color};--cell-opacity:${opacity};" aria-label="${d}${score != null ? `: ${score}/100` : ": sense dades"}"></button>`;
   }).join("");
 
   return `
@@ -336,6 +463,60 @@ function moduleTable(stats) {
   `;
 }
 
+
+/* ---------------- Mapes visuals del dolor ---------------- */
+
+function painActiveZones(pain) {
+  return [...new Set((pain?.entries || []).flatMap(entry => entry.zonaIds || []))];
+}
+
+
+function safePainColor(value) {
+  return /^#[0-9a-f]{3,8}$/i.test(String(value || "")) ? String(value) : "#777777";
+}
+
+function painDrawingLegendHtml(pain) {
+  const unique = [];
+  const seen = new Set();
+  for (const stroke of (pain?.painDrawing || [])) {
+    const label = stroke.label || stroke.type || "Dolor pintat";
+    const key = `${label}|${stroke.color}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push({ label, color: safePainColor(stroke.color) });
+    }
+  }
+  if (!unique.length) return "";
+  return `<div class="pain-drawing-legend" aria-label="Llegenda dels colors del mapa pintat">
+    <span class="pain-legend-title">Llegenda del dibuix</span>
+    <div class="pain-legend-items">${unique.map(item => `<span class="pain-legend-item"><i style="--legend-color:${item.color};"></i>${escapeHtml(item.label)}</span>`).join("")}</div>
+  </div>`;
+}
+
+function painMapPairHtml(pain, { compact = false } = {}) {
+  const activeZones = painActiveZones(pain);
+  const strokes = Array.isArray(pain?.painDrawing) ? pain.painDrawing : [];
+  const hasFront = strokes.some(s => s.view === "front") || activeZones.some(id => !id.endsWith("_post") && !["cervical","lumbar","columna_dorsal_alta","columna_dorsal_mitjana","columna_dorsal_baixa","trapezi_esquerre","trapezi_dret","omoplat_esquerre","omoplat_dret","costat_esquerre_post","costat_dret_post","natja_esquerra","natja_dreta","cuixa_esquerra_post","cuixa_dreta_post","bessons_esquerre","bessons_dret","taló_esquerre","taló_dret","cap_post"].includes(id));
+  const hasBack = strokes.some(s => s.view === "back") || activeZones.some(id => id.endsWith("_post") || ["cervical","lumbar","columna_dorsal_alta","columna_dorsal_mitjana","columna_dorsal_baixa","trapezi_esquerre","trapezi_dret","omoplat_esquerre","omoplat_dret","costat_esquerre_post","costat_dret_post","natja_esquerra","natja_dreta","cuixa_esquerra_post","cuixa_dreta_post","bessons_esquerre","bessons_dret","taló_esquerre","taló_dret","cap_post"].includes(id));
+  const maps = [];
+  if (hasFront || (!hasFront && !hasBack)) maps.push(`<div class="dashboard-bodymap"><span>Davant</span>${renderBodyMapSvg("front", activeZones, [], strokes)}</div>`);
+  if (hasBack || (!hasFront && !hasBack)) maps.push(`<div class="dashboard-bodymap"><span>Darrere</span>${renderBodyMapSvg("back", activeZones, [], strokes)}</div>`);
+  return `<div class="dashboard-bodymap-pair ${compact ? "is-compact" : ""}">${maps.join("")}</div>`;
+}
+
+function painTextSummary(pain) {
+  const groups = (pain?.entries || []).map(entry => {
+    const zones = (entry.zonaLabels || []).join(" + ");
+    const type = (entry.tipus || []).join(", ");
+    return [zones, type].filter(Boolean).join(": ");
+  }).filter(Boolean);
+  const extras = [];
+  if (Number.isFinite(Number(pain?.intensitat))) extras.push(`intensitat ${pain.intensitat}/10`);
+  if (pain?.impacteSon?.length) extras.push(pain.impacteSon.join(", "));
+  return [...groups, ...extras].join(" · ") || "Mapa de dolor registrat";
+}
+
+
 /* ---------------- Detall d'un dia concret ---------------- */
 
 async function dayDetailHtml(date) {
@@ -395,9 +576,26 @@ async function dayDetailHtml(date) {
   const meds = (await new Repository("medications").getAll()).filter(m => dateOnly(m.timestamp) === date);
   meds.forEach(m => rows.push(row("Medicació", `${m.nom}${m.dosi ? " · " + m.dosi : ""}${m.motiu ? " · " + m.motiu : ""}`)));
 
+  const painVisuals = pains.length ? `
+    <section class="day-pain-section">
+      <div class="dashboard-section-heading"><h3 class="day-section-title">Mapa del dolor</h3><span class="badge">${pains.length} ${pains.length === 1 ? "registre" : "registres"}</span></div>
+      <div class="day-pain-records">
+        ${pains.map(p => `<article class="day-pain-record">
+          <div class="day-pain-record-head"><strong>${escapeHtml(formatDateTime(p.timestamp))}</strong><span class="badge">${Number(p.intensitat) || 0}/10</span></div>
+          ${painMapPairHtml(p, { compact: true })}
+          ${painDrawingLegendHtml(p)}
+          <p>${escapeHtml(painTextSummary(p))}</p>
+          ${p.comentari ? `<p class="assistant-note">${escapeHtml(p.comentari)}</p>` : ""}
+        </article>`).join("")}
+      </div>
+    </section>` : "";
+
   return `
-    <h2 class="card-title">Detall del dia — ${escapeHtml(formatDate(date))}</h2>
-    ${rows.length ? `<div class="event-list">${rows.join("")}</div>` : `<p class="ledger-empty">Sense registres aquest dia.</p>`}
+    <div class="day-detail-heading">
+      <div><span class="view-eyebrow">Resum diari</span><h2 class="card-title">${escapeHtml(formatDate(date))}</h2></div>
+    </div>
+    ${painVisuals}
+    ${rows.length ? `<section class="day-modules-section"><h3 class="day-section-title">Registres per apartat</h3><div class="event-list day-event-list">${rows.join("")}</div></section>` : `<p class="ledger-empty">Sense registres aquest dia.</p>`}
   `;
 }
 

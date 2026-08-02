@@ -399,3 +399,302 @@ textarea { min-height: 72px; resize: vertical; }
   .app-status-row { align-items: flex-start; padding: var(--sp-4); }
   .app-status-value { max-width: 58%; }
 }
+
+/* Dashboard: mapa del dolor i resum diari visual (v1.2.8) */
+.dashboard-section-heading,
+.day-detail-heading,
+.day-pain-record-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.dashboard-pain-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, .9fr) minmax(260px, 1.1fr);
+  gap: var(--sp-6);
+  align-items: center;
+}
+.dashboard-bodymap-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-3);
+  max-width: 520px;
+  margin-inline: auto;
+}
+.dashboard-bodymap-pair.is-compact { max-width: 390px; }
+.dashboard-bodymap {
+  min-width: 0;
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--paper-alt);
+  text-align: center;
+}
+.dashboard-bodymap > span {
+  display: block;
+  margin-bottom: var(--sp-2);
+  color: var(--ink-faint);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.dashboard-bodymap .bodymap-detailed {
+  width: 100%;
+  max-height: 310px;
+}
+.dashboard-bodymap-pair.is-compact .bodymap-detailed { max-height: 230px; }
+.dashboard-pain-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.dashboard-pain-summary > strong { font-size: var(--fs-md); line-height: 1.5; }
+.day-pain-section,
+.day-modules-section { margin-top: var(--sp-5); }
+.day-section-title {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-sm);
+  font-weight: 750;
+}
+.day-pain-records {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--sp-4);
+}
+.day-pain-record {
+  padding: var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--paper-alt);
+}
+.day-pain-record > p { margin: var(--sp-3) 0 0; line-height: 1.5; }
+.day-event-list .event-row {
+  border-left: 4px solid var(--line);
+  padding-left: var(--sp-4);
+}
+@media (max-width: 760px) {
+  .dashboard-pain-layout { grid-template-columns: 1fr; gap: var(--sp-4); }
+  .dashboard-bodymap-pair { max-width: 420px; }
+  .dashboard-bodymap { padding: var(--sp-2); }
+  .dashboard-bodymap .bodymap-detailed { max-height: 250px; }
+  .day-pain-records { grid-template-columns: 1fr; }
+  .day-pain-record { padding: var(--sp-3); }
+}
+
+/* Dashboard v1.2.9: llegenda del mapa i calendari mensual detallat */
+.dashboard-pain-visual {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.pain-drawing-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+}
+.pain-legend-title {
+  color: var(--ink-soft);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+.pain-legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-3);
+}
+.pain-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--ink-soft);
+  font-size: var(--fs-xs);
+}
+.pain-legend-item i {
+  width: 20px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--legend-color);
+  opacity: .78;
+}
+.compact-calendar-cell {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: var(--cell-color);
+  opacity: var(--cell-opacity);
+  cursor: pointer;
+}
+.compact-calendar-cell.is-selected {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+  opacity: 1;
+}
+.detailed-calendar-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-5);
+  margin-bottom: var(--sp-5);
+}
+.detailed-calendar-heading .card-title {
+  margin-top: var(--sp-1);
+  text-transform: capitalize;
+}
+.detailed-calendar-help {
+  max-width: 760px;
+  margin: var(--sp-2) 0 0;
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+}
+.detailed-calendar-nav {
+  display: flex;
+  gap: var(--sp-2);
+  flex: 0 0 auto;
+}
+.detailed-calendar-nav .btn {
+  min-width: 46px;
+  padding-inline: var(--sp-3);
+  font-size: var(--fs-lg);
+}
+.month-calendar-weekdays,
+.month-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--sp-2);
+}
+.month-calendar-weekdays {
+  margin-bottom: var(--sp-2);
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  text-align: center;
+  text-transform: uppercase;
+}
+.month-calendar-cell {
+  position: relative;
+  min-width: 0;
+  min-height: 112px;
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+}
+.month-calendar-cell::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 5px;
+  background: var(--day-color, var(--line));
+  opacity: .82;
+}
+.month-calendar-cell:hover,
+.month-calendar-cell:focus-visible {
+  border-color: var(--ink-faint);
+  background: var(--paper-alt);
+}
+.month-calendar-cell.is-selected {
+  border: 2px solid var(--ink);
+  box-shadow: 0 0 0 3px rgba(45,45,45,.08);
+}
+.month-calendar-cell.is-today .month-calendar-day {
+  background: var(--ink);
+  color: white;
+}
+.month-calendar-cell.is-empty {
+  visibility: hidden;
+  pointer-events: none;
+}
+.month-calendar-day {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+.month-calendar-score {
+  display: block;
+  margin-top: var(--sp-3);
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+.month-calendar-count {
+  display: block;
+  margin-top: var(--sp-1);
+  color: var(--ink-faint);
+  font-size: var(--fs-xs);
+}
+.month-calendar-cell.has-data .month-calendar-count {
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.month-calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-5);
+  margin-top: var(--sp-4);
+  color: var(--ink-faint);
+  font-size: var(--fs-xs);
+}
+.month-calendar-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.calendar-legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+  background: var(--paper-alt);
+}
+.calendar-legend-dot.has-records { background: var(--sage-bg); border-color: var(--sage); }
+.calendar-legend-dot.selected { background: var(--paper); border: 2px solid var(--ink); }
+
+@media (max-width: 760px) {
+  .detailed-calendar-heading { align-items: center; }
+  .detailed-calendar-help { font-size: var(--fs-xs); }
+  .month-calendar-weekdays,
+  .month-calendar-grid { gap: 4px; }
+  .month-calendar-cell {
+    min-height: 66px;
+    padding: 6px;
+    border-radius: 10px;
+  }
+  .month-calendar-day { width: 24px; height: 24px; font-size: var(--fs-xs); }
+  .month-calendar-score { margin-top: 5px; font-size: 9px; }
+  .month-calendar-count { display: none; }
+  .month-calendar-cell::after { height: 4px; }
+  .pain-drawing-legend { align-items: flex-start; }
+  .pain-legend-title { width: 100%; }
+}
+
+/* Paula Tracker v1.3.0 — intel·ligència personal */
+.smart-dashboard{display:grid;grid-template-columns:minmax(220px,.8fr) minmax(300px,1.2fr);gap:var(--sp-6);border-left:4px solid #2d2d2d;margin-bottom:var(--sp-6)}
+.smart-dashboard-main{display:flex;flex-direction:column;gap:10px}.smart-score{font-size:clamp(42px,6vw,72px);font-weight:700;letter-spacing:-.06em}.smart-score small{font-size:16px;color:var(--ink-faint);letter-spacing:0}.smart-dashboard-side{display:grid;gap:16px}.smart-dashboard-side p,.smart-dashboard-side ul{margin:6px 0 0}.smart-dashboard-side li{margin:6px 0}.smart-dashboard-side li span{color:var(--ink-faint);font-size:var(--fs-xs)}.smart-links{display:flex;gap:8px;flex-wrap:wrap}
+.smart-today-icons{display:flex;gap:8px;flex-wrap:wrap}.smart-today-icons span{padding:6px 9px;border-radius:999px;background:var(--paper-alt);font-size:var(--fs-xs)}.smart-today-icons .all-ok{background:#e7f1e7;color:#315d42}
+.month-calendar-icons{display:flex;gap:3px;flex-wrap:wrap;min-height:18px;margin-top:5px}.calendar-symptom-icon{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;font-style:normal;font-size:11px;background:var(--paper-alt);color:#2d2d2d}.tone-pain{color:#6c8f57!important;background:#e9f0e3!important}.tone-head{color:#c85b52!important;background:#fae9e6!important}.tone-vertigo{color:#6f5aa8!important;background:#eeeaf8!important}.tone-digestive{color:#d28a20!important;background:#fbf0d8!important}.tone-sleep{color:#8252a1!important;background:#f1e8f5!important}.tone-exercise{color:#3978b9!important;background:#e6eff9!important}.tone-cycle{color:#c84e72!important;background:#f9e6ec!important}.tone-skin{color:#d66a2c!important;background:#fbeadf!important}.tone-medication{color:#32679b!important;background:#e5eef7!important}
+.profile-hero{display:grid;grid-template-columns:.75fr 1.25fr;gap:var(--sp-6);align-items:center}.profile-stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.profile-stat{padding:14px;border-radius:16px;background:var(--paper-alt);display:flex;flex-direction:column;gap:3px}.profile-stat span,.profile-stat small{font-size:var(--fs-xs);color:var(--ink-soft)}.profile-stat strong{font-size:var(--fs-lg)}.profile-grid{margin-top:var(--sp-6)}.prediction-panel{margin-top:var(--sp-6);border-left:4px solid #6f5aa8}.analysis-disclaimer{font-size:var(--fs-xs);color:var(--ink-faint);font-style:italic}
+.assistant-query-card{display:grid;gap:12px}.assistant-query-row{display:flex;gap:10px}.assistant-query-row input{flex:1;min-width:0}.assistant-suggestions{display:flex;gap:8px;flex-wrap:wrap}.assistant-suggestions button{border:1px solid var(--line);background:var(--paper-alt);border-radius:999px;padding:7px 10px;color:var(--ink);cursor:pointer}.assistant-answer>p{color:var(--ink-soft)}
+.medical-summary{background:#fff;border:1px solid var(--line);border-radius:20px;padding:28px}.medical-summary-cover{padding-bottom:20px;border-bottom:1px solid var(--line)}.medical-summary-cover h1{margin:6px 0 4px;font-size:32px}.medical-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:20px 0}.medical-metrics>div{background:var(--paper-alt);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:5px}.medical-metrics span,.medical-metrics small{font-size:var(--fs-xs);color:var(--ink-soft)}.medical-metrics strong{font-size:var(--fs-lg)}.medical-summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.medical-summary-block{border:1px solid var(--line);border-radius:16px;padding:16px}.medical-summary-block h2{font-size:var(--fs-md);margin:0 0 8px}.medical-summary-block ul{padding-left:18px;margin:0}.medical-summary-block li{margin:7px 0;font-size:var(--fs-sm)}
+@media(max-width:820px){.smart-dashboard,.profile-hero{grid-template-columns:1fr}.profile-stat-grid,.medical-metrics,.medical-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.assistant-query-row{flex-direction:column}.month-calendar-count{font-size:9px}.month-calendar-icons{gap:2px}.calendar-symptom-icon{width:16px;height:16px;font-size:10px}}
+@media(max-width:480px){.profile-stat-grid,.medical-metrics,.medical-summary-grid{grid-template-columns:1fr 1fr}.medical-summary{padding:18px}.smart-score{font-size:52px}}
+@media print{.medical-summary{border:0;padding:0}.report-page-break{break-after:page}.medical-summary-block{break-inside:avoid}}

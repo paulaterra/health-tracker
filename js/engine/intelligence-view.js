@@ -31,16 +31,21 @@ function flaresHtml(flares, compact) {
 
 function cycleHtml(cycle, compact) {
   if (!cycle) return "";
-  const items = cycle.hypotheses || [];
-  const visible = compact ? items.filter(item => item.status === "detected").slice(0, 2) : items;
+  const detected = (cycle.hypotheses || []).filter(item => item.status === "detected");
+  const visible = compact ? detected.slice(0, 2) : detected;
+
+  // Les hipòtesis personals només es mostren quan el motor detecta
+  // una associació amb prou dades i compleix els llindars estadístics.
+  if (!visible.length) return "";
+
   return `
     <h3 style="margin:var(--sp-4) 0 var(--sp-2);font-size:var(--fs-sm);">Patrons segons la fase del cicle</h3>
     <div class="event-row" style="background:var(--paper-alt);margin-bottom:8px;"><div class="event-tags">${escapeHtml(cycle.summary)}</div></div>
-    ${visible.length ? `<div class="event-list">${visible.map(item => `
+    <div class="event-list">${visible.map(item => `
       <div class="event-row">
         <div class="event-row-top"><strong>${escapeHtml(item.title)}</strong><span class="badge">${escapeHtml(item.confidence)}</span></div>
         <div class="event-comment">${escapeHtml(item.text)}</div>
-      </div>`).join("")}</div>` : compact ? "" : `<p class="ledger-empty">Continua registrant el cicle, el son, el dolor i el digestiu per veure aquestes hipòtesis.</p>`}
+      </div>`).join("")}</div>
   `;
 }
 

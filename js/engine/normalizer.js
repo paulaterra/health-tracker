@@ -250,5 +250,28 @@ export async function buildDailyMatrix() {
     }
   });
 
+  // Filosofia de registre de Paula Tracker: en un dia amb alguna dada,
+  // l’absència d’un registre de símptoma significa que aquell símptoma no hi era.
+  // Les variables de context positiu (qualitat del son, energia...) continuen
+  // sent desconegudes si no s’han registrat explícitament.
+  Object.values(matrix).forEach(day => {
+    const symptomDefaults = {
+      dolor_registrat: false, dolor_general: 0, dolor_intensitat_max: 0, dolor_esquena_intensitat: 0, dolor_rigidesa: false,
+      mal_de_cap_ocorregut: false, mal_de_cap_intensitat: 0,
+      vertigen_ocorregut: false, vertigen_intensitat: 0,
+      digestiu_general: 0, digestiu_inflor: 0, digestiu_dolorAbdominal: 0, digestiu_retortijons: 0, digestiu_gasos: 0,
+      digestiu_urgencia: false, digestiu_bristol_anormal: false, digestiu_diarrea: false, digestiu_llagues_boca: false,
+      exercici_fet: false, exercici_gimnas: false, exercici_fisio: false, exercici_activacio_neuromuscular: false, exercici_caminar: false,
+      cicle_regla: false, cicle_premenstrual: false, cicle_postmenstrual: false, cicle_ovulacio_finestra: false, cicle_ovulacio_registrada: false,
+      medicacio_presa: false, pell_brot: false, energia_esgotament: false,
+    };
+    Object.entries(symptomDefaults).forEach(([key,value]) => { if (day[key] === undefined) day[key] = value; });
+    if (day.son_registrat) {
+      if (day.son_parasomnia === undefined) day.son_parasomnia = false;
+      if (day.son_llums_dormida === undefined) day.son_llums_dormida = false;
+      if (day.son_mocs_matinals === undefined) day.son_mocs_matinals = false;
+    }
+  });
+
   return matrix;
 }

@@ -6,6 +6,7 @@ import { classifyConclusions } from "../../engine/conclusions.js";
 import { generateIntelligence } from "../../engine/intelligence.js";
 import { intelligentSummaryHtml, recommendationsHtml } from "../../engine/intelligence-view.js";
 import { escapeHtml, formatDate } from "../../utils/dom.js";
+import { medicalSummaryData } from "../../engine/personal-insights.js";
 
 const ALL_STORES = [
   "daily_checkin", "pain_events", "headache_events", "vertigo_events", "digestive_events",
@@ -40,7 +41,8 @@ export async function renderReports(container) {
         <input type="date" id="endDate" value="${defaultEnd}">
       </div>
       <button class="btn btn-primary" id="generate-btn">Genera l'informe</button>
-      <button class="btn btn-ghost" id="pdf-btn" style="display:none;">⬇ Descarrega PDF</button>
+      <button class="btn btn-ghost" id="summary-pdf-btn" style="display:none;">⬇ PDF resum mèdic</button>
+      <button class="btn btn-ghost" id="pdf-btn" style="display:none;">⬇ PDF complet</button>
       <button class="btn btn-ghost" id="print-btn" style="display:none;">🖨 Imprimeix (alternativa)</button>
       <button class="btn btn-ghost" id="export-json-btn">⬇ Exporta totes les dades (JSON)</button>
     </div>
@@ -54,6 +56,7 @@ export async function renderReports(container) {
     if (!start || !end || start > end) { alert("Comprova les dates: la data d'inici ha de ser abans que la de final."); return; }
     try {
       await generateReport(container, start, end);
+      container.querySelector("#summary-pdf-btn").style.display = "inline-block";
       container.querySelector("#pdf-btn").style.display = "inline-block";
       container.querySelector("#print-btn").style.display = "inline-block";
     } catch (error) {
@@ -63,11 +66,13 @@ export async function renderReports(container) {
   });
 
   container.querySelector("#print-btn").addEventListener("click", () => window.print());
-  container.querySelector("#pdf-btn").addEventListener("click", () => downloadPdf(container));
+  container.querySelector("#summary-pdf-btn").addEventListener("click", () => downloadPdf(container, "#medical-summary", "resum-medic-paula-tracker", "#summary-pdf-btn"));
+  container.querySelector("#pdf-btn").addEventListener("click", () => downloadPdf(container, "#report-output", "informe-complet-paula-tracker", "#pdf-btn"));
   container.querySelector("#export-json-btn").addEventListener("click", exportAllDataAsJson);
 
   try {
     await generateReport(container, defaultStart, defaultEnd);
+    container.querySelector("#summary-pdf-btn").style.display = "inline-block";
     container.querySelector("#pdf-btn").style.display = "inline-block";
     container.querySelector("#print-btn").style.display = "inline-block";
   } catch (error) {
@@ -92,20 +97,20 @@ function loadHtml2Pdf() {
   return html2pdfLoadPromise;
 }
 
-async function downloadPdf(container) {
-  const btn = container.querySelector("#pdf-btn");
+async function downloadPdf(container, selector = "#report-output", filenamePrefix = "informe-quadern-de-salut", buttonSelector = "#pdf-btn") {
+  const btn = container.querySelector(buttonSelector);
   const original = btn.textContent;
   btn.textContent = "Generant PDF…";
   btn.disabled = true;
   try {
     await loadHtml2Pdf();
-    const element = container.querySelector("#report-output");
+    const element = container.querySelector(selector);
     const start = container.querySelector("#startDate").value;
     const end = container.querySelector("#endDate").value;
     await window.html2pdf()
       .set({
         margin: 10,
-        filename: `informe-quadern-de-salut-${start}-a-${end}.pdf`,
+        filename: `${filenamePrefix}-${start}-a-${end}.pdf`,
         image: { type: "jpeg", quality: 0.95 },
         html2canvas: { scale: 2, backgroundColor: "#ffffff" },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
@@ -178,6 +183,7 @@ async function generateReport(container, start, end) {
   // Un únic motor compartit alimenta Dashboard, Patrons, Conclusions i Informes.
   // Aquí el limitem al període seleccionat perquè el PDF sigui coherent amb les dates.
   const intel = await generateIntelligence({ start, end });
+  const medicalSummary = medicalSummaryData(periodMatrix, intel);
   setProgress(3);
 
   const symptomSummary = buildSymptomSummary(periodMatrix);
@@ -187,6 +193,9 @@ async function generateReport(container, start, end) {
   const symptomBars = symptomFrequencyChart(periodMatrix);
 
   output.innerHTML = `
+    ${medicalSummaryHtml(medicalSummary, avgPeriod, avgPrev, start, end, periodDates.length)}
+
+    <div id="full-medical-report">
     <div class="card">
       <h2 class="card-title" style="font-size: var(--fs-lg);">Informe del període</h2>
       <p style="color: var(--ink-soft); margin: 0;">${escapeHtml(formatDate(start))} — ${escapeHtml(formatDate(end))} (${periodDates.length} dies amb dades) · generat el ${escapeHtml(formatDate(todayISO()))}</p>
@@ -247,7 +256,35 @@ async function generateReport(container, start, end) {
         Aquest informe s'ha generat automàticament a partir de l'autoregistre de símptomes. Les relacions mostrades són correlacions observades a les pròpies dades, no diagnòstics ni recomanacions mèdiques. Pensat com a suport per a la conversa amb el professional sanitari.
       </p>
     </div>
+    </div>
   `;
+}
+
+function medicalSummaryHtml(data, avgPeriod, avgPrev, start, end, dayCount) {
+  const p=data.profile;
+  const patternItems=data.patterns.map(item=>item.text).filter(Boolean);
+  const cycleItems=p.cyclePatterns||[];
+  const keyPatterns=[...cycleItems,...patternItems].slice(0,5);
+  const predictionItems=data.predictions.items||[];
+  return `<section id="medical-summary" class="medical-summary report-page-break">
+    <div class="medical-summary-cover">
+      <span class="view-eyebrow">Paula Tracker · Resum mèdic visual</span>
+      <h1>Resum de salut personal</h1>
+      <p>${escapeHtml(formatDate(start))} — ${escapeHtml(formatDate(end))} · ${dayCount} dies amb dades</p>
+    </div>
+    <div class="medical-metrics">
+      <div><span>Benestar</span><strong>${avgPeriod ?? "—"}/100</strong><small>${avgPrev!=null?`període anterior ${avgPrev}/100`:"sense comparació"}</small></div>
+      <div><span>Dolor</span><strong>${p.pain.average==null?"—":`${p.pain.average.toFixed(1)}/10`}</strong><small>${p.pain.count} registres</small></div>
+      <div><span>Son</span><strong>${p.sleep.quality==null?"—":`${p.sleep.quality.toFixed(1)}/10`}</strong><small>${p.sleep.awakenings==null?"—":`${p.sleep.awakenings.toFixed(1)} despertars`}</small></div>
+      <div><span>Zona principal</span><strong>${escapeHtml(p.pain.mainZone||"—")}</strong><small>${escapeHtml(p.pain.mainType||"sense tipus dominant")}</small></div>
+    </div>
+    <div class="medical-summary-grid">
+      <div class="medical-summary-block"><h2>Patrons detectats</h2>${keyPatterns.length?`<ul>${keyPatterns.map(x=>`<li>${escapeHtml(x)}</li>`).join("")}</ul>`:`<p>Encara no s'ha detectat cap patró amb prou evidència.</p>`}</div>
+      <div class="medical-summary-block"><h2>Pròxims dies</h2>${predictionItems.length?`<ul>${predictionItems.map(x=>`<li>${escapeHtml(x.label)} · confiança ${escapeHtml(x.confidence)}</li>`).join("")}</ul>`:`<p>${escapeHtml(data.predictions.note)}</p>`}</div>
+      <div class="medical-summary-block"><h2>Digestiu i cicle</h2><ul><li>Diarrea en el ${(p.digestion.diarrheaRate*100).toFixed(0)}% dels dies amb dades.</li>${p.digestion.bloating!=null?`<li>Inflor mitjana ${p.digestion.bloating.toFixed(1)}/10.</li>`:""}${cycleItems.slice(0,3).map(x=>`<li>${escapeHtml(x)}</li>`).join("")}</ul></div>
+      <div class="medical-summary-block"><h2>Nota clínica</h2><p>Aquest resum identifica associacions del registre personal. No demostra causalitat i no substitueix una valoració professional.</p></div>
+    </div>
+  </section>`;
 }
 
 function periodTrend(current, prev) {
