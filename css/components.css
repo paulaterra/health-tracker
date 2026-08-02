@@ -369,3 +369,33 @@ textarea { min-height: 72px; resize: vertical; }
 .report-progress__steps { display:grid; gap:var(--sp-2); font-size:var(--fs-sm); color:var(--ink-soft); }
 .report-progress__step.done { color:var(--sage); }
 .report-progress__step.active { color:var(--ink); font-weight:600; }
+
+/* Versió i estat de l'aplicació */
+.app-status-card {
+  max-width: 720px;
+  padding: 0;
+  overflow: hidden;
+}
+.app-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5);
+  border-bottom: 1px solid var(--line);
+}
+.app-status-row:last-child { border-bottom: 0; }
+.app-status-row > span { color: var(--ink-soft); }
+.app-status-value {
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  text-align: right;
+}
+.app-status-ok { color: var(--sage); }
+.app-status-error { color: var(--clay); }
+.app-status-checking { color: var(--amber); }
+@media (max-width: 560px) {
+  .app-status-row { align-items: flex-start; padding: var(--sp-4); }
+  .app-status-value { max-width: 58%; }
+}
