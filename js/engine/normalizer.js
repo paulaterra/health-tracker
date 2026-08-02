@@ -19,6 +19,9 @@ const medicationRepo = new Repository("medications");
 export const VARIABLE_META = {
   dolor_general:            { label: "Dolor general", type: "numeric", category: "Dolor", valence: "negative" },
   dolor_intensitat_max:     { label: "Dolor corporal (pic del dia)", type: "numeric", category: "Dolor", valence: "negative" },
+  dolor_esquena_intensitat: { label: "Mal d’esquena", type: "numeric", category: "Dolor", valence: "negative" },
+  dolor_rigidesa:           { label: "Rigidesa corporal", type: "boolean", category: "Dolor", valence: "negative" },
+  dolor_registrat:          { label: "Registre de dolor completat", type: "boolean", category: "Dolor" },
   mal_de_cap_ocorregut:     { label: "Mal de cap", type: "boolean", category: "Dolor", valence: "negative" },
   mal_de_cap_intensitat:    { label: "Mal de cap (intensitat)", type: "numeric", category: "Dolor", valence: "negative" },
   vertigen_ocorregut:       { label: "Vertígens", type: "boolean", category: "Dolor", valence: "negative" },
@@ -31,16 +34,21 @@ export const VARIABLE_META = {
   digestiu_gasos:           { label: "Gasos", type: "numeric", category: "Digestiu", valence: "negative" },
   digestiu_urgencia:        { label: "Urgència al lavabo", type: "boolean", category: "Digestiu", valence: "negative" },
   digestiu_bristol_anormal: { label: "Deposició anormal (Bristol 1-2 o 6-7)", type: "boolean", category: "Digestiu", valence: "negative" },
+  digestiu_diarrea:         { label: "Diarrea (Bristol 6-7)", type: "boolean", category: "Digestiu", valence: "negative" },
+  digestiu_deposicio_registrada: { label: "Deposició registrada", type: "boolean", category: "Digestiu" },
   digestiu_llagues_boca:    { label: "Llagues a la boca", type: "boolean", category: "Digestiu", valence: "negative" },
 
   son_qualitat:             { label: "Qualitat del son", type: "numeric", category: "Son", valence: "positive" },
   son_despertars:           { label: "Nombre de despertars", type: "numeric", category: "Son", valence: "negative" },
   son_fatiga_mati:          { label: "Fatiga en llevar-se", type: "numeric", category: "Son", valence: "negative" },
   son_parasomnia:           { label: "Parasomnia (caminar, visions, crits...)", type: "boolean", category: "Son", valence: "negative" },
+  son_llums_dormida:        { label: "Encendre llums dormida", type: "boolean", category: "Son", valence: "negative" },
+  son_registrat:            { label: "Registre de son completat", type: "boolean", category: "Son" },
   son_mocs_matinals:        { label: "Mocs en llevar-me", type: "boolean", category: "Son", valence: "negative" },
 
   energia_fisica:           { label: "Energia física", type: "numeric", category: "Energia", valence: "positive" },
   energia_mental:           { label: "Energia mental", type: "numeric", category: "Energia", valence: "positive" },
+  energia_esgotament:       { label: "Esgotament físic", type: "boolean", category: "Energia", valence: "negative" },
 
   exercici_fet:             { label: "Exercici (qualsevol tipus)", type: "boolean", category: "Exercici" },
   exercici_gimnas:          { label: "Gimnàs / entrenador", type: "boolean", category: "Exercici" },
@@ -49,6 +57,10 @@ export const VARIABLE_META = {
   exercici_caminar:         { label: "Caminar", type: "boolean", category: "Exercici" },
 
   cicle_regla:              { label: "Regla / menstruació", type: "boolean", category: "Cicle" },
+  cicle_premenstrual:       { label: "Fase premenstrual (1-5 dies abans)", type: "boolean", category: "Cicle" },
+  cicle_postmenstrual:      { label: "Fase postmenstrual (1-5 dies després)", type: "boolean", category: "Cicle" },
+  cicle_ovulacio_finestra:  { label: "Finestra d’ovulació (±3 dies)", type: "boolean", category: "Cicle" },
+  cicle_ovulacio_registrada:{ label: "Ovulació registrada", type: "boolean", category: "Cicle" },
   medicacio_presa:          { label: "Medicació presa", type: "boolean", category: "Medicació" },
   pell_brot:                { label: "Brot de pell (èczema/picor/acne/urticària)", type: "boolean", category: "Pell", valence: "negative" },
 };
@@ -102,12 +114,25 @@ export async function buildDailyMatrix() {
     setValue(matrix, d, "son_qualitat", c.sonQualitat);
     setValue(matrix, d, "energia_fisica", c.energiaFisica);
     setValue(matrix, d, "energia_mental", c.energiaMental);
+    if (Number(c.energiaFisica) <= 3) setBool(matrix, d, "energia_esgotament");
     if (c.malDeCap) setBool(matrix, d, "mal_de_cap_ocorregut");
   });
 
   pains.forEach(p => {
     const d = dateOnly(p.timestamp);
+    setBool(matrix, d, "dolor_registrat");
     setMax(matrix, d, "dolor_intensitat_max", p.intensitat);
+    const entries = p.entries || [];
+    const labels = entries.flatMap(entry => entry.zonaLabels || [entry.zoneLabel, entry.zone]).filter(Boolean).map(value => String(value).toLowerCase());
+    const painTypes = [
+      ...(p.tipusDolor || []),
+      ...entries.flatMap(entry => entry.tipus || []),
+      ...(p.painDrawing || []).map(stroke => stroke.type),
+    ].map(value => String(value).toLowerCase());
+    if (labels.some(label => /esquena|dorsal|lumbar|cervical|columna|omòplat/.test(label))) {
+      setMax(matrix, d, "dolor_esquena_intensitat", p.intensitat);
+    }
+    if (painTypes.some(type => type.includes("rigides"))) setBool(matrix, d, "dolor_rigidesa");
   });
 
   headaches.forEach(h => {
@@ -133,15 +158,20 @@ export async function buildDailyMatrix() {
 
   bowels.forEach(b => {
     const d = dateOnly(b.timestamp);
+    setBool(matrix, d, "digestiu_deposicio_registrada");
     if (b.urgencia) setBool(matrix, d, "digestiu_urgencia");
     if (b.bristol <= 2 || b.bristol >= 6) setBool(matrix, d, "digestiu_bristol_anormal");
+    if (Number(b.bristol) >= 6) setBool(matrix, d, "digestiu_diarrea");
   });
 
   sleeps.forEach(s => {
     const d = s.date;
+    setBool(matrix, d, "son_registrat");
     setValue(matrix, d, "son_qualitat", s.qualitat);
     setValue(matrix, d, "son_despertars", s.numDespertars);
     setValue(matrix, d, "son_fatiga_mati", s.fatigaMati);
+    if (s.encendreLlumsDormida) setBool(matrix, d, "son_llums_dormida");
+    if (Number(s.fatigaMati) >= 7) setBool(matrix, d, "energia_esgotament");
     if (s.caminarDormida || s.encendreLlumsDormida || s.visions || s.crits) {
       setBool(matrix, d, "son_parasomnia");
     }
@@ -157,8 +187,54 @@ export async function buildDailyMatrix() {
     if (ex.tipus === "caminar") setBool(matrix, d, "exercici_caminar");
   });
 
+  // Cicle: regla, fase premenstrual, postmenstrual i finestra d'ovulació.
+  const bleedingDates = new Set(cycles.filter(c => c.sagnat).map(c => c.date));
+  const sortedBleeding = [...bleedingDates].sort();
+  const periodStarts = sortedBleeding.filter(date => {
+    const prev = new Date(date + "T00:00:00");
+    prev.setDate(prev.getDate() - 1);
+    return !bleedingDates.has(prev.toISOString().slice(0, 10));
+  });
+  const periodEnds = sortedBleeding.filter(date => {
+    const next = new Date(date + "T00:00:00");
+    next.setDate(next.getDate() + 1);
+    return !bleedingDates.has(next.toISOString().slice(0, 10));
+  });
+  const explicitOvulation = [];
   cycles.forEach(c => {
     if (c.sagnat) setBool(matrix, c.date, "cicle_regla");
+    if ((c.simptomes || []).some(x => String(x).toLowerCase().includes("ovul"))) {
+      explicitOvulation.push(c.date);
+      setBool(matrix, c.date, "cicle_ovulacio_registrada");
+    }
+  });
+  periodStarts.forEach(start => {
+    for (let offset = 1; offset <= 5; offset++) {
+      const d = new Date(start + "T00:00:00");
+      d.setDate(d.getDate() - offset);
+      setBool(matrix, d.toISOString().slice(0, 10), "cicle_premenstrual");
+    }
+  });
+  periodEnds.forEach(endDate => {
+    for (let offset = 1; offset <= 5; offset++) {
+      const d = new Date(endDate + "T00:00:00");
+      d.setDate(d.getDate() + offset);
+      setBool(matrix, d.toISOString().slice(0, 10), "cicle_postmenstrual");
+    }
+  });
+  const ovulationAnchors = new Set(explicitOvulation);
+  // Si no s'ha registrat l'ovulació, l'estima a 14 dies de l'inici de la regla següent.
+  for (let i = 1; i < periodStarts.length; i++) {
+    const estimated = new Date(periodStarts[i] + "T00:00:00");
+    estimated.setDate(estimated.getDate() - 14);
+    ovulationAnchors.add(estimated.toISOString().slice(0, 10));
+  }
+  ovulationAnchors.forEach(anchor => {
+    for (let offset = -3; offset <= 3; offset++) {
+      const d = new Date(anchor + "T00:00:00");
+      d.setDate(d.getDate() + offset);
+      setBool(matrix, d.toISOString().slice(0, 10), "cicle_ovulacio_finestra");
+    }
   });
 
   medications.forEach(m => {

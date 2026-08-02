@@ -24,8 +24,8 @@ export async function renderPatterns(container) {
 
   const wrap = container.querySelector("#patterns-wrap");
 
-  if (numDays < 8) {
-    wrap.innerHTML = emptyState(`Encara tens poques dades (${numDays} dia${numDays === 1 ? "" : "s"} amb algun registre). Amb almenys 1-2 setmanes de registre constant, el motor podrà començar a trobar relacions fiables.`);
+  if (numDays < 14) {
+    wrap.innerHTML = emptyState(`Encara tens poques dades (${numDays} dia${numDays === 1 ? "" : "s"} amb algun registre). Amb almenys 14 dies de registre constant, el motor podrà començar a trobar relacions fiables.`);
     return;
   }
 

@@ -22,8 +22,8 @@ export async function renderConclusions(container) {
 
   const wrap = container.querySelector("#conclusions-wrap");
 
-  if (numDays < 8) {
-    wrap.innerHTML = emptyState(`Encara tens poques dades (${numDays} dia${numDays === 1 ? "" : "s"}). Amb 1-2 setmanes de registre constant, l'app ja podrà proposar les primeres conclusions.`);
+  if (numDays < 14) {
+    wrap.innerHTML = emptyState(`Encara tens poques dades (${numDays} dia${numDays === 1 ? "" : "s"}). Amb almenys 14 dies de registre constant, l'app ja podrà proposar les primeres conclusions.`);
     return;
   }
 
