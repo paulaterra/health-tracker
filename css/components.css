@@ -699,6 +699,150 @@ textarea { min-height: 72px; resize: vertical; }
 @media(max-width:480px){.profile-stat-grid,.medical-metrics,.medical-summary-grid{grid-template-columns:1fr 1fr}.medical-summary{padding:18px}.smart-score{font-size:52px}}
 @media print{.medical-summary{border:0;padding:0}.report-page-break{break-after:page}.medical-summary-block{break-inside:avoid}}
 
+/* Paula Tracker v1.3.1 — resum diari visual per apartats */
+.day-modules-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-4);
+}
+.day-module-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--module-color) 22%, var(--line));
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+}
+.day-module-card.is-wide { grid-column: 1 / -1; }
+.day-module-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--module-soft);
+  color: var(--module-color);
+}
+.day-module-head h4 {
+  flex: 1;
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  font-weight: 760;
+}
+.day-module-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--paper) 78%, transparent);
+  color: var(--module-color);
+}
+.day-module-icon svg { width: 23px; height: 23px; }
+.day-module-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--module-color);
+  font-size: var(--fs-xs);
+  font-weight: 760;
+}
+.day-module-body { padding: var(--sp-4); }
+.day-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--sp-2);
+}
+.day-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: var(--sp-3);
+  border-radius: var(--radius-md);
+  background: var(--paper-alt);
+}
+.day-stat span {
+  color: var(--ink-faint);
+  font-size: var(--fs-xs);
+}
+.day-stat strong {
+  color: var(--ink);
+  font-size: var(--fs-md);
+  line-height: 1.2;
+}
+.day-stat.tone-pain strong { color: #6C8F57; }
+.day-stat.tone-headache strong { color: #C85B52; }
+.day-stat.tone-digestive strong { color: #D28A20; }
+.day-stat.tone-sleep strong { color: #8252A1; }
+.day-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+.day-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid color-mix(in srgb, var(--module-color) 28%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--module-soft) 62%, var(--paper));
+  color: var(--ink-soft);
+  font-size: var(--fs-xs);
+  line-height: 1.25;
+}
+.day-chip-list.is-types .day-chip {
+  border-style: dashed;
+  color: var(--module-color);
+}
+.day-record-item + .day-record-item {
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--line);
+}
+.day-record-title {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.day-record-title span {
+  color: var(--ink-faint);
+  font-size: var(--fs-xs);
+}
+.day-record-title b {
+  color: var(--module-color);
+  font-size: var(--fs-md);
+}
+.day-record-item.compact > strong {
+  display: block;
+  margin-bottom: var(--sp-2);
+}
+.day-record-note,
+.day-ok-state {
+  margin: var(--sp-3) 0 0;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+.day-ok-state { font-style: italic; }
+
+@media (max-width: 760px) {
+  .day-modules-grid { grid-template-columns: 1fr; }
+  .day-module-card.is-wide { grid-column: auto; }
+  .day-module-head { padding: var(--sp-3); }
+  .day-module-body { padding: var(--sp-3); }
+  .day-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .day-record-title { grid-template-columns: 1fr auto; }
+  .day-record-title span { grid-column: 1 / -1; grid-row: 2; }
+}
+
+
 /* Paula Tracker v1.3.2 — accés professional de només lectura */
 .auth-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:20px 0;padding:5px;border-radius:14px;background:var(--paper-alt)}
 .auth-tab{border:0;border-radius:10px;padding:10px 12px;background:transparent;color:var(--ink-soft);font:inherit;font-weight:600;cursor:pointer}
@@ -727,3 +871,43 @@ textarea { min-height: 72px; resize: vertical; }
 .auth-tab-icon{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:999px;background:rgba(45,45,45,.08);font-size:14px;line-height:1}
 .auth-tab.active .auth-tab-icon{background:#2d2d2d;color:#fff}
 @media (max-width:560px){.auth-tabs{grid-template-columns:1fr 1fr}.auth-tab{padding:10px 8px;font-size:.96rem}.auth-tab-icon{width:24px;height:24px}}
+
+
+/* Paula Tracker v1.3.5 — fitxes diàries enriquides */
+.day-detail-list {
+  display: grid;
+  gap: 0;
+  margin-top: var(--sp-3);
+  border: 1px solid color-mix(in srgb, var(--module-color) 14%, var(--line));
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--module-soft) 25%, var(--paper));
+}
+.day-detail-row {
+  display: grid;
+  grid-template-columns: minmax(105px, .72fr) minmax(0, 1.28fr);
+  gap: var(--sp-3);
+  align-items: start;
+  padding: 9px 11px;
+}
+.day-detail-row + .day-detail-row { border-top: 1px solid color-mix(in srgb, var(--module-color) 12%, var(--line)); }
+.day-detail-row span { color: var(--ink-faint); font-size: var(--fs-xs); }
+.day-detail-row strong { color: var(--ink-soft); font-size: var(--fs-xs); font-weight: 650; line-height: 1.45; text-align: right; overflow-wrap: anywhere; }
+.day-record-note {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--module-soft) 42%, var(--paper));
+  border-left: 3px solid var(--module-color);
+}
+.day-record-note span { color: var(--module-color); font-size: 14px; line-height: 1.3; }
+.day-record-item.compact .day-stat-grid + .day-chip-list,
+.day-record-item.compact .day-detail-list + .day-chip-list { margin-top: var(--sp-3); }
+@media (max-width: 480px) {
+  .day-detail-row { grid-template-columns: 1fr; gap: 3px; }
+  .day-detail-row strong { text-align: left; }
+  .day-stat { padding: 10px; }
+  .day-stat strong { font-size: var(--fs-sm); }
+}
