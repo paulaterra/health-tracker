@@ -65,14 +65,57 @@ const COMING_SOON = [];
 let currentUser = null;
 const WRITE_ROUTES = new Set(["inici", "dolor", "malcap", "vertigen", "digestiu", "son", "exercici", "cicle", "pell", "medicacio"]);
 
+function hasRecoveryMarker() {
+  const params = `${window.location.search} ${window.location.hash}`;
+  return /type=recovery|error_code=otp_expired|error=access_denied/i.test(params);
+}
+
+function clearRecoveryUrl() {
+  window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.search.replace(/([?&])(type|code|token_hash)=[^&]*/g, "").replace(/[?&]$/, "")}`);
+}
+
 async function main() {
   if (isViewerMode()) {
     currentUser = { email: "Paula Track View" };
     await enterApp();
     return;
   }
+
+  let recoveryScreenShown = false;
+  supabase.auth.onAuthStateChange(async (event, nextSession) => {
+    if (event === "PASSWORD_RECOVERY") {
+      recoveryScreenShown = true;
+      currentUser = nextSession?.user ?? null;
+      renderPasswordRecovery();
+      return;
+    }
+    if (!nextSession?.user && !recoveryScreenShown) {
+      currentUser = null;
+      renderLogin();
+    }
+  });
+
+  const recoveryRequested = hasRecoveryMarker();
   const { data: { session }, error } = await supabase.auth.getSession();
   if (error) console.error("No s'ha pogut comprovar la sessió", error);
+
+  if (recoveryRequested) {
+    if (/error_code=otp_expired|error=access_denied/i.test(`${window.location.search} ${window.location.hash}`)) {
+      renderLogin("L'enllaç de recuperació ha caducat. Torna a demanar un correu nou des de Supabase.");
+      return;
+    }
+    if (session?.user) {
+      recoveryScreenShown = true;
+      currentUser = session.user;
+      renderPasswordRecovery();
+      return;
+    }
+    document.getElementById("app").innerHTML = `<main class="auth-page"><section class="auth-card"><div class="auth-mark">PT</div><p class="view-eyebrow">Paula Tracker</p><h1 class="auth-title">Preparant el canvi de contrasenya…</h1><p class="auth-copy">Espera un moment mentre validem l'enllaç segur.</p></section></main>`;
+    window.setTimeout(() => {
+      if (!recoveryScreenShown) renderLogin("No s'ha pogut validar l'enllaç. Torna a demanar un correu de recuperació nou.");
+    }, 2500);
+    return;
+  }
 
   if (session?.user) {
     currentUser = session.user;
@@ -80,12 +123,58 @@ async function main() {
   } else {
     renderLogin();
   }
+}
 
-  supabase.auth.onAuthStateChange((_event, nextSession) => {
-    if (!nextSession?.user) {
-      currentUser = null;
-      renderLogin();
+function renderPasswordRecovery(message = "") {
+  document.getElementById("app").innerHTML = `
+    <main class="auth-page">
+      <section class="auth-card">
+        <div class="auth-mark">PT</div>
+        <p class="view-eyebrow">Paula Tracker</p>
+        <h1 class="auth-title">Crea una nova contrasenya.</h1>
+        <p class="auth-copy">Escriu-la dues vegades per confirmar-la. Ha de tenir almenys 8 caràcters.</p>
+        <form id="password-recovery-form" class="auth-form is-active">
+          <label class="field-label" for="new-password">Nova contrasenya</label>
+          <input id="new-password" type="password" autocomplete="new-password" minlength="8" required>
+          <label class="field-label" for="confirm-password">Repeteix la contrasenya</label>
+          <input id="confirm-password" type="password" autocomplete="new-password" minlength="8" required>
+          <button class="btn btn-primary auth-submit" type="submit">Guardar nova contrasenya</button>
+        </form>
+        <p id="auth-message" class="auth-message">${message}</p>
+      </section>
+    </main>`;
+
+  document.getElementById("password-recovery-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = event.currentTarget.querySelector("button");
+    const messageEl = document.getElementById("auth-message");
+    const password = document.getElementById("new-password").value;
+    const confirmation = document.getElementById("confirm-password").value;
+
+    if (password.length < 8) {
+      messageEl.textContent = "La contrasenya ha de tenir almenys 8 caràcters.";
+      return;
     }
+    if (password !== confirmation) {
+      messageEl.textContent = "Les dues contrasenyes no coincideixen.";
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = "Guardant…";
+    messageEl.textContent = "";
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) {
+      messageEl.textContent = `No s'ha pogut canviar la contrasenya: ${error.message}`;
+      button.disabled = false;
+      button.textContent = "Guardar nova contrasenya";
+      return;
+    }
+
+    clearRecoveryUrl();
+    await supabase.auth.signOut();
+    currentUser = null;
+    renderLogin("Contrasenya actualitzada correctament. Ja pots iniciar sessió amb la nova contrasenya.");
   });
 }
 
