@@ -698,3 +698,146 @@ textarea { min-height: 72px; resize: vertical; }
 @media(max-width:820px){.smart-dashboard,.profile-hero{grid-template-columns:1fr}.profile-stat-grid,.medical-metrics,.medical-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.assistant-query-row{flex-direction:column}.month-calendar-count{font-size:9px}.month-calendar-icons{gap:2px}.calendar-symptom-icon{width:16px;height:16px;font-size:10px}}
 @media(max-width:480px){.profile-stat-grid,.medical-metrics,.medical-summary-grid{grid-template-columns:1fr 1fr}.medical-summary{padding:18px}.smart-score{font-size:52px}}
 @media print{.medical-summary{border:0;padding:0}.report-page-break{break-after:page}.medical-summary-block{break-inside:avoid}}
+
+/* Paula Tracker v1.3.1 — resum diari visual per apartats */
+.day-modules-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-4);
+}
+.day-module-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--module-color) 22%, var(--line));
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+}
+.day-module-card.is-wide { grid-column: 1 / -1; }
+.day-module-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--module-soft);
+  color: var(--module-color);
+}
+.day-module-head h4 {
+  flex: 1;
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  font-weight: 760;
+}
+.day-module-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--paper) 78%, transparent);
+  color: var(--module-color);
+}
+.day-module-icon svg { width: 23px; height: 23px; }
+.day-module-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--module-color);
+  font-size: var(--fs-xs);
+  font-weight: 760;
+}
+.day-module-body { padding: var(--sp-4); }
+.day-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--sp-2);
+}
+.day-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: var(--sp-3);
+  border-radius: var(--radius-md);
+  background: var(--paper-alt);
+}
+.day-stat span {
+  color: var(--ink-faint);
+  font-size: var(--fs-xs);
+}
+.day-stat strong {
+  color: var(--ink);
+  font-size: var(--fs-md);
+  line-height: 1.2;
+}
+.day-stat.tone-pain strong { color: #6C8F57; }
+.day-stat.tone-headache strong { color: #C85B52; }
+.day-stat.tone-digestive strong { color: #D28A20; }
+.day-stat.tone-sleep strong { color: #8252A1; }
+.day-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+.day-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid color-mix(in srgb, var(--module-color) 28%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--module-soft) 62%, var(--paper));
+  color: var(--ink-soft);
+  font-size: var(--fs-xs);
+  line-height: 1.25;
+}
+.day-chip-list.is-types .day-chip {
+  border-style: dashed;
+  color: var(--module-color);
+}
+.day-record-item + .day-record-item {
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--line);
+}
+.day-record-title {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.day-record-title span {
+  color: var(--ink-faint);
+  font-size: var(--fs-xs);
+}
+.day-record-title b {
+  color: var(--module-color);
+  font-size: var(--fs-md);
+}
+.day-record-item.compact > strong {
+  display: block;
+  margin-bottom: var(--sp-2);
+}
+.day-record-note,
+.day-ok-state {
+  margin: var(--sp-3) 0 0;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+.day-ok-state { font-style: italic; }
+
+@media (max-width: 760px) {
+  .day-modules-grid { grid-template-columns: 1fr; }
+  .day-module-card.is-wide { grid-column: auto; }
+  .day-module-head { padding: var(--sp-3); }
+  .day-module-body { padding: var(--sp-3); }
+  .day-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .day-record-title { grid-template-columns: 1fr auto; }
+  .day-record-title span { grid-column: 1 / -1; grid-row: 2; }
+}
