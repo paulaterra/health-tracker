@@ -133,6 +133,9 @@ function renderShell() {
         <button class="mobile-avatar" id="mobile-profile" type="button" aria-label="Obrir més opcions">PT</button>
       </header>
 
+      <nav class="mobile-register-rail" aria-label="Apartats de registre">
+        ${["inici","dolor","malcap","vertigen","digestiu","son","exercici","cicle","pell","medicacio"].map((route) => `<button class="mobile-register-tab category-${route}" style="${categoryStyle(route)}" data-quick-route="${route}" type="button"><span class="mobile-register-icon">${categoryIcon(route)}</span><span class="mobile-register-index">${ROUTES[route].index}</span><strong>${ROUTES[route].label}</strong></button>`).join("")}
+      </nav>
 
       <button class="mobile-nav-backdrop" id="mobile-nav-backdrop" type="button" aria-label="Tancar menú"></button>
 
