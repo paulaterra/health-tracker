@@ -1,4 +1,4 @@
-const VERSION = "paula-tracker-gray-icon-v2";
+const VERSION = "paula-tracker-no-mobile-rail-v3";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
