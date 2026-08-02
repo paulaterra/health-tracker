@@ -321,3 +321,51 @@ textarea { min-height: 72px; resize: vertical; }
 }
 .switch input:checked + .switch-track { background: var(--sage); }
 .switch input:checked + .switch-track::before { transform: translateX(18px); }
+
+/* ---- Mapa corporal detallat (dolor) ---- */
+.bodymap-svg-wrap { padding: var(--sp-3); background: var(--paper-alt); border: 1px solid var(--line); border-radius: var(--radius-md); }
+.bodymap-svg-wrap svg.bodymap-detailed { max-width: 290px; }
+.bodymap-person { fill: #f2d2bb; fill-opacity: .48; stroke: var(--line-strong); stroke-width: 1.25; }
+.bodymap-spine { fill: none; stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 3 4; opacity: .8; }
+.bodymap-detailed .zone-shape { fill: var(--sage-light); fill-opacity: .08; stroke: transparent; stroke-width: 1.5; }
+.bodymap-detailed .zone-shape:hover { fill: var(--amber); fill-opacity: .24; stroke: var(--amber); }
+.bodymap-detailed .zone-shape.zone-active { fill: var(--clay); fill-opacity: .42; stroke: var(--clay); }
+.bodymap-detailed .zone-shape.zone-picking { fill: var(--amber); fill-opacity: .48; stroke: var(--amber); }
+
+
+/* Pain painting tools */
+.bodymap-modebar { display:flex; justify-content:space-between; align-items:flex-start; gap:var(--sp-3); flex-wrap:wrap; }
+.pain-paint-tools { margin:0 0 var(--sp-3); padding:var(--sp-3); border:1px solid var(--line); border-radius:var(--radius-md); background:var(--paper-alt); }
+.paint-type-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--sp-2); }
+.paint-type { display:flex; align-items:center; gap:8px; min-height:38px; padding:8px 10px; border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--paper); color:var(--ink); text-align:left; cursor:pointer; }
+.paint-type > span { width:16px; height:16px; border-radius:50%; background:var(--paint-color); opacity:.72; box-shadow:0 0 0 4px color-mix(in srgb, var(--paint-color) 18%, transparent); }
+.paint-type.active { border-color:var(--paint-color); box-shadow:0 0 0 2px color-mix(in srgb, var(--paint-color) 20%, transparent); }
+.paint-size-row { display:flex; gap:var(--sp-2); align-items:center; flex-wrap:wrap; margin-top:var(--sp-3); }
+.paint-help { margin:var(--sp-2) 0 0; font-size:var(--fs-xs); color:var(--ink-faint); }
+.bodymap-svg-wrap.paint-mode svg { cursor:crosshair; user-select:none; -webkit-user-select:none; }
+.bodymap-svg-wrap.paint-mode .zone-shape { pointer-events:none; }
+.pain-stroke { pointer-events:none; filter:drop-shadow(0 1px 1px rgba(40,30,30,.12)); }
+.ai-insight-list { display:flex; flex-direction:column; gap:var(--sp-2); }
+.ai-insight { display:flex; gap:var(--sp-2); align-items:flex-start; padding:var(--sp-2); border-radius:var(--radius-sm); background:var(--paper-alt); }
+.ai-insight > span { color:var(--clay); font-weight:700; }
+.ai-insight p { margin:0; font-size:var(--fs-sm); line-height:1.45; }
+.ai-disclaimer { margin:var(--sp-3) 0 0; font-size:var(--fs-xs); color:var(--ink-faint); font-style:italic; }
+@media (max-width:720px) { .paint-type-grid { grid-template-columns:1fr; } }
+
+/* Assistent de salut */
+.assistant-heading { display:flex; justify-content:space-between; gap:var(--sp-3); align-items:flex-start; }
+.assistant-lead { font-family:var(--font-serif); font-size:var(--fs-lg); line-height:1.35; margin:var(--sp-3) 0 var(--sp-5); color:var(--ink); }
+.assistant-subtitle { margin:0 0 var(--sp-3); font-size:var(--fs-sm); }
+.assistant-change { display:flex; justify-content:space-between; gap:var(--sp-3); padding:var(--sp-2) 0; border-bottom:1px solid var(--line); font-size:var(--fs-sm); }
+.assistant-change:last-child { border-bottom:0; }
+.assistant-change strong { font-family:var(--font-mono); font-size:var(--fs-xs); text-align:right; }
+.assistant-note { margin:var(--sp-4) 0 0; font-size:var(--fs-xs); color:var(--ink-faint); font-style:italic; }
+@media (max-width: 760px) { .assistant-grid { grid-template-columns:1fr !important; } .assistant-heading { flex-direction:column; } }
+
+/* Progrés de generació d'informes */
+.report-progress { padding:var(--sp-5); }
+.report-progress__bar { height:8px; border-radius:999px; overflow:hidden; background:var(--paper-alt); margin:var(--sp-3) 0; }
+.report-progress__fill { height:100%; width:8%; border-radius:inherit; background:var(--sage); transition:width .25s ease; }
+.report-progress__steps { display:grid; gap:var(--sp-2); font-size:var(--fs-sm); color:var(--ink-soft); }
+.report-progress__step.done { color:var(--sage); }
+.report-progress__step.active { color:var(--ink); font-weight:600; }

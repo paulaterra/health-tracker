@@ -1,6 +1,8 @@
 import { buildDailyMatrix } from "../../engine/normalizer.js";
 import { computeCorrelations, computeDayOfWeekPatterns, computeTrends, humanLagLabel } from "../../engine/correlation.js";
 import { escapeHtml } from "../../utils/dom.js";
+import { generateIntelligence } from "../../engine/intelligence.js";
+import { intelligentSummaryHtml } from "../../engine/intelligence-view.js";
 
 export async function renderPatterns(container) {
   container.innerHTML = `
@@ -14,7 +16,7 @@ export async function renderPatterns(container) {
     </div>
   `;
 
-  const matrix = await buildDailyMatrix();
+  const [matrix, intel] = await Promise.all([buildDailyMatrix(), generateIntelligence()]);
   const numDays = Object.keys(matrix).length;
   const correlations = computeCorrelations(matrix);
   const dowPatterns = computeDayOfWeekPatterns(matrix);
@@ -34,6 +36,8 @@ export async function renderPatterns(container) {
   }
 
   wrap.outerHTML = `
+    ${intelligentSummaryHtml(intel, { title: "Visió conjunta del dolor i la resta de variables" })}
+    <div style="height:var(--sp-5)"></div>
     <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: var(--sp-4);">
       <p style="font-size: var(--fs-sm); color: var(--ink-soft);">${numDays} dies amb dades · ${totalFound} patrons trobats en total.</p>
       <button class="btn btn-ghost" id="recalc-btn">Torna a calcular</button>

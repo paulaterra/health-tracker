@@ -9,7 +9,7 @@ export const DB_NAME = "health_tracker_db";
 export const DB_VERSION = 2;
 
 // [nom store, keyPath, índexs addicionals a crear]
-export const STORES = [
+const STORES = [
   { name: "daily_checkin",      keyPath: "id", indexes: [["date", "date", { unique: true }]] },
   { name: "pain_events",        keyPath: "id", indexes: [["timestamp", "timestamp"]] },
   { name: "headache_events",    keyPath: "id", indexes: [["timestamp", "timestamp"]] },
@@ -58,5 +58,3 @@ export function openDatabase() {
 
   return dbPromise;
 }
-
-export const STORE_NAMES = STORES.map((store) => store.name);

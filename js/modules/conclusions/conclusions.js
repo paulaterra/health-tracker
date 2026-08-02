@@ -2,6 +2,8 @@ import { buildDailyMatrix } from "../../engine/normalizer.js";
 import { computeCorrelations } from "../../engine/correlation.js";
 import { classifyConclusions } from "../../engine/conclusions.js";
 import { escapeHtml } from "../../utils/dom.js";
+import { generateIntelligence } from "../../engine/intelligence.js";
+import { intelligentSummaryHtml, recommendationsHtml } from "../../engine/intelligence-view.js";
 
 export async function renderConclusions(container) {
   container.innerHTML = `
@@ -13,7 +15,7 @@ export async function renderConclusions(container) {
     <div class="card" id="conclusions-wrap"><p class="ledger-empty">Calculant…</p></div>
   `;
 
-  const matrix = await buildDailyMatrix();
+  const [matrix, intel] = await Promise.all([buildDailyMatrix(), generateIntelligence()]);
   const numDays = Object.keys(matrix).length;
   const correlations = computeCorrelations(matrix);
   const { triggers, protectors } = classifyConclusions(correlations);
@@ -31,6 +33,9 @@ export async function renderConclusions(container) {
   }
 
   wrap.outerHTML = `
+    ${intelligentSummaryHtml(intel, { title: "Conclusió global" })}
+    ${recommendationsHtml(intel)}
+    <div style="height:var(--sp-5)"></div>
     <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: var(--sp-4);">
       <p style="font-size: var(--fs-sm); color: var(--ink-soft);">${numDays} dies amb dades · ${triggers.length} possibles desencadenants · ${protectors.length} possibles factors protectors.</p>
       <button class="btn btn-ghost" id="recalc-btn">Torna a calcular</button>

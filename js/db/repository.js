@@ -1,42 +1,24 @@
-import { supabase, getCurrentUser } from "./supabase.js";
+import { openDatabase } from "./schema.js";
 
 /** Genera un identificador únic sense dependències externes. */
 export function makeId() {
-  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function throwIfError(error, context) {
-  if (!error) return;
-  console.error(context, error);
-  throw new Error(`${context}: ${error.message}`);
-}
-
-/** Repositori genèric al núvol, compatible amb l'API anterior d'IndexedDB. */
+/** Repositori genèric per a un object store concret d'IndexedDB. */
 export class Repository {
   constructor(storeName) {
     this.storeName = storeName;
   }
 
-  async #user() {
-    const user = await getCurrentUser();
-    if (!user) throw new Error("La sessió ha caducat. Torna a iniciar sessió.");
-    return user;
+  async #tx(mode) {
+    const db = await openDatabase();
+    const tx = db.transaction(this.storeName, mode);
+    return { tx, store: tx.objectStore(this.storeName) };
   }
 
-  #fromRow(row) {
-    if (!row) return null;
-    return {
-      ...row.record_data,
-      id: row.id,
-      createdAt: row.record_data?.createdAt ?? row.created_at,
-      updatedAt: row.record_data?.updatedAt ?? row.updated_at,
-    };
-  }
-
-  /** Insereix o sobreescriu un registre. */
+  /** Insereix o sobreescriu un registre. Afegeix id/createdAt/updatedAt si falten. */
   async put(record) {
-    const user = await this.#user();
     const now = new Date().toISOString();
     const withMeta = {
       ...record,
@@ -44,64 +26,50 @@ export class Repository {
       createdAt: record.createdAt ?? now,
       updatedAt: now,
     };
-
-    const { error } = await supabase
-      .from("health_records")
-      .upsert({
-        id: withMeta.id,
-        user_id: user.id,
-        store_name: this.storeName,
-        record_data: withMeta,
-        created_at: withMeta.createdAt,
-        updated_at: withMeta.updatedAt,
-      }, { onConflict: "user_id,store_name,id" });
-
-    throwIfError(error, "No s'ha pogut desar el registre");
-    return withMeta;
+    const { tx, store } = await this.#tx("readwrite");
+    return new Promise((resolve, reject) => {
+      const req = store.put(withMeta);
+      req.onsuccess = () => resolve(withMeta);
+      req.onerror = () => reject(req.error);
+      tx.onerror = () => reject(tx.error);
+    });
   }
 
   async get(id) {
-    const user = await this.#user();
-    const { data, error } = await supabase
-      .from("health_records")
-      .select("id, record_data, created_at, updated_at")
-      .eq("user_id", user.id)
-      .eq("store_name", this.storeName)
-      .eq("id", id)
-      .maybeSingle();
-
-    throwIfError(error, "No s'ha pogut llegir el registre");
-    return this.#fromRow(data);
+    const { store } = await this.#tx("readonly");
+    return new Promise((resolve, reject) => {
+      const req = store.get(id);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
   }
 
   async getAll() {
-    const user = await this.#user();
-    const { data, error } = await supabase
-      .from("health_records")
-      .select("id, record_data, created_at, updated_at")
-      .eq("user_id", user.id)
-      .eq("store_name", this.storeName);
-
-    throwIfError(error, "No s'han pogut carregar les dades");
-    return (data ?? []).map((row) => this.#fromRow(row));
+    const { store } = await this.#tx("readonly");
+    return new Promise((resolve, reject) => {
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
   }
 
   async getByIndex(indexName, value) {
-    const all = await this.getAll();
-    return all.filter((record) => record?.[indexName] === value);
+    const { store } = await this.#tx("readonly");
+    return new Promise((resolve, reject) => {
+      const req = store.index(indexName).getAll(value);
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
   }
 
   async delete(id) {
-    const user = await this.#user();
-    const { error } = await supabase
-      .from("health_records")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("store_name", this.storeName)
-      .eq("id", id);
-
-    throwIfError(error, "No s'ha pogut eliminar el registre");
-    return true;
+    const { tx, store } = await this.#tx("readwrite");
+    return new Promise((resolve, reject) => {
+      const req = store.delete(id);
+      req.onsuccess = () => resolve(true);
+      req.onerror = () => reject(req.error);
+      tx.onerror = () => reject(tx.error);
+    });
   }
 
   /** Retorna els N registres més recents segons un camp de data/hora. */

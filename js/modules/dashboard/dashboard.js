@@ -1,7 +1,9 @@
 import { Repository } from "../../db/repository.js";
-import { buildDailyMatrix } from "../../engine/normalizer.js";
+import { buildDailyMatrix, VARIABLE_META } from "../../engine/normalizer.js";
 import { computeWellbeingByDay, averageWellbeing, wellbeingColor } from "../../engine/wellbeing.js";
 import { escapeHtml, formatDate, formatDateTime } from "../../utils/dom.js";
+import { generateIntelligence } from "../../engine/intelligence.js";
+import { intelligentSummaryHtml } from "../../engine/intelligence-view.js";
 
 const MODULES = [
   { key: "daily_checkin", label: "Check-in ràpid", dateField: "date" },
@@ -55,7 +57,7 @@ export async function renderDashboard(container) {
     <div class="card"><p class="ledger-empty">Calculant…</p></div>
   `;
 
-  const matrix = await buildDailyMatrix();
+  const [matrix, intel] = await Promise.all([buildDailyMatrix(), generateIntelligence()]);
   const byDay = computeWellbeingByDay(matrix);
   const allDates = Object.keys(matrix).sort();
 
@@ -81,6 +83,10 @@ export async function renderDashboard(container) {
       <h1 class="view-title">Dashboard</h1>
       <p class="view-sub">Vista general de com evolucionen les teves dades. Toca qualsevol dia del calendari per veure'n el detall complet.</p>
     </div>
+
+    ${healthAssistantHtml(matrix, byDay, intel)}
+
+    ${intelligentSummaryHtml(intel, { compact: true, title: "Què destaca ara" })}
 
     <div class="grid-2" style="grid-template-columns: 1fr 1fr;">
       ${wellbeingCard(todayScore, avg7, avgPrev7, avg30)}
@@ -119,6 +125,73 @@ export async function renderDashboard(container) {
       container.querySelector("#line-chart-wrap").innerHTML = lineChart(matrix, byDay, allDates, currentMetric);
     });
   });
+}
+
+function numericAverage(matrix, dates, key) {
+  const values = dates.map(d => matrix[d]?.[key]).filter(v => Number.isFinite(Number(v))).map(Number);
+  return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
+}
+
+function changeDescriptor(current, previous, meta) {
+  if (current == null || previous == null) return null;
+  const diff = current - previous;
+  if (Math.abs(diff) < 0.5) return { icon: "→", word: "estable", tone: "neutral", diff };
+  const improved = meta?.valence === "negative" ? diff < 0 : diff > 0;
+  return { icon: diff > 0 ? "↑" : "↓", word: improved ? "millor" : "pitjor", tone: improved ? "good" : "bad", diff };
+}
+
+function healthAssistantHtml(matrix, byDay, intel) {
+  const today = new Date();
+  const recent = lastNDates(7, today);
+  const previous = lastNDates(7, new Date(today.getTime() - 7 * 86400000));
+  const candidates = ["dolor_intensitat_max", "dolor_general", "son_qualitat", "energia_fisica", "digestiu_general", "digestiu_inflor"]
+    .map(key => {
+      const current = numericAverage(matrix, recent, key);
+      const prev = numericAverage(matrix, previous, key);
+      const meta = VARIABLE_META[key];
+      const change = changeDescriptor(current, prev, meta);
+      return { key, current, prev, meta, change, magnitude: change ? Math.abs(change.diff) : 0 };
+    })
+    .filter(x => x.current != null)
+    .sort((a, b) => b.magnitude - a.magnitude);
+
+  const changes = candidates.slice(0, 4);
+  const mainPattern = intel.patterns?.[0]?.text || null;
+  const painTrend = changes.find(x => x.key === "dolor_intensitat_max" || x.key === "dolor_general");
+  const sleepTrend = changes.find(x => x.key === "son_qualitat");
+
+  let greeting = "Encara estic aprenent de les teves dades.";
+  if (painTrend?.change?.tone === "bad") greeting = `Aquesta setmana el dolor és ${Math.abs(painTrend.change.diff).toFixed(1)} punts més alt que la setmana anterior.`;
+  else if (painTrend?.change?.tone === "good") greeting = `Aquesta setmana el dolor ha baixat ${Math.abs(painTrend.change.diff).toFixed(1)} punts respecte de l'anterior.`;
+  else if (intel.pain?.profile?.count) greeting = `He analitzat ${intel.pain.profile.count} registres de dolor i ${intel.period.days} dies amb dades.`;
+
+  const observe = [];
+  if (mainPattern) observe.push(mainPattern);
+  if (sleepTrend?.change?.tone === "bad") observe.push("Continua registrant el son: aquesta setmana la qualitat ha baixat i convé comprovar si coincideix amb més dolor.");
+  if (intel.pain?.profile?.topTrigger) observe.push(`Marca de manera constant “${intel.pain.profile.topTrigger[0]}” per comprovar si la coincidència es manté.`);
+  if (!observe.length) observe.push("Completa dolor, son i check-in el mateix dia per augmentar la fiabilitat dels patrons.");
+
+  const changeRows = changes.length ? changes.map(x => {
+    const label = x.meta?.label || x.key;
+    const c = x.change;
+    const color = c?.tone === "good" ? "var(--sage)" : c?.tone === "bad" ? "var(--clay)" : "var(--ink-faint)";
+    const value = x.current != null ? x.current.toFixed(1) : "—";
+    return `<div class="assistant-change"><span>${escapeHtml(label)}</span><strong style="color:${color};">${c?.icon || "·"} ${escapeHtml(c?.word || "sense comparació")} · ${value}</strong></div>`;
+  }).join("") : `<p class="ledger-empty">Encara no hi ha prou dades per comparar setmanes.</p>`;
+
+  return `
+    <div class="card health-assistant" style="border-left:4px solid var(--sage); margin-bottom:var(--sp-6);">
+      <div class="assistant-heading">
+        <div><span class="view-eyebrow">Assistent de salut</span><h2 class="card-title" style="margin-top:var(--sp-1);">El més rellevant ara</h2></div>
+        <span class="badge">dades pròpies</span>
+      </div>
+      <p class="assistant-lead">${escapeHtml(greeting)}</p>
+      <div class="grid-2 assistant-grid" style="grid-template-columns:1fr 1fr;">
+        <div><h3 class="assistant-subtitle">Què està canviant?</h3>${changeRows}</div>
+        <div><h3 class="assistant-subtitle">Què convé observar?</h3><div class="event-list">${observe.slice(0,3).map(x => `<div class="event-row"><div class="event-tags">${escapeHtml(x)}</div></div>`).join("")}</div></div>
+      </div>
+      <p class="assistant-note">Resumeix tendències i associacions observades; no identifica causes ni substitueix una valoració mèdica.</p>
+    </div>`;
 }
 
 function emptyState(message) {

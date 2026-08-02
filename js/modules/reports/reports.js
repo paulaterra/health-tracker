@@ -3,6 +3,8 @@ import { buildDailyMatrix, VARIABLE_META } from "../../engine/normalizer.js";
 import { computeWellbeingByDay, averageWellbeing, wellbeingColor } from "../../engine/wellbeing.js";
 import { computeCorrelations, computeDayOfWeekPatterns, computeTrends, humanLagLabel } from "../../engine/correlation.js";
 import { classifyConclusions } from "../../engine/conclusions.js";
+import { generateIntelligence } from "../../engine/intelligence.js";
+import { intelligentSummaryHtml, recommendationsHtml } from "../../engine/intelligence-view.js";
 import { escapeHtml, formatDate } from "../../utils/dom.js";
 
 const ALL_STORES = [
@@ -50,18 +52,28 @@ export async function renderReports(container) {
     const start = container.querySelector("#startDate").value;
     const end = container.querySelector("#endDate").value;
     if (!start || !end || start > end) { alert("Comprova les dates: la data d'inici ha de ser abans que la de final."); return; }
-    await generateReport(container, start, end);
-    container.querySelector("#pdf-btn").style.display = "inline-block";
-    container.querySelector("#print-btn").style.display = "inline-block";
+    try {
+      await generateReport(container, start, end);
+      container.querySelector("#pdf-btn").style.display = "inline-block";
+      container.querySelector("#print-btn").style.display = "inline-block";
+    } catch (error) {
+      console.error("Error generant l'informe", error);
+      container.querySelector("#report-output").innerHTML = `<div class="card" style="border-left:3px solid var(--clay);"><h2 class="card-title">No s'ha pogut generar l'informe</h2><p style="margin:0;color:var(--ink-soft);">${escapeHtml(error?.message || "Error desconegut")}</p></div>`;
+    }
   });
 
   container.querySelector("#print-btn").addEventListener("click", () => window.print());
   container.querySelector("#pdf-btn").addEventListener("click", () => downloadPdf(container));
   container.querySelector("#export-json-btn").addEventListener("click", exportAllDataAsJson);
 
-  await generateReport(container, defaultStart, defaultEnd);
-  container.querySelector("#pdf-btn").style.display = "inline-block";
-  container.querySelector("#print-btn").style.display = "inline-block";
+  try {
+    await generateReport(container, defaultStart, defaultEnd);
+    container.querySelector("#pdf-btn").style.display = "inline-block";
+    container.querySelector("#print-btn").style.display = "inline-block";
+  } catch (error) {
+    console.error("Error generant l'informe inicial", error);
+    container.querySelector("#report-output").innerHTML = `<div class="card" style="border-left:3px solid var(--clay);"><h2 class="card-title">No s'ha pogut generar l'informe</h2><p style="margin:0;color:var(--ink-soft);">${escapeHtml(error?.message || "Error desconegut")}</p></div>`;
+  }
 }
 
 let html2pdfLoadPromise = null;
@@ -111,9 +123,26 @@ async function downloadPdf(container) {
 
 async function generateReport(container, start, end) {
   const output = container.querySelector("#report-output");
-  output.innerHTML = `<p class="ledger-empty">Generant informe…</p>`;
+  const steps = ["Carregant registres", "Calculant benestar", "Cercant patrons", "Preparant conclusions", "Maquetant l’informe"];
+  output.innerHTML = `
+    <div class="card report-progress">
+      <h2 class="card-title">Analitzant les teves dades…</h2>
+      <div class="report-progress__bar"><div class="report-progress__fill" id="report-progress-fill"></div></div>
+      <div class="report-progress__steps">${steps.map((x,i)=>`<div class="report-progress__step ${i===0?"active":""}" data-report-step="${i}">○ ${escapeHtml(x)}</div>`).join("")}</div>
+    </div>`;
+  const setProgress = (index) => {
+    const fill = output.querySelector("#report-progress-fill");
+    if (fill) fill.style.width = `${Math.max(8, ((index + 1) / steps.length) * 100)}%`;
+    output.querySelectorAll("[data-report-step]").forEach((el, i) => {
+      el.classList.toggle("done", i < index);
+      el.classList.toggle("active", i === index);
+      el.textContent = `${i < index ? "✓" : i === index ? "●" : "○"} ${steps[i]}`;
+    });
+  };
+  await new Promise(resolve => requestAnimationFrame(resolve));
 
   const fullMatrix = await buildDailyMatrix();
+  setProgress(1);
   const periodMatrix = {};
   for (const date of Object.keys(fullMatrix)) {
     if (date >= start && date <= end) periodMatrix[date] = fullMatrix[date];
@@ -131,6 +160,7 @@ async function generateReport(container, start, end) {
   }
 
   const byDayFull = computeWellbeingByDay(fullMatrix);
+  setProgress(2);
   const avgPeriod = averageWellbeing(byDayFull, periodDates);
 
   const spanDays = Math.round((new Date(end) - new Date(start)) / 86400000) + 1;
@@ -145,7 +175,13 @@ async function generateReport(container, start, end) {
   const trends = computeTrends(fullMatrix);
   const { triggers, protectors } = classifyConclusions(correlations);
 
+  // Un únic motor compartit alimenta Dashboard, Patrons, Conclusions i Informes.
+  // Aquí el limitem al període seleccionat perquè el PDF sigui coherent amb les dates.
+  const intel = await generateIntelligence({ start, end });
+  setProgress(3);
+
   const symptomSummary = buildSymptomSummary(periodMatrix);
+  setProgress(4);
   const flags = await buildFlags(start, end);
   const chart = wellbeingLineChart(byDayFull, periodDates);
   const symptomBars = symptomFrequencyChart(periodMatrix);
@@ -155,6 +191,9 @@ async function generateReport(container, start, end) {
       <h2 class="card-title" style="font-size: var(--fs-lg);">Informe del període</h2>
       <p style="color: var(--ink-soft); margin: 0;">${escapeHtml(formatDate(start))} — ${escapeHtml(formatDate(end))} (${periodDates.length} dies amb dades) · generat el ${escapeHtml(formatDate(todayISO()))}</p>
     </div>
+
+    ${intelligentSummaryHtml(intel, { title: "Resum intel·ligent del període" })}
+    ${recommendationsHtml(intel, "Recomanacions i dades a seguir") }
 
     <div class="card" style="margin-top: var(--sp-5);">
       <h2 class="card-title">Índex de benestar del període</h2>
