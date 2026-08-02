@@ -17,6 +17,7 @@ import { renderAbout } from "./modules/about/about.js";
 import { renderProfile } from "./modules/profile/profile.js";
 import { renderAssistant } from "./modules/assistant/assistant.js";
 import { APP_INFO } from "./app-info.js";
+import { isViewerMode, startViewerSession, clearViewerSession } from "./view-mode.js";
 
 // Rutes construïdes fins ara (Fase 0 a Fase 3, completa).
 const ROUTES = {
@@ -62,8 +63,14 @@ function categoryIcon(route) { return (CATEGORY_META[route] ?? CATEGORY_META.ini
 const COMING_SOON = [];
 
 let currentUser = null;
+const WRITE_ROUTES = new Set(["inici", "dolor", "malcap", "vertigen", "digestiu", "son", "exercici", "cicle", "pell", "medicacio"]);
 
 async function main() {
+  if (isViewerMode()) {
+    currentUser = { email: "Paula Track View" };
+    await enterApp();
+    return;
+  }
   const { data: { session }, error } = await supabase.auth.getSession();
   if (error) console.error("No s'ha pogut comprovar la sessió", error);
 
@@ -86,55 +93,91 @@ function renderLogin(message = "") {
   document.getElementById("app").innerHTML = `
     <main class="auth-page">
       <section class="auth-card">
-        <div class="auth-mark">QS</div>
-        <p class="view-eyebrow">Quadern de salut</p>
+        <div class="auth-mark">PT</div>
+        <p class="view-eyebrow">Paula Tracker</p>
         <h1 class="auth-title">Les teves dades, sincronitzades i privades.</h1>
-        <p class="auth-copy">Inicia sessió amb el teu usuari de Supabase.</p>
-        <form id="login-form" class="auth-form">
+        <div class="auth-tabs" role="tablist">
+          <button class="auth-tab active" id="owner-tab" type="button" role="tab" aria-selected="true"><span class="auth-tab-icon" aria-hidden="true">🔒</span><span>Accés Paula</span></button>
+          <button class="auth-tab" id="viewer-tab" type="button" role="tab" aria-selected="false"><span class="auth-tab-icon" aria-hidden="true">👁</span><span>Accés professionals</span></button>
+        </div>
+        <form id="login-form" class="auth-form is-active">
           <label class="field-label" for="login-email">Correu electrònic</label>
           <input id="login-email" type="email" autocomplete="email" required>
           <label class="field-label" for="login-password">Contrasenya</label>
           <input id="login-password" type="password" autocomplete="current-password" required>
           <button class="btn btn-primary auth-submit" type="submit">Entrar</button>
-          <p id="auth-message" class="auth-message">${message}</p>
         </form>
+        <form id="viewer-form" class="auth-form" hidden>
+          <p class="auth-copy">Accés permanent de només lectura per a professionals.</p>
+          <label class="field-label" for="viewer-password">Contrasenya d'accés</label>
+          <input id="viewer-password" type="password" autocomplete="current-password" required>
+          <button class="btn btn-primary auth-submit" type="submit">Entrar en mode consulta</button>
+        </form>
+        <p id="auth-message" class="auth-message">${message}</p>
       </section>
     </main>`;
 
-  document.getElementById("login-form").addEventListener("submit", async (event) => {
+  const ownerTab = document.getElementById("owner-tab");
+  const viewerTab = document.getElementById("viewer-tab");
+  const ownerForm = document.getElementById("login-form");
+  const viewerForm = document.getElementById("viewer-form");
+  const showTab = (viewer) => {
+    ownerTab.classList.toggle("active", !viewer);
+    viewerTab.classList.toggle("active", viewer);
+    ownerTab.setAttribute("aria-selected", String(!viewer));
+    viewerTab.setAttribute("aria-selected", String(viewer));
+    ownerForm.hidden = viewer;
+    viewerForm.hidden = !viewer;
+    ownerForm.classList.toggle("is-active", !viewer);
+    viewerForm.classList.toggle("is-active", viewer);
+    document.getElementById("auth-message").textContent = "";
+    const firstField = (viewer ? viewerForm : ownerForm).querySelector("input");
+    if (firstField) requestAnimationFrame(() => firstField.focus());
+  };
+  ownerTab.addEventListener("click", () => showTab(false));
+  viewerTab.addEventListener("click", () => showTab(true));
+
+  ownerForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const button = event.currentTarget.querySelector("button");
     const messageEl = document.getElementById("auth-message");
-    button.disabled = true;
-    button.textContent = "Entrant…";
-    messageEl.textContent = "";
-
+    button.disabled = true; button.textContent = "Entrant…"; messageEl.textContent = "";
     const email = document.getElementById("login-email").value.trim();
     const password = document.getElementById("login-password").value;
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
     if (error) {
-      messageEl.textContent = error.message === "Invalid login credentials"
-        ? "El correu o la contrasenya no són correctes."
-        : error.message;
-      button.disabled = false;
-      button.textContent = "Entrar";
-      return;
+      messageEl.textContent = error.message === "Invalid login credentials" ? "El correu o la contrasenya no són correctes." : error.message;
+      button.disabled = false; button.textContent = "Entrar"; return;
     }
+    currentUser = data.user; await enterApp();
+  });
 
-    currentUser = data.user;
+  viewerForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = event.currentTarget.querySelector("button");
+    const messageEl = document.getElementById("auth-message");
+    button.disabled = true; button.textContent = "Comprovant…"; messageEl.textContent = "";
+    const password = document.getElementById("viewer-password").value;
+    const { data, error } = await supabase.rpc("professional_login", { p_password: password });
+    const token = Array.isArray(data) ? data[0] : data;
+    if (error || !token) {
+      messageEl.textContent = "La contrasenya de consulta no és correcta.";
+      button.disabled = false; button.textContent = "Entrar en mode consulta"; return;
+    }
+    startViewerSession(token);
+    currentUser = { email: "Paula Track View" };
     await enterApp();
   });
 }
-
 async function enterApp() {
   renderShell();
-  await navigateTo("inici");
+  await navigateTo(isViewerMode() ? "dashboard" : "inici");
 }
 
 function renderShell() {
   document.getElementById("app").innerHTML = `
-    <div class="app-shell" id="app-shell">
+    <div class="app-shell ${isViewerMode() ? "viewer-mode" : ""}" id="app-shell">
+      ${isViewerMode() ? `<div class="viewer-banner">Mode consulta · Només lectura</div>` : ""}
       <header class="mobile-topbar">
         <div class="mobile-brand"><strong>Paula Tracker</strong><span>Quadern de salut · Núvol privat</span></div>
         <button class="mobile-avatar" id="mobile-profile" type="button" aria-label="Obrir més opcions">PT</button>
@@ -209,7 +252,7 @@ function renderShell() {
 
   const navList = document.getElementById("nav-list");
   navList.innerHTML = Object.entries(ROUTES).map(
-    ([key, r]) => `<li class="nav-item category-${key}" style="${CATEGORY_META[key] ? categoryStyle(key) : ""}" data-route="${key}">${CATEGORY_META[key] ? `<span class="nav-category-icon">${categoryIcon(key)}</span>` : `<span class="nav-index">${r.index}</span>`}<span>${r.label}</span></li>`
+    ([key, r]) => `<li class="nav-item category-${key} ${isViewerMode() && WRITE_ROUTES.has(key) ? "locked" : ""}" style="${CATEGORY_META[key] ? categoryStyle(key) : ""}" data-route="${key}">${CATEGORY_META[key] ? `<span class="nav-category-icon">${categoryIcon(key)}</span>` : `<span class="nav-index">${r.index}</span>`}<span>${r.label}</span>${isViewerMode() && WRITE_ROUTES.has(key) ? `<span class="nav-lock">🔒</span>` : ""}</li>`
   ).join("");
 
   const shell = document.getElementById("app-shell");
@@ -270,12 +313,34 @@ function renderShell() {
     });
   });
 
-  const logout = async () => { closeSheets(); await supabase.auth.signOut(); };
+  const logout = async () => {
+    closeSheets();
+    if (isViewerMode()) { clearViewerSession(); currentUser = null; renderLogin(); }
+    else await supabase.auth.signOut();
+  };
   document.getElementById("logout-btn").addEventListener("click", logout);
   document.getElementById("mobile-sheet-logout")?.addEventListener("click", logout);
 }
 
+
+function showRestrictedMessage() {
+  const existing = document.getElementById("restricted-dialog");
+  if (existing) existing.remove();
+  const dialog = document.createElement("dialog");
+  dialog.id = "restricted-dialog";
+  dialog.className = "restricted-dialog";
+  dialog.innerHTML = `<div class="restricted-icon">🔒</div><h2>Accés restringit</h2><p>Aquest apartat permet registrar o modificar dades de salut i només està disponible per a Paula. En mode consulta només es poden visualitzar i analitzar les dades.</p><button class="btn btn-primary" type="button">Entesos</button>`;
+  document.body.appendChild(dialog);
+  dialog.querySelector("button").addEventListener("click", () => dialog.close());
+  dialog.addEventListener("close", () => dialog.remove());
+  dialog.showModal();
+}
+
 async function navigateTo(routeKey) {
+  if (isViewerMode() && WRITE_ROUTES.has(routeKey)) {
+    showRestrictedMessage();
+    return;
+  }
   const route = ROUTES[routeKey];
   if (!route) return;
 

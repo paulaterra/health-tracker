@@ -699,145 +699,31 @@ textarea { min-height: 72px; resize: vertical; }
 @media(max-width:480px){.profile-stat-grid,.medical-metrics,.medical-summary-grid{grid-template-columns:1fr 1fr}.medical-summary{padding:18px}.smart-score{font-size:52px}}
 @media print{.medical-summary{border:0;padding:0}.report-page-break{break-after:page}.medical-summary-block{break-inside:avoid}}
 
-/* Paula Tracker v1.3.1 — resum diari visual per apartats */
-.day-modules-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--sp-4);
-}
-.day-module-card {
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--module-color) 22%, var(--line));
-  border-radius: var(--radius-lg);
-  background: var(--paper);
-}
-.day-module-card.is-wide { grid-column: 1 / -1; }
-.day-module-head {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  padding: var(--sp-3) var(--sp-4);
-  background: var(--module-soft);
-  color: var(--module-color);
-}
-.day-module-head h4 {
-  flex: 1;
-  margin: 0;
-  color: var(--ink);
-  font-size: var(--fs-sm);
-  font-weight: 760;
-}
-.day-module-icon {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  flex: 0 0 38px;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--paper) 78%, transparent);
-  color: var(--module-color);
-}
-.day-module-icon svg { width: 23px; height: 23px; }
-.day-module-count {
-  display: inline-grid;
-  place-items: center;
-  min-width: 28px;
-  height: 28px;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: var(--paper);
-  color: var(--module-color);
-  font-size: var(--fs-xs);
-  font-weight: 760;
-}
-.day-module-body { padding: var(--sp-4); }
-.day-stat-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: var(--sp-2);
-}
-.day-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-  padding: var(--sp-3);
-  border-radius: var(--radius-md);
-  background: var(--paper-alt);
-}
-.day-stat span {
-  color: var(--ink-faint);
-  font-size: var(--fs-xs);
-}
-.day-stat strong {
-  color: var(--ink);
-  font-size: var(--fs-md);
-  line-height: 1.2;
-}
-.day-stat.tone-pain strong { color: #6C8F57; }
-.day-stat.tone-headache strong { color: #C85B52; }
-.day-stat.tone-digestive strong { color: #D28A20; }
-.day-stat.tone-sleep strong { color: #8252A1; }
-.day-chip-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-2);
-  margin-top: var(--sp-3);
-}
-.day-chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 30px;
-  padding: 5px 10px;
-  border: 1px solid color-mix(in srgb, var(--module-color) 28%, var(--line));
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--module-soft) 62%, var(--paper));
-  color: var(--ink-soft);
-  font-size: var(--fs-xs);
-  line-height: 1.25;
-}
-.day-chip-list.is-types .day-chip {
-  border-style: dashed;
-  color: var(--module-color);
-}
-.day-record-item + .day-record-item {
-  margin-top: var(--sp-3);
-  padding-top: var(--sp-3);
-  border-top: 1px solid var(--line);
-}
-.day-record-title {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: var(--sp-3);
-}
-.day-record-title span {
-  color: var(--ink-faint);
-  font-size: var(--fs-xs);
-}
-.day-record-title b {
-  color: var(--module-color);
-  font-size: var(--fs-md);
-}
-.day-record-item.compact > strong {
-  display: block;
-  margin-bottom: var(--sp-2);
-}
-.day-record-note,
-.day-ok-state {
-  margin: var(--sp-3) 0 0;
-  color: var(--ink-soft);
-  line-height: 1.5;
-}
-.day-ok-state { font-style: italic; }
+/* Paula Tracker v1.3.2 — accés professional de només lectura */
+.auth-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:20px 0;padding:5px;border-radius:14px;background:var(--paper-alt)}
+.auth-tab{border:0;border-radius:10px;padding:10px 12px;background:transparent;color:var(--ink-soft);font:inherit;font-weight:600;cursor:pointer}
+.auth-tab.active{background:var(--paper);color:var(--ink);box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.viewer-banner{position:fixed;z-index:120;top:0;left:0;right:0;min-height:34px;display:flex;align-items:center;justify-content:center;padding:7px 16px;background:#2d2d2d;color:#fff;font-size:12px;font-weight:700;letter-spacing:.04em}
+.viewer-mode{padding-top:34px}
+.viewer-mode .sidebar{top:34px;height:calc(100vh - 34px)}
+.viewer-mode .mobile-topbar{top:34px}
+.nav-item.locked{opacity:.38;filter:grayscale(.35);cursor:not-allowed}
+.nav-item.locked:hover{background:transparent}
+.nav-lock{margin-left:auto;font-size:12px}
+.viewer-mode .register-card{opacity:.42;filter:grayscale(.25);cursor:not-allowed}
+.viewer-mode #mobile-register{opacity:.55}
+.restricted-dialog{max-width:min(420px,calc(100vw - 32px));border:0;border-radius:22px;padding:28px;background:var(--paper);color:var(--ink);box-shadow:0 24px 80px rgba(0,0,0,.25);text-align:center}
+.restricted-dialog::backdrop{background:rgba(25,25,25,.48);backdrop-filter:blur(4px)}
+.restricted-dialog h2{margin:10px 0 8px}
+.restricted-dialog p{margin:0 0 22px;color:var(--ink-soft);line-height:1.55}
+.restricted-icon{font-size:30px}
+@media(max-width:820px){.viewer-mode .main{padding-top:calc(var(--mobile-topbar-height,72px) + 34px)}.viewer-banner{font-size:11px}.viewer-mode .mobile-bottom-nav{bottom:0}}
 
-@media (max-width: 760px) {
-  .day-modules-grid { grid-template-columns: 1fr; }
-  .day-module-card.is-wide { grid-column: auto; }
-  .day-module-head { padding: var(--sp-3); }
-  .day-module-body { padding: var(--sp-3); }
-  .day-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .day-record-title { grid-template-columns: 1fr auto; }
-  .day-record-title span { grid-column: 1 / -1; grid-row: 2; }
-}
+
+/* Paula Tracker v1.3.3 — pestanyes d'accés separades */
+.auth-form[hidden]{display:none!important}
+.auth-form:not(.is-active){display:none!important}
+.auth-tab{display:flex;align-items:center;justify-content:center;gap:8px;min-height:58px;text-align:center}
+.auth-tab-icon{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:999px;background:rgba(45,45,45,.08);font-size:14px;line-height:1}
+.auth-tab.active .auth-tab-icon{background:#2d2d2d;color:#fff}
+@media (max-width:560px){.auth-tabs{grid-template-columns:1fr 1fr}.auth-tab{padding:10px 8px;font-size:.96rem}.auth-tab-icon{width:24px;height:24px}}

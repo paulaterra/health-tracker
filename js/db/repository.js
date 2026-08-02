@@ -1,4 +1,5 @@
 import { supabase, getCurrentUser } from "./supabase.js";
+import { isViewerMode, getViewerToken } from "../view-mode.js";
 
 /** Genera un identificador únic sense dependències externes. */
 export function makeId() {
@@ -19,9 +20,22 @@ export class Repository {
   }
 
   async #user() {
+    if (isViewerMode()) return null;
     const user = await getCurrentUser();
     if (!user) throw new Error("La sessió ha caducat. Torna a iniciar sessió.");
     return user;
+  }
+
+  async #viewerRows(recordId = null) {
+    const token = getViewerToken();
+    if (!token) throw new Error("La sessió de consulta ha caducat. Torna a introduir la contrasenya.");
+    const { data, error } = await supabase.rpc("professional_records", {
+      p_token: token,
+      p_store_name: this.storeName,
+      p_record_id: recordId,
+    });
+    throwIfError(error, "No s'han pogut carregar les dades en mode consulta");
+    return data ?? [];
   }
 
   #fromRow(row) {
@@ -36,6 +50,7 @@ export class Repository {
 
   /** Insereix o sobreescriu un registre. */
   async put(record) {
+    if (isViewerMode()) throw new Error("Mode consulta: no es poden modificar les dades.");
     const user = await this.#user();
     const now = new Date().toISOString();
     const withMeta = {
@@ -61,6 +76,10 @@ export class Repository {
   }
 
   async get(id) {
+    if (isViewerMode()) {
+      const rows = await this.#viewerRows(id);
+      return this.#fromRow(rows[0] ?? null);
+    }
     const user = await this.#user();
     const { data, error } = await supabase
       .from("health_records")
@@ -75,6 +94,10 @@ export class Repository {
   }
 
   async getAll() {
+    if (isViewerMode()) {
+      const rows = await this.#viewerRows();
+      return rows.map((row) => this.#fromRow(row));
+    }
     const user = await this.#user();
     const { data, error } = await supabase
       .from("health_records")
@@ -92,6 +115,7 @@ export class Repository {
   }
 
   async delete(id) {
+    if (isViewerMode()) throw new Error("Mode consulta: no es poden modificar les dades.");
     const user = await this.#user();
     const { error } = await supabase
       .from("health_records")

@@ -519,121 +519,48 @@ function painTextSummary(pain) {
 
 /* ---------------- Detall d'un dia concret ---------------- */
 
-const DAY_MODULE_META = {
-  checkin: { label: "Check-in", color: "#4F7462", soft: "#E3EBE2", icon: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m7.5 12 3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
-  pain: { label: "Dolor corporal", color: "#6C8F57", soft: "#E9F0E3", icon: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2.3" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 21v-5.5L7 11.5c-.6-1.8.4-3.8 2.2-4.4L12 6.2l2.8.9c1.8.6 2.8 2.6 2.2 4.4l-1.5 4V21M9 12h6M12 8v8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
-  headache: { label: "Mal de cap", color: "#C85B52", soft: "#FAE9E6", icon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 20H9.8a5 5 0 0 1-5-5v-4a7 7 0 0 1 7-7h1.4a5.8 5.8 0 0 1 5.8 5.8V13l-3.5 1.8V20Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m19.5 5.5 1.8-1.2M20.2 9h2.2M19.3 12.3l1.8 1.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>` },
-  vertigo: { label: "Vertígens", color: "#6F5AA8", soft: "#EEEAF8", icon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.5 8.3a7.2 7.2 0 1 0 .4 6.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16.5 11.8a4.3 4.3 0 1 0-1.2 4.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M13.7 14.1a1.7 1.7 0 1 0-2.3 1.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>` },
-  digestive: { label: "Digestiu", color: "#D28A20", soft: "#FBF0D8", icon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3.5v5c0 1.2-.8 2.2-2 2.6-1.8.6-3 2.2-3 4.1 0 2.9 2.4 5.3 5.3 5.3h2.4c4.6 0 8.3-3.7 8.3-8.3V9.8c0-2.2-1.8-4-4-4h-1.5v4.4c0 1.1-.9 2-2 2h-.3c-1.8 0-3.2-1.4-3.2-3.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
-  bowel: { label: "Deposicions", color: "#B47227", soft: "#F8ECD9", icon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.5h10M6 9h12M7.5 12.5h9M9 16h6M10.5 19.5h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>` },
-  sleep: { label: "Son", color: "#8252A1", soft: "#F1E8F5", icon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.7 15.2A8 8 0 0 1 8.8 4.3 8.2 8.2 0 1 0 19.7 15.2Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m17.5 4 .5 1.3 1.3.5-1.3.5-.5 1.3-.5-1.3-1.3-.5 1.3-.5.5-1.3Z" fill="currentColor"/></svg>` },
-  exercise: { label: "Exercici", color: "#3978B9", soft: "#E6EFF9", icon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15.5c3.7.3 6.1-1.2 7.2-4.5l2.2 2.5c1.4 1.6 3.1 2.6 5.1 3l1.5.3v2.7H8.2A4.2 4.2 0 0 1 4 15.5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M10.5 11 9 7.5l2.5-2 2 3.5 2-1.2 1.5 3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
-  cycle: { label: "Cicle menstrual", color: "#C84E72", soft: "#F9E6EC", icon: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 8.5c1.4 1 2.6 1.4 3.5 1.4s2.1-.4 3.5-1.4M12 10v6M9.5 17h5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>` },
-  skin: { label: "Pell", color: "#D66A2C", soft: "#FBEADF", icon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.2c2.8 3.6 5 6.3 5 9.4a5 5 0 0 1-10 0c0-3.1 2.2-5.8 5-9.4Z" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M4 5.5h4M16 5.5h4M3 9h3M18 9h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>` },
-  medication: { label: "Medicació", color: "#32679B", soft: "#E5EEF7", icon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5.2 14.8 9.6-9.6a3 3 0 0 1 4.2 4.2L9.4 19a3 3 0 1 1-4.2-4.2Z" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m9.2 10.8 4 4" stroke="currentColor" stroke-width="1.7"/></svg>` },
-};
-
-function stat(label, value, tone = "") {
-  if (value === undefined || value === null || value === "") return "";
-  return `<div class="day-stat ${tone}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`;
-}
-
-function chip(text) {
-  if (!text) return "";
-  return `<span class="day-chip">${escapeHtml(String(text))}</span>`;
-}
-
-function moduleCard(type, body, { count = null, wide = false } = {}) {
-  const meta = DAY_MODULE_META[type];
-  return `<article class="day-module-card ${wide ? "is-wide" : ""}" style="--module-color:${meta.color};--module-soft:${meta.soft}">
-    <header class="day-module-head">
-      <span class="day-module-icon">${meta.icon}</span>
-      <h4>${escapeHtml(meta.label)}</h4>
-      ${count !== null ? `<span class="day-module-count">${count}</span>` : ""}
-    </header>
-    <div class="day-module-body">${body}</div>
-  </article>`;
-}
-
-/* ---------------- Detall d'un dia concret ---------------- */
-
 async function dayDetailHtml(date) {
-  const cards = [];
+  const rows = [];
 
   const checkin = (await new Repository("daily_checkin").getByIndex("date", date))[0];
   if (checkin) {
-    const stats = [
-      stat("Dolor", `${checkin.dolorGeneral ?? 0}/10`, "tone-pain"),
-      stat("Digestiu", `${checkin.digestiuGeneral ?? 0}/10`, "tone-digestive"),
-      stat("Son", `${checkin.sonQualitat ?? 0}/10`, "tone-sleep"),
-      stat("Energia física", `${checkin.energiaFisica ?? 0}/10`),
-      stat("Energia mental", `${checkin.energiaMental ?? 0}/10`),
-    ].join("");
-    const flags = [checkin.malDeCap && "Mal de cap", checkin.vertigen && "Vertigen", checkin.inflor && "Inflor"].filter(Boolean);
-    cards.push(moduleCard("checkin", `<div class="day-stat-grid">${stats}</div>${flags.length ? `<div class="day-chip-list">${flags.map(chip).join("")}</div>` : ""}`, { wide: true }));
+    rows.push(row("Check-in", `dolor ${checkin.dolorGeneral}/10 · digestiu ${checkin.digestiuGeneral}/10 · son ${checkin.sonQualitat}/10 · energia física ${checkin.energiaFisica}/10 · energia mental ${checkin.energiaMental}/10${checkin.malDeCap ? " · mal de cap" : ""}`));
   }
 
   const pains = (await new Repository("pain_events").getAll()).filter(e => dateOnly(e.timestamp) === date);
-  if (pains.length) {
-    const items = pains.map((p, index) => {
-      const zoneLabels = [...new Set((p.entries || []).flatMap(en => en.zonaLabels || []))];
-      const types = [...new Set((p.entries || []).flatMap(en => en.tipus || []))];
-      return `<div class="day-record-item">
-        <div class="day-record-title"><strong>Registre ${index + 1}</strong><span>${escapeHtml(formatDateTime(p.timestamp))}</span><b>${Number(p.intensitat) || 0}/10</b></div>
-        ${zoneLabels.length ? `<div class="day-chip-list">${zoneLabels.map(chip).join("")}</div>` : ""}
-        ${types.length ? `<div class="day-chip-list is-types">${types.map(chip).join("")}</div>` : ""}
-        ${p.comentari ? `<p class="day-record-note">${escapeHtml(p.comentari)}</p>` : ""}
-      </div>`;
-    }).join("");
-    cards.push(moduleCard("pain", items, { count: pains.length, wide: true }));
-  }
+  pains.forEach(p => {
+    const summary = (p.entries || []).map(en => `${en.zonaLabels.join("+")}: ${en.tipus.join(", ")}`).join(" · ");
+    rows.push(row("Dolor corporal", `${summary} (intensitat ${p.intensitat}/10)`));
+  });
 
   const headaches = (await new Repository("headache_events").getAll()).filter(e => dateOnly(e.timestamp) === date);
-  if (headaches.length) {
-    const body = headaches.map(h => `<div class="day-record-item compact"><div class="day-stat-grid">${stat("Intensitat", `${h.intensitat}/10`, "tone-headache")}</div>${h.tipus?.length ? `<div class="day-chip-list">${h.tipus.map(chip).join("")}</div>` : ""}</div>`).join("");
-    cards.push(moduleCard("headache", body, { count: headaches.length }));
-  }
+  headaches.forEach(h => rows.push(row("Mal de cap", `intensitat ${h.intensitat}/10${h.tipus?.length ? " · " + h.tipus.join(", ") : ""}`)));
 
   const vertigos = (await new Repository("vertigo_events").getAll()).filter(e => dateOnly(e.timestamp) === date);
-  if (vertigos.length) {
-    const body = vertigos.map(v => `<div class="day-record-item compact"><div class="day-stat-grid">${stat("Intensitat", `${v.intensitat}/10`)}</div></div>`).join("");
-    cards.push(moduleCard("vertigo", body, { count: vertigos.length }));
-  }
+  vertigos.forEach(v => rows.push(row("Vertígens", `intensitat ${v.intensitat}/10`)));
 
   const digestives = (await new Repository("digestive_events").getAll()).filter(e => dateOnly(e.timestamp) === date);
-  if (digestives.length) {
-    const body = digestives.map(d => {
-      const fields = [["Inflor", d.inflor], ["Dolor abdominal", d.dolorAbdominal], ["Retortijons", d.retortijons], ["Gasos", d.gasos], ["Acidesa", d.acidesa], ["Nàusees", d.nausees]];
-      const stats = fields.filter(([,v]) => Number(v) > 0).map(([l,v]) => stat(l, `${v}/10`, "tone-digestive")).join("");
-      const flags = [d.llaguesBoca && "Llagues a la boca"].filter(Boolean);
-      return `<div class="day-record-item compact">${stats ? `<div class="day-stat-grid">${stats}</div>` : `<p class="day-ok-state">Sense símptomes destacats</p>`}${flags.length ? `<div class="day-chip-list">${flags.map(chip).join("")}</div>` : ""}</div>`;
-    }).join("");
-    cards.push(moduleCard("digestive", body, { count: digestives.length }));
-  }
+  digestives.forEach(d => {
+    const parts = ["inflor", "dolorAbdominal", "retortijons", "gasos", "acidesa", "nausees"]
+      .filter(k => d[k] > 0).map(k => `${k} ${d[k]}/10`);
+    if (d.llaguesBoca) parts.push("llagues a la boca");
+    rows.push(row("Digestiu", parts.join(", ") || "sense símptomes destacats"));
+  });
 
   const bowels = (await new Repository("bowel_movements").getAll()).filter(e => dateOnly(e.timestamp) === date);
-  if (bowels.length) {
-    const body = bowels.map(b => `<div class="day-record-item compact"><div class="day-stat-grid">${stat("Escala Bristol", b.bristol)}</div><div class="day-chip-list">${[b.urgencia && "Urgència", b.sang && "Sang"].filter(Boolean).map(chip).join("")}</div></div>`).join("");
-    cards.push(moduleCard("bowel", body, { count: bowels.length }));
-  }
+  bowels.forEach(b => rows.push(row("Deposició", `Bristol ${b.bristol}${b.urgencia ? " · urgència" : ""}${b.sang ? " · sang" : ""}`)));
 
   const sleep = (await new Repository("sleep_log").getByIndex("date", date))[0];
   if (sleep) {
-    const stats = [stat("Qualitat", `${sleep.qualitat}/10`, "tone-sleep"), stat("Despertars", sleep.numDespertars ?? 0), stat("Hores", sleep.horesDormides || sleep.hores || "")].join("");
-    const flags = [sleep.mocsMati?.length && "Mocs matinals", sleep.obrirLlumsDormida && "Obrir llums dormida"].filter(Boolean);
-    cards.push(moduleCard("sleep", `<div class="day-stat-grid">${stats}</div>${flags.length ? `<div class="day-chip-list">${flags.map(chip).join("")}</div>` : ""}`));
+    rows.push(row("Son", `qualitat ${sleep.qualitat}/10 · ${sleep.numDespertars ?? 0} despertars${sleep.mocsMati?.length ? " · mocs matinals" : ""}`));
   }
 
   const exercises = (await new Repository("exercise_log").getAll()).filter(e => dateOnly(e.timestamp) === date);
-  if (exercises.length) {
-    const body = exercises.map(ex => `<div class="day-record-item compact"><strong>${escapeHtml(ex.tipus || "Activitat")}</strong><div class="day-stat-grid">${stat("Durada", ex.durada ? `${ex.durada} min` : "")}${stat("Passos", ex.passos || "")}</div></div>`).join("");
-    cards.push(moduleCard("exercise", body, { count: exercises.length }));
-  }
+  exercises.forEach(ex => rows.push(row("Exercici", `${ex.tipus}${ex.durada ? " · " + ex.durada + " min" : ""}`)));
 
   const cycle = (await new Repository("cycle_log").getByIndex("date", date))[0];
-  if (cycle && (cycle.sagnat || cycle.simptomes?.length || cycle.ovulacio)) {
-    const chips = [cycle.sagnat && `Regla: ${cycle.sagnat}`, cycle.ovulacio && "Ovulació", ...(cycle.simptomes || [])].filter(Boolean);
-    cards.push(moduleCard("cycle", `<div class="day-chip-list">${chips.map(chip).join("")}</div>`));
+  if (cycle && (cycle.sagnat || cycle.simptomes?.length)) {
+    rows.push(row("Cicle", `${cycle.sagnat ? "regla (" + cycle.sagnat + ")" : ""}${cycle.simptomes?.length ? " · " + cycle.simptomes.join(", ") : ""}`));
   }
 
   const skins = (await new Repository("skin_episodes").getAll()).filter(sk => {
@@ -641,19 +568,13 @@ async function dayDetailHtml(date) {
     const end = sk.dataFi || new Date().toISOString().slice(0, 10);
     return sk.dataInici <= date && date <= end;
   });
-  if (skins.length) {
-    const body = skins.map(sk => {
-      const entries = (sk.entries || []).flatMap(en => (en.tipus || []).map(type => `${en.zonaLabel}: ${type}`));
-      return `<div class="day-record-item compact"><div class="day-chip-list">${(entries.length ? entries : ["Brot actiu"]).map(chip).join("")}</div></div>`;
-    }).join("");
-    cards.push(moduleCard("skin", body, { count: skins.length }));
-  }
+  skins.forEach(sk => {
+    const summary = (sk.entries || []).map(en => `${en.zonaLabel}: ${en.tipus.join(", ")}`).join(" · ");
+    rows.push(row("Pell", summary || "brot actiu"));
+  });
 
   const meds = (await new Repository("medications").getAll()).filter(m => dateOnly(m.timestamp) === date);
-  if (meds.length) {
-    const body = meds.map(m => `<div class="day-record-item compact"><strong>${escapeHtml(m.nom || "Medicació")}</strong><div class="day-chip-list">${[m.dosi, m.motiu].filter(Boolean).map(chip).join("")}</div></div>`).join("");
-    cards.push(moduleCard("medication", body, { count: meds.length }));
-  }
+  meds.forEach(m => rows.push(row("Medicació", `${m.nom}${m.dosi ? " · " + m.dosi : ""}${m.motiu ? " · " + m.motiu : ""}`)));
 
   const painVisuals = pains.length ? `
     <section class="day-pain-section">
@@ -674,7 +595,15 @@ async function dayDetailHtml(date) {
       <div><span class="view-eyebrow">Resum diari</span><h2 class="card-title">${escapeHtml(formatDate(date))}</h2></div>
     </div>
     ${painVisuals}
-    ${cards.length ? `<section class="day-modules-section"><h3 class="day-section-title">Resum per apartats</h3><div class="day-modules-grid">${cards.join("")}</div></section>` : `<p class="ledger-empty">Sense registres aquest dia.</p>`}
+    ${rows.length ? `<section class="day-modules-section"><h3 class="day-section-title">Registres per apartat</h3><div class="event-list day-event-list">${rows.join("")}</div></section>` : `<p class="ledger-empty">Sense registres aquest dia.</p>`}
   `;
 }
 
+function row(label, text) {
+  return `
+    <div class="event-row">
+      <div class="event-row-top"><span class="badge">${escapeHtml(label)}</span></div>
+      <div class="event-tags">${escapeHtml(text)}</div>
+    </div>
+  `;
+}
