@@ -354,7 +354,7 @@ textarea { min-height: 72px; resize: vertical; }
 
 /* Assistent de salut */
 .assistant-heading { display:flex; justify-content:space-between; gap:var(--sp-3); align-items:flex-start; }
-.assistant-lead { font-family:var(--font-serif); font-size:var(--fs-lg); line-height:1.35; margin:var(--sp-3) 0 var(--sp-5); color:var(--ink); }
+.assistant-lead { font-family:var(--font-body); font-size:var(--fs-lg); line-height:1.35; margin:var(--sp-3) 0 var(--sp-5); color:var(--ink); }
 .assistant-subtitle { margin:0 0 var(--sp-3); font-size:var(--fs-sm); }
 .assistant-change { display:flex; justify-content:space-between; gap:var(--sp-3); padding:var(--sp-2) 0; border-bottom:1px solid var(--line); font-size:var(--fs-sm); }
 .assistant-change:last-child { border-bottom:0; }

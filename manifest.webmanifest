@@ -1,16 +1,19 @@
 {
   "id": "/health-tracker/",
-  "name": "Quadern de salut",
-  "short_name": "Salut",
-  "description": "Quadern personal de salut sincronitzat de manera privada amb Supabase.",
+  "name": "Paula Tracker",
+  "short_name": "Paula Tracker",
+  "description": "Quadern personal de salut, símptomes i patrons.",
   "lang": "ca",
   "start_url": "/health-tracker/",
   "scope": "/health-tracker/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "portrait-primary",
   "background_color": "#f4f5ef",
-  "theme_color": "#193129",
+  "theme_color": "#2D2D2D",
   "icons": [
     {
       "src": "icons/icon-192.png",

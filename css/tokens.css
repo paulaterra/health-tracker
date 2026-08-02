@@ -12,9 +12,9 @@
   --line-strong: #B7BDAC;
 
   /* Color — tinta */
-  --ink: #1E2B26;
-  --ink-soft: #48564D;
-  --ink-faint: #7C8A80;
+  --ink: #2D2D2D;
+  --ink-soft: #555555;
+  --ink-faint: #858585;
 
   /* Color — accents funcionals */
   --sage: #4F7462;
@@ -29,7 +29,7 @@
   --teal-light: #6E9C9E;
 
   /* Tipografia */
-  --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
+  --font-display: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-body: "Inter", -apple-system, "Segoe UI", sans-serif;
   --font-mono: "IBM Plex Mono", "SF Mono", Consolas, monospace;
 
@@ -55,12 +55,26 @@
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 14px;
-  --shadow-card: 0 1px 2px rgba(30,43,38,0.06), 0 4px 14px rgba(30,43,38,0.06);
-  --shadow-raised: 0 2px 6px rgba(30,43,38,0.10), 0 10px 28px rgba(30,43,38,0.10);
+  --shadow-card: 0 1px 2px rgba(45,45,45,0.06), 0 4px 14px rgba(45,45,45,0.06);
+  --shadow-raised: 0 2px 6px rgba(45,45,45,0.10), 0 10px 28px rgba(45,45,45,0.10);
 
   --ease: cubic-bezier(.4,0,.2,1);
 }
 
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+
+/* Category palette */
+:root {
+  --cat-checkin: #4F7462; --cat-checkin-soft: #E3EBE2;
+  --cat-pain: #6C8F57; --cat-pain-soft: #E9F0E3;
+  --cat-headache: #C85B52; --cat-headache-soft: #FAE9E6;
+  --cat-vertigo: #6F5AA8; --cat-vertigo-soft: #EEEAF8;
+  --cat-digestive: #D28A20; --cat-digestive-soft: #FBF0D8;
+  --cat-sleep: #8252A1; --cat-sleep-soft: #F1E8F5;
+  --cat-exercise: #3978B9; --cat-exercise-soft: #E6EFF9;
+  --cat-cycle: #C84E72; --cat-cycle-soft: #F9E6EC;
+  --cat-skin: #D66A2C; --cat-skin-soft: #FBEADF;
+  --cat-medication: #32679B; --cat-medication-soft: #E5EEF7;
 }

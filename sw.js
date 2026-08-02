@@ -1,4 +1,4 @@
-const VERSION = "health-tracker-pwa-v1";
+const VERSION = "paula-tracker-gray-sans-v1";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
