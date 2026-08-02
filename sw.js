@@ -1,4 +1,4 @@
-const VERSION = "paula-tracker-gray-sans-v1";
+const VERSION = "paula-tracker-gray-sans-no-toprail-v2";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
