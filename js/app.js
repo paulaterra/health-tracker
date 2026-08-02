@@ -1,4 +1,4 @@
-import { openDatabase } from "./db/schema.js";
+import { supabase } from "./db/supabase.js";
 import { renderCheckin } from "./modules/checkin/checkin.js";
 import { renderPain } from "./modules/pain/pain.js";
 import { renderHeadache } from "./modules/headache/headache.js";
@@ -34,46 +34,103 @@ const ROUTES = {
 
 const COMING_SOON = [];
 
+let currentUser = null;
+
 async function main() {
-  try {
-    await openDatabase();
-  } catch (err) {
-    document.getElementById("app").innerHTML = `
-      <div class="empty-state">
-        <div class="emoji-mark">!</div>
-        <p>No s'ha pogut obrir la base de dades local (IndexedDB).<br>${err.message}</p>
-      </div>`;
-    return;
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (error) console.error("No s'ha pogut comprovar la sessió", error);
+
+  if (session?.user) {
+    currentUser = session.user;
+    await enterApp();
+  } else {
+    renderLogin();
   }
 
+  supabase.auth.onAuthStateChange((_event, nextSession) => {
+    if (!nextSession?.user) {
+      currentUser = null;
+      renderLogin();
+    }
+  });
+}
+
+function renderLogin(message = "") {
+  document.getElementById("app").innerHTML = `
+    <main class="auth-page">
+      <section class="auth-card">
+        <div class="auth-mark">QS</div>
+        <p class="view-eyebrow">Quadern de salut</p>
+        <h1 class="auth-title">Les teves dades, sincronitzades i privades.</h1>
+        <p class="auth-copy">Inicia sessió amb el teu usuari de Supabase.</p>
+        <form id="login-form" class="auth-form">
+          <label class="field-label" for="login-email">Correu electrònic</label>
+          <input id="login-email" type="email" autocomplete="email" required>
+          <label class="field-label" for="login-password">Contrasenya</label>
+          <input id="login-password" type="password" autocomplete="current-password" required>
+          <button class="btn btn-primary auth-submit" type="submit">Entrar</button>
+          <p id="auth-message" class="auth-message">${message}</p>
+        </form>
+      </section>
+    </main>`;
+
+  document.getElementById("login-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = event.currentTarget.querySelector("button");
+    const messageEl = document.getElementById("auth-message");
+    button.disabled = true;
+    button.textContent = "Entrant…";
+    messageEl.textContent = "";
+
+    const email = document.getElementById("login-email").value.trim();
+    const password = document.getElementById("login-password").value;
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      messageEl.textContent = error.message === "Invalid login credentials"
+        ? "El correu o la contrasenya no són correctes."
+        : error.message;
+      button.disabled = false;
+      button.textContent = "Entrar";
+      return;
+    }
+
+    currentUser = data.user;
+    await enterApp();
+  });
+}
+
+async function enterApp() {
   renderShell();
-  navigateTo("inici");
+  await navigateTo("inici");
 }
 
 function renderShell() {
   document.getElementById("app").innerHTML = `
     <div class="app-shell">
       <aside class="sidebar">
-        <div class="brand">Quadern de salut<span class="brand-sub">Local · Privat</span></div>
+        <div class="brand">Quadern de salut<span class="brand-sub">Núvol · Privat</span></div>
         <ul class="nav-list" id="nav-list"></ul>
-        <div class="sidebar-footer">Totes les dades es queden<br>en aquest navegador.</div>
+        <div class="sidebar-account">
+          <span class="account-email" title="${currentUser?.email ?? ""}">${currentUser?.email ?? ""}</span>
+          <button class="sidebar-link" id="logout-btn" type="button">Tancar sessió</button>
+        </div>
+        <div class="sidebar-footer"><span class="cloud-dot"></span> Sincronitzat amb Supabase</div>
       </aside>
       <main class="main" id="view"></main>
-    </div>
-  `;
+    </div>`;
 
   const navList = document.getElementById("nav-list");
-  navList.innerHTML = [
-    ...Object.entries(ROUTES).map(
-      ([key, r]) => `<li class="nav-item" data-route="${key}"><span class="nav-index">${r.index}</span> ${r.label}</li>`
-    ),
-    ...COMING_SOON.map(
-      (r) => `<li class="nav-item disabled" title="Es construirà en una fase següent"><span class="nav-index">${r.index}</span> ${r.label}</li>`
-    ),
-  ].join("");
+  navList.innerHTML = Object.entries(ROUTES).map(
+    ([key, r]) => `<li class="nav-item" data-route="${key}"><span class="nav-index">${r.index}</span> ${r.label}</li>`
+  ).join("");
 
   navList.querySelectorAll(".nav-item[data-route]").forEach((el) => {
     el.addEventListener("click", () => navigateTo(el.dataset.route));
+  });
+
+  document.getElementById("logout-btn").addEventListener("click", async () => {
+    await supabase.auth.signOut();
   });
 }
 
