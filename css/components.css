@@ -799,6 +799,8 @@ textarea { min-height: 72px; resize: vertical; }
 }
 .day-chip-list.is-types .day-chip {
   border-style: dashed;
+  border-width: 0.75px;
+  border-color: color-mix(in srgb, var(--module-color) 48%, transparent);
   color: var(--module-color);
 }
 .day-record-item + .day-record-item {
@@ -950,4 +952,90 @@ textarea { min-height: 72px; resize: vertical; }
 #body-view-buttons[hidden],
 #body-view-buttons.is-hidden {
   display: none !important;
+}
+
+
+/* Paula Tracker v1.3.12 — detall visual dels registres de dolor al Dashboard */
+.pain-record-visual-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  margin-top: var(--sp-4);
+}
+.pain-detail-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--sp-3);
+}
+.pain-detail-group {
+  padding: var(--sp-3);
+  border: 1px solid color-mix(in srgb, #6C8F57 22%, var(--line));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, #E9F0E3 52%, var(--paper));
+}
+.pain-detail-group-title {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+.pain-detail-group-title > span {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border-radius: 999px;
+  background: #6C8F57;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 750;
+}
+.pain-detail-group-title strong {
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  line-height: 1.35;
+}
+.pain-detail-label {
+  margin-top: var(--sp-2);
+  color: var(--ink-faint);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.pain-detail-group .day-chip-list { margin-top: var(--sp-2); }
+.pain-context-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--sp-2);
+}
+.pain-context-card {
+  padding: var(--sp-3);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+  border: 1px solid var(--line);
+}
+.pain-context-card span,
+.pain-comment-box > span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--ink-faint);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+.pain-context-card strong {
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+.pain-comment-box {
+  padding: var(--sp-3);
+  border-left: 4px solid #6C8F57;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: var(--paper);
+}
+.pain-comment-box p { margin: 0; color: var(--ink-soft); line-height: 1.5; }
+@media (max-width: 760px) {
+  .pain-detail-groups, .pain-context-grid { grid-template-columns: 1fr; }
 }

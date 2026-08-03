@@ -506,6 +506,34 @@ function painMapPairHtml(pain, { compact = false } = {}) {
   return `<div class="dashboard-bodymap-pair ${compact ? "is-compact" : ""}">${maps.join("")}</div>`;
 }
 
+
+function painRecordVisualSummary(pain) {
+  const entries = Array.isArray(pain?.entries) ? pain.entries : [];
+  const groups = entries.map((entry, index) => {
+    const zones = (entry.zonaLabels || []).filter(Boolean);
+    const types = (entry.tipus || []).filter(Boolean);
+    const patterns = (entry.patroTemporal || []).filter(Boolean);
+    if (!zones.length && !types.length && !patterns.length) return "";
+    return `<div class="pain-detail-group">
+      <div class="pain-detail-group-title"><span>${index + 1}</span><strong>${zones.length ? escapeHtml(zones.join(" · ")) : "Zona no especificada"}</strong></div>
+      ${types.length ? `<div class="pain-detail-label">Tipus de dolor</div>${listChips(types, "is-types")}` : ""}
+      ${patterns.length ? `<div class="pain-detail-label">Patró temporal</div>${listChips(patterns)}` : ""}
+    </div>`;
+  }).filter(Boolean).join("");
+
+  const context = [
+    ["Empitjora", (pain?.empitjora || []).join(", ")],
+    ["Naturalesa", (pain?.naturalesaDolor || []).join(", ")],
+    ["Impacte en el son", (pain?.impacteSon || []).join(", ")],
+    ["Limitacions", (pain?.limitacions || []).join(", ")],
+  ].filter(([, value]) => value);
+
+  return `<div class="pain-record-visual-summary">
+    ${groups ? `<div class="pain-detail-groups">${groups}</div>` : ""}
+    ${context.length ? `<div class="pain-context-grid">${context.map(([label,value]) => `<div class="pain-context-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}</div>` : ""}
+    ${pain?.comentari ? `<div class="pain-comment-box"><span>Comentari</span><p>${escapeHtml(pain.comentari)}</p></div>` : ""}
+  </div>`;
+}
 function painTextSummary(pain) {
   const groups = (pain?.entries || []).map(entry => {
     const zones = (entry.zonaLabels || []).join(" + ");
@@ -720,8 +748,7 @@ async function dayDetailHtml(date) {
           <div class="day-pain-record-head"><strong>${escapeHtml(formatDateTime(p.timestamp))}</strong><span class="badge">${Number(p.intensitat) || 0}/10</span></div>
           ${painMapPairHtml(p, { compact: true })}
           ${painDrawingLegendHtml(p)}
-          <p>${escapeHtml(painTextSummary(p))}</p>
-          ${p.comentari ? `<p class="assistant-note">${escapeHtml(p.comentari)}</p>` : ""}
+          ${painRecordVisualSummary(p)}
         </article>`).join("")}
       </div>
     </section>` : "";
