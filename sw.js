@@ -1,4 +1,4 @@
-const VERSION = "paula-tracker-v1.4.1";
+const VERSION = "paula-tracker-v1.4.2";
 
 self.addEventListener("install", () => {
   self.skipWaiting();

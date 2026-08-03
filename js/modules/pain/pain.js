@@ -21,9 +21,23 @@ const DRAWING_TYPES = [
 ];
 
 const PAIN_TYPES = [
-  "dolor", "sord (mal difús)", "muscular", "tensió", "punxant", "polsàtil",
-  "cremor", "elèctric / descàrrega", "pressió / opressiu", "rigidesa",
-  "espasme", "estrebada", "formigueig", "adormiment", "mal de tendó", "em tiba", "altres",
+  "dolor",
+  "punxant",
+  "mal de tendó",
+  "em tiba",
+  "sord (mal difús)",
+  "muscular",
+  "tensió",
+  "polsàtil",
+  "cremor",
+  "elèctric / descàrrega",
+  "pressió / opressiu",
+  "rigidesa",
+  "espasme",
+  "estrebada",
+  "formigueig",
+  "adormiment",
+  "altres",
 ].map(v => ({ value: v, label: v }));
 
 const TIME_PATTERN = [
