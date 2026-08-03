@@ -1,3 +1,4 @@
+import { painColorForStroke } from "./pain-colors.js";
 /**
  * Detall posterior del cap i la part alta del coll.
  * Les zones tenen identificadors estables per poder analitzar-les estadísticament.
@@ -52,7 +53,7 @@ export function renderHeadMapSvg(view = "head_back", selected = [], picking = []
 
   const viewStrokes = (strokes || [])
     .filter((stroke) => stroke.view === "head_back")
-    .map((stroke) => `<polyline class="pain-stroke" data-stroke-id="${stroke.id}" points="${(stroke.points || []).map((point) => `${point.x},${point.y}`).join(" ")}" fill="none" stroke="${stroke.color || "#d84a42"}" stroke-width="${stroke.size || 12}" stroke-linecap="round" stroke-linejoin="round" opacity=".72"/>`)
+    .map((stroke) => `<polyline class="pain-stroke" data-stroke-id="${stroke.id}" points="${(stroke.points || []).map((point) => `${point.x},${point.y}`).join(" ")}" fill="none" stroke="${painColorForStroke(stroke, "#d84a42")}" stroke-width="${stroke.size || 12}" stroke-linecap="round" stroke-linejoin="round" opacity=".72"/>`)
     .join("");
 
   return `<svg class="bodymap-svg headmap-svg headmap-back-detailed" viewBox="0 0 240 480" role="img" aria-label="Mapa posterior detallat del cap i el coll">

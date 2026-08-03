@@ -1,3 +1,4 @@
+import { painColorForStroke } from "./pain-colors.js";
 /**
  * Mapa corporal detallat per al registre de dolor.
  * Les zones continuen sent predefinides per poder-les analitzar estadísticament.
@@ -99,7 +100,7 @@ export function renderBodyMapSvg(view, activeZones = [], pickingZones = [], draw
     .filter(stroke => stroke.view === view && Array.isArray(stroke.points) && stroke.points.length > 0)
     .map(stroke => {
       const points = stroke.points.map(p => `${Number(p.x).toFixed(1)},${Number(p.y).toFixed(1)}`).join(" ");
-      return `<polyline class="pain-stroke" points="${points}" fill="none" stroke="${stroke.color}" stroke-width="${stroke.size}" stroke-linecap="round" stroke-linejoin="round" opacity="0.72" data-stroke-id="${stroke.id}"/>`;
+      return `<polyline class="pain-stroke" points="${points}" fill="none" stroke="${painColorForStroke(stroke)}" stroke-width="${stroke.size}" stroke-linecap="round" stroke-linejoin="round" opacity="0.72" data-stroke-id="${stroke.id}"/>`;
     }).join("");
   return `<svg class="bodymap-detailed" viewBox="0 0 240 480" xmlns="http://www.w3.org/2000/svg" aria-label="Mapa corporal ${view === "back" ? "posterior" : "frontal"}">
     ${outlineSvg(view)}

@@ -1039,3 +1039,62 @@ textarea { min-height: 72px; resize: vertical; }
 @media (max-width: 760px) {
   .pain-detail-groups, .pain-context-grid { grid-template-columns: 1fr; }
 }
+
+
+/* v1.3.14 · Colors diferenciats i coherents per als tipus de dolor */
+.day-chip-list.is-types .pain-type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid color-mix(in srgb, var(--pain-chip-color) 48%, var(--line));
+  background: color-mix(in srgb, var(--pain-chip-color) 12%, var(--paper));
+  color: color-mix(in srgb, var(--pain-chip-color) 72%, var(--ink));
+  box-shadow: none;
+}
+.day-chip-list.is-types .pain-type-chip i {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: var(--pain-chip-color);
+}
+
+
+/* v1.3.16 · Registres de dolor agrupats per Cos i Cap */
+.day-pain-parts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+}
+.day-pain-part {
+  padding: var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--paper) 84%, #E9F0E3);
+}
+.day-pain-part-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+.day-pain-part-heading h4 {
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-size: var(--fs-xl);
+}
+.day-pain-part-kicker {
+  color: var(--ink-faint);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.day-pain-part-head {
+  background: color-mix(in srgb, var(--paper) 82%, #F1E8F5);
+}
+@media (max-width: 760px) {
+  .day-pain-part { padding: var(--sp-3); }
+  .day-pain-part-heading h4 { font-size: var(--fs-lg); }
+}

@@ -476,6 +476,34 @@ function safePainColor(value) {
   return /^#[0-9a-f]{3,8}$/i.test(String(value || "")) ? String(value) : "#777777";
 }
 
+const PAIN_VISUAL_COLORS = Object.freeze({
+  "dolor": "#B85C45",
+  "sord (mal difús)": "#E78FB3",
+  "dolor difús": "#E78FB3",
+  "difus": "#E78FB3",
+  "muscular": "#8A6D55",
+  "tensió": "#4F8A72",
+  "punxant": "#C62828",
+  "punxant / ganivet": "#C62828",
+  "polsàtil": "#A33D73",
+  "cremor": "#EF7B45",
+  "elèctric / descàrrega": "#D9A21B",
+  "descàrrega / elèctric": "#D9A21B",
+  "pressió / opressiu": "#7D6CCF",
+  "pressio": "#7D6CCF",
+  "rigidesa": "#6F8FAE",
+  "contractura": "#C94F72",
+  "espasme": "#6D7D3B",
+  "estrebada": "#3F7C85",
+  "formigueig": "#6B62A8",
+  "adormiment": "#7B8794",
+  "altres": "#777777"
+});
+
+function canonicalPainColor(label, fallback = "#777777") {
+  return PAIN_VISUAL_COLORS[String(label || "").trim().toLowerCase()] || safePainColor(fallback);
+}
+
 function painDrawingLegendHtml(pain) {
   const unique = [];
   const seen = new Set();
@@ -484,7 +512,7 @@ function painDrawingLegendHtml(pain) {
     const key = `${label}|${stroke.color}`;
     if (!seen.has(key)) {
       seen.add(key);
-      unique.push({ label, color: safePainColor(stroke.color) });
+      unique.push({ label, color: canonicalPainColor(label, stroke.color) });
     }
   }
   if (!unique.length) return "";
@@ -494,15 +522,36 @@ function painDrawingLegendHtml(pain) {
   </div>`;
 }
 
-function painMapPairHtml(pain, { compact = false } = {}) {
+function painMapPairHtml(pain, { compact = false, part = "auto" } = {}) {
   const activeZones = painActiveZones(pain);
   const strokes = Array.isArray(pain?.painDrawing) ? pain.painDrawing : [];
-  const hasFront = strokes.some(s => s.view === "front") || activeZones.some(id => !id.endsWith("_post") && !["cervical","lumbar","columna_dorsal_alta","columna_dorsal_mitjana","columna_dorsal_baixa","trapezi_esquerre","trapezi_dret","omoplat_esquerre","omoplat_dret","costat_esquerre_post","costat_dret_post","natja_esquerra","natja_dreta","cuixa_esquerra_post","cuixa_dreta_post","bessons_esquerre","bessons_dret","taló_esquerre","taló_dret","cap_post"].includes(id));
-  const hasBack = strokes.some(s => s.view === "back") || activeZones.some(id => id.endsWith("_post") || ["cervical","lumbar","columna_dorsal_alta","columna_dorsal_mitjana","columna_dorsal_baixa","trapezi_esquerre","trapezi_dret","omoplat_esquerre","omoplat_dret","costat_esquerre_post","costat_dret_post","natja_esquerra","natja_dreta","cuixa_esquerra_post","cuixa_dreta_post","bessons_esquerre","bessons_dret","taló_esquerre","taló_dret","cap_post"].includes(id));
+
+  const headZones = activeZones.filter(id => String(id).startsWith("head_"));
+  const bodyZones = activeZones.filter(id => !String(id).startsWith("head_"));
+  const headStrokes = strokes.filter(stroke => stroke.view === "head_back");
+  const bodyStrokes = strokes.filter(stroke => stroke.view !== "head_back");
+
+  const renderHead = part === "head" || (part === "auto" && (headZones.length || headStrokes.length));
+  const renderBody = part === "body" || (part === "auto" && (bodyZones.length || bodyStrokes.length));
   const maps = [];
-  if (hasFront || (!hasFront && !hasBack)) maps.push(`<div class="dashboard-bodymap"><span>Cos · davant</span>${renderBodyMapSvg("front", activeZones, [], strokes)}</div>`);
-  if (hasBack || (!hasFront && !hasBack)) maps.push(`<div class="dashboard-bodymap"><span>Cos · darrere</span>${renderBodyMapSvg("back", activeZones, [], strokes)}</div>`);
-  if (strokes.some(s => s.view === "head_back") || activeZones.some(z => String(z).startsWith("head_"))) maps.push(`<div class="dashboard-bodymap"><span>Detall del cap · darrere</span>${renderHeadMapSvg("head_back",activeZones,[],strokes)}</div>`);
+
+  if (renderBody) {
+    const backZoneIds = new Set(["cervical","lumbar","columna_dorsal_alta","columna_dorsal_mitjana","columna_dorsal_baixa","trapezi_esquerre","trapezi_dret","omoplat_esquerre","omoplat_dret","costat_esquerre_post","costat_dret_post","natja_esquerra","natja_dreta","cuixa_esquerra_post","cuixa_dreta_post","bessons_esquerre","bessons_dret","taló_esquerre","taló_dret","cap_post"]);
+    const hasFront = bodyStrokes.some(stroke => stroke.view === "front") || bodyZones.some(id => !String(id).endsWith("_post") && !backZoneIds.has(id));
+    const hasBack = bodyStrokes.some(stroke => stroke.view === "back") || bodyZones.some(id => String(id).endsWith("_post") || backZoneIds.has(id));
+
+    if (hasFront || (!hasFront && !hasBack)) {
+      maps.push(`<div class="dashboard-bodymap"><span>Cos · davant</span>${renderBodyMapSvg("front", bodyZones, [], bodyStrokes)}</div>`);
+    }
+    if (hasBack || (!hasFront && !hasBack)) {
+      maps.push(`<div class="dashboard-bodymap"><span>Cos · darrere</span>${renderBodyMapSvg("back", bodyZones, [], bodyStrokes)}</div>`);
+    }
+  }
+
+  if (renderHead && (headZones.length || headStrokes.length || part === "head")) {
+    maps.push(`<div class="dashboard-bodymap"><span>Detall del cap · darrere</span>${renderHeadMapSvg("head_back", headZones, [], headStrokes)}</div>`);
+  }
+
   return `<div class="dashboard-bodymap-pair ${compact ? "is-compact" : ""}">${maps.join("")}</div>`;
 }
 
@@ -534,6 +583,68 @@ function painRecordVisualSummary(pain) {
     ${pain?.comentari ? `<div class="pain-comment-box"><span>Comentari</span><p>${escapeHtml(pain.comentari)}</p></div>` : ""}
   </div>`;
 }
+
+function isHeadPainZone(id = "", label = "") {
+  const normalizedId = String(id || "").toLowerCase();
+  const normalizedLabel = String(label || "").toLowerCase();
+  return normalizedId.startsWith("head_")
+    || /occipital|suboccipital|darrere de l[’']orella|coll superior/.test(normalizedLabel);
+}
+
+function painRecordForPart(pain, part) {
+  const wantHead = part === "head";
+  const entries = (Array.isArray(pain?.entries) ? pain.entries : []).map(entry => {
+    const ids = Array.isArray(entry.zonaIds) ? entry.zonaIds : [];
+    const labels = Array.isArray(entry.zonaLabels) ? entry.zonaLabels : [];
+    const maxLength = Math.max(ids.length, labels.length);
+    const selectedIndexes = [];
+    for (let i = 0; i < maxLength; i += 1) {
+      const head = isHeadPainZone(ids[i], labels[i]);
+      if (head === wantHead) selectedIndexes.push(i);
+    }
+    if (!selectedIndexes.length) return null;
+    return {
+      ...entry,
+      zonaIds: selectedIndexes.map(i => ids[i]).filter(Boolean),
+      zonaLabels: selectedIndexes.map(i => labels[i]).filter(Boolean),
+    };
+  }).filter(Boolean);
+
+  const painDrawing = (Array.isArray(pain?.painDrawing) ? pain.painDrawing : []).filter(stroke =>
+    wantHead ? stroke.view === "head_back" : stroke.view !== "head_back"
+  );
+
+  return { ...pain, entries, painDrawing };
+}
+
+function painRecordHasPart(pain, part) {
+  const filtered = painRecordForPart(pain, part);
+  return filtered.entries.length > 0 || filtered.painDrawing.length > 0;
+}
+
+function painGroupedRecordsHtml(records, part) {
+  const label = part === "head" ? "Cap" : "Cos";
+  const filteredRecords = records
+    .filter(record => painRecordHasPart(record, part) || (part === "body" && !painRecordHasPart(record, "head")))
+    .map(record => ({ original: record, filtered: painRecordForPart(record, part) }));
+  if (!filteredRecords.length) return "";
+
+  return `<section class="day-pain-part day-pain-part-${part}">
+    <div class="day-pain-part-heading">
+      <div><span class="day-pain-part-kicker">Dolor corporal</span><h4>${label}</h4></div>
+      <span class="badge">${filteredRecords.length} ${filteredRecords.length === 1 ? "registre" : "registres"}</span>
+    </div>
+    <div class="day-pain-records">
+      ${filteredRecords.map(({ original, filtered }) => `<article class="day-pain-record">
+        <div class="day-pain-record-head"><strong>${escapeHtml(formatDateTime(original.timestamp))}</strong><span class="badge">${Number(original.intensitat) || 0}/10</span></div>
+        ${painMapPairHtml(filtered, { compact: true, part })}
+        ${painDrawingLegendHtml(filtered)}
+        ${painRecordVisualSummary(filtered)}
+      </article>`).join("")}
+    </div>
+  </section>`;
+}
+
 function painTextSummary(pain) {
   const groups = (pain?.entries || []).map(entry => {
     const zones = (entry.zonaLabels || []).join(" + ");
@@ -585,7 +696,14 @@ function note(text) {
 
 function listChips(values, extraClass = "") {
   const clean = (values || []).filter(Boolean);
-  return clean.length ? `<div class="day-chip-list ${extraClass}">${clean.map(chip).join("")}</div>` : "";
+  if (!clean.length) return "";
+  const items = extraClass.includes("is-types")
+    ? clean.map(value => {
+        const color = canonicalPainColor(value);
+        return `<span class="day-chip pain-type-chip" style="--pain-chip-color:${color}"><i aria-hidden="true"></i>${escapeHtml(String(value))}</span>`;
+      }).join("")
+    : clean.map(chip).join("");
+  return `<div class="day-chip-list ${extraClass}">${items}</div>`;
 }
 
 function sleepDuration(entry) {
@@ -743,13 +861,9 @@ async function dayDetailHtml(date) {
   const painVisuals = pains.length ? `
     <section class="day-pain-section">
       <div class="dashboard-section-heading"><h3 class="day-section-title">Mapa del dolor</h3><span class="badge">${pains.length} ${pains.length === 1 ? "registre" : "registres"}</span></div>
-      <div class="day-pain-records">
-        ${pains.map(p => `<article class="day-pain-record">
-          <div class="day-pain-record-head"><strong>${escapeHtml(formatDateTime(p.timestamp))}</strong><span class="badge">${Number(p.intensitat) || 0}/10</span></div>
-          ${painMapPairHtml(p, { compact: true })}
-          ${painDrawingLegendHtml(p)}
-          ${painRecordVisualSummary(p)}
-        </article>`).join("")}
+      <div class="day-pain-parts">
+        ${painGroupedRecordsHtml(pains, "body")}
+        ${painGroupedRecordsHtml(pains, "head")}
       </div>
     </section>` : "";
 

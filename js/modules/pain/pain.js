@@ -2,17 +2,19 @@ import { Repository, makeId } from "../../db/repository.js";
 import { escapeHtml, nowISO, nowLocalInput, isoToLocalInput, localInputToISO, formatDateTime, sliderField, wireSliders, chipGroup, wireChips, getChipValues, flashSaved, intensityBadge } from "../../utils/dom.js";
 import { renderBodyMapSvg, zoneLabel } from "./zones.js";
 import { renderHeadMapSvg, headZoneLabel } from "./head-zones.js";
+import { PAIN_DRAWING_COLORS, normalizePainStroke } from "./pain-colors.js";
+import { isViewerMode } from "../../view-mode.js";
 
 const repo = new Repository("pain_events");
 
 const DRAWING_TYPES = [
-  { value: "punxant", label: "Punxant / ganivet", color: "#d84a42" },
-  { value: "cremor", label: "Cremor", color: "#ef7b45" },
-  { value: "pressio", label: "Pressió / opressiu", color: "#7d6ccf" },
-  { value: "contractura", label: "Contractura", color: "#c94f72" },
-  { value: "rigidesa", label: "Rigidesa", color: "#6f8fae" },
-  { value: "descarrega", label: "Descàrrega / elèctric", color: "#d9a21b" },
-  { value: "difus", label: "Dolor difús", color: "#df6f6f" },
+  { value: "punxant", label: "Punxant / ganivet", color: PAIN_DRAWING_COLORS.punxant },
+  { value: "cremor", label: "Cremor", color: PAIN_DRAWING_COLORS.cremor },
+  { value: "pressio", label: "Pressió / opressiu", color: PAIN_DRAWING_COLORS.pressio },
+  { value: "contractura", label: "Contractura", color: PAIN_DRAWING_COLORS.contractura },
+  { value: "rigidesa", label: "Rigidesa", color: PAIN_DRAWING_COLORS.rigidesa },
+  { value: "descarrega", label: "Descàrrega / elèctric", color: PAIN_DRAWING_COLORS.descarrega },
+  { value: "difus", label: "Dolor difús", color: PAIN_DRAWING_COLORS.difus },
 ];
 
 const PAIN_TYPES = [
@@ -69,6 +71,21 @@ let interactionMode = "zones";
 let activeBrushType = DRAWING_TYPES[0].value;
 let activeBrushSize = 12;
 let drawingPointer = null;
+
+async function migrateStoredPainDrawingColors() {
+  if (isViewerMode()) return;
+  try {
+    const records = await repo.getAll();
+    for (const record of records) {
+      const original = Array.isArray(record.painDrawing) ? record.painDrawing : [];
+      const normalized = original.map(normalizePainStroke);
+      const changed = normalized.some((stroke, index) => stroke.color !== original[index]?.color);
+      if (changed) await repo.put({ ...record, painDrawing: normalized });
+    }
+  } catch (error) {
+    console.warn("No s'han pogut migrar els colors antics del dolor.", error);
+  }
+}
 
 export async function renderPain(container) {
   currentView = "back";
@@ -189,6 +206,7 @@ export async function renderPain(container) {
   wireBodyMap(container);
   wireMapArea(container);
   wirePaintControls(container);
+  await migrateStoredPainDrawingColors();
   await refreshList(container);
   await refreshPainInsights(container);
 
@@ -478,7 +496,7 @@ function resetForm(container, form) {
 }
 
 async function editPainEntry(container,id){
- const e=await repo.get(id); if(!e)return; editingId=id; entries=(e.entries||[]).map(x=>({...x,zonaIds:[...(x.zonaIds||[])],zonaLabels:[...(x.zonaLabels||[])],tipus:[...(x.tipus||[])],patroTemporal:[...(x.patroTemporal||[])]})); drawingStrokes=(e.painDrawing||[]).map(x=>({...x,points:(x.points||[]).map(p=>({...p}))})); pickingZones=[];
+ const e=await repo.get(id); if(!e)return; editingId=id; entries=(e.entries||[]).map(x=>({...x,zonaIds:[...(x.zonaIds||[])],zonaLabels:[...(x.zonaLabels||[])],tipus:[...(x.tipus||[])],patroTemporal:[...(x.patroTemporal||[])]})); drawingStrokes=(e.painDrawing||[]).map(x=>normalizePainStroke({...x,points:(x.points||[]).map(p=>({...p}))})); pickingZones=[];
  container.querySelector('#entryDatetime').value=isoToLocalInput(e.timestamp);container.querySelector('[name="intensitat"]').value=e.intensitat||0;container.querySelector('[name="intensitat"]').dispatchEvent(new Event('input'));container.querySelector('#comentari').value=e.comentari||'';
  for(const group of ['empitjora','naturalesaDolor','impacteSon','limitacions'])container.querySelectorAll(`[data-chip-group="${group}"]`).forEach(b=>b.classList.toggle('chip-active',(e[group]||[]).includes(b.dataset.value)));
  renderMap(container);renderEntriesList(container);container.querySelector('#form-title').textContent='Editant registre';container.querySelector('#submit-btn').textContent='Desar canvis';container.querySelector('#editing-banner').innerHTML='<div class="editing-banner"><span>Estàs editant un registre de dolor.</span><button type="button" class="btn btn-ghost" id="cancel-edit-btn">Cancel·la</button></div>';container.querySelector('#cancel-edit-btn').onclick=()=>renderPain(container);container.querySelector('#pain-form').scrollIntoView({behavior:'smooth'});
