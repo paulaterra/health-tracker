@@ -168,6 +168,8 @@ async function refreshLedger(container) {
   }
   const ordered = [...recent].sort((a, b) => new Date(a.date) - new Date(b.date));
   ledger.innerHTML = ordered.map(rowTemplate).join("");
+  ledger.querySelectorAll("[data-edit-date]").forEach(btn => btn.addEventListener("click", () => renderCheckin(container, btn.dataset.editDate)));
+  ledger.querySelectorAll("[data-delete]").forEach(btn => btn.addEventListener("click", async () => { if(confirm("Segur que vols eliminar aquest check-in?")){ await repo.delete(btn.dataset.delete); await refreshLedger(container); } }));
 }
 
 function rowTemplate(entry) {
@@ -184,7 +186,7 @@ function rowTemplate(entry) {
     <div class="ledger-row">
       <span class="ledger-date">${label}</span>
       <div class="ledger-bars">${bars}</div>
-      <span class="badge ${entry.malDeCap ? "badge-high" : ""}">${entry.malDeCap ? "mal de cap" : (entry.comentari ? "nota" : "")}</span>
+      <span class="badge ${entry.malDeCap ? "badge-high" : ""}">${entry.malDeCap ? "mal de cap" : (entry.comentari ? "nota" : "")}</span><span class="row-actions"><button type="button" data-edit-date="${entry.date}">editar</button><button type="button" class="danger" data-delete="${entry.id}">eliminar</button></span>
     </div>
   `;
 }

@@ -55,6 +55,7 @@ export const VARIABLE_META = {
   exercici_fisio:           { label: "Fisioteràpia", type: "boolean", category: "Exercici" },
   exercici_activacio_neuromuscular: { label: "Activació neuromuscular", type: "boolean", category: "Exercici" },
   exercici_caminar:         { label: "Caminar", type: "boolean", category: "Exercici" },
+  exercici_passos:          { label: "Passos diaris", type: "numeric", category: "Exercici" },
 
   cicle_regla:              { label: "Regla / menstruació", type: "boolean", category: "Cicle" },
   cicle_premenstrual:       { label: "Fase premenstrual (1-5 dies abans)", type: "boolean", category: "Cicle" },

@@ -6,7 +6,7 @@ import {
 
 const repo = new Repository("headache_events");
 
-const TYPES = ["tensional", "migranya", "punxant", "pulsàtil", "altre"].map(v => ({ value: v, label: v }));
+const TYPES = ["tensional", "migranya", "punxant", "pulsàtil", "dolor difús", "com pressió", "altre"].map(v => ({ value: v, label: v }));
 const LOCATIONS = ["front", "temple dret", "temple esquerre", "nuca", "tot el cap"].map(v => ({ value: v, label: v }));
 const TRIGGERS = ["falta de son", "llum", "pantalles", "estrès", "regla / cicle", "cafeïna", "deshidratació", "fam", "altre"].map(v => ({ value: v, label: v }));
 

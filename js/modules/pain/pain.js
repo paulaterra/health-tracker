@@ -1,6 +1,7 @@
 import { Repository, makeId } from "../../db/repository.js";
-import { escapeHtml, nowISO, nowLocalInput, localInputToISO, formatDateTime, sliderField, wireSliders, chipGroup, wireChips, getChipValues, flashSaved, intensityBadge } from "../../utils/dom.js";
+import { escapeHtml, nowISO, nowLocalInput, isoToLocalInput, localInputToISO, formatDateTime, sliderField, wireSliders, chipGroup, wireChips, getChipValues, flashSaved, intensityBadge } from "../../utils/dom.js";
 import { renderBodyMapSvg, zoneLabel } from "./zones.js";
+import { renderHeadMapSvg, headZoneLabel } from "./head-zones.js";
 
 const repo = new Repository("pain_events");
 
@@ -58,7 +59,9 @@ const NECK_LIMITATIONS = [
   "no puc girar el cap avall",
 ].map(v => ({ value: v, label: v }));
 
-let currentView = "front";
+let currentView = "back";
+let mapArea = "body";
+let editingId = null;
 let pickingZones = [];   // zones tocades ara mateix, pendents d'assignar com a grup
 let entries = [];        // grups ja confirmats
 let drawingStrokes = []; // traços pintats sobre la figura
@@ -68,7 +71,9 @@ let activeBrushSize = 12;
 let drawingPointer = null;
 
 export async function renderPain(container) {
-  currentView = "front";
+  currentView = "back";
+  mapArea = "body";
+  editingId = null;
   pickingZones = [];
   entries = [];
   drawingStrokes = [];
@@ -85,7 +90,7 @@ export async function renderPain(container) {
 
     <div class="grid-2">
       <form class="card" id="pain-form" novalidate>
-        <h2 class="card-title">Nou registre</h2>
+        <h2 class="card-title" id="form-title">Nou registre</h2><div id="editing-banner"></div>
 
         <div class="field">
           <label class="field-label" for="entryDatetime">Data i hora</label>
@@ -93,9 +98,13 @@ export async function renderPain(container) {
         </div>
 
         <div class="bodymap-modebar">
-          <div class="bodymap-toggle">
-            <button type="button" class="chip chip-active" data-view-toggle="front">Davant</button>
-            <button type="button" class="chip" data-view-toggle="back">Darrere</button>
+          <div class="bodymap-toggle bodymap-primary-toggle" aria-label="Part del cos">
+            <button type="button" class="chip chip-active" data-map-area="body">Cos</button>
+            <button type="button" class="chip" data-map-area="head">Cap</button>
+          </div>
+          <div class="bodymap-toggle" id="body-view-buttons" aria-label="Vista del cos">
+            <button type="button" class="chip" data-view-toggle="front">Davant</button>
+            <button type="button" class="chip chip-active" data-view-toggle="back">Darrere</button>
           </div>
           <div class="bodymap-toggle">
             <button type="button" class="chip chip-active" data-interaction-mode="zones">Seleccionar zones</button>
@@ -156,7 +165,7 @@ export async function renderPain(container) {
         </div>
 
         <div style="display:flex; align-items:center; gap: var(--sp-4); margin-top: var(--sp-5);">
-          <button type="submit" class="btn btn-primary">Desar registre</button>
+          <button type="submit" class="btn btn-primary" id="submit-btn">Desar registre</button>
           <span class="save-flash" id="save-flash"><span class="dot"></span> Desat</span>
         </div>
       </form>
@@ -178,6 +187,7 @@ export async function renderPain(container) {
   wireSliders(container);
   wireChips(container);
   wireBodyMap(container);
+  wireMapArea(container);
   wirePaintControls(container);
   await refreshList(container);
   await refreshPainInsights(container);
@@ -193,7 +203,7 @@ export async function renderPain(container) {
     }
     const form = e.target;
     const payload = {
-      id: makeId(),
+      id: editingId || makeId(),
       timestamp: localInputToISO(container.querySelector("#entryDatetime").value),
       entries: entries.map(en => ({ ...en })),
       painDrawing: drawingStrokes.map(stroke => ({ ...stroke, points: stroke.points.map(p => ({...p})) })),
@@ -206,12 +216,42 @@ export async function renderPain(container) {
     };
     await repo.put(payload);
     flashSaved(container);
+    editingId = null;
+    container.querySelector("#form-title").textContent = "Nou registre";
+    container.querySelector("#submit-btn").textContent = "Desar registre";
+    container.querySelector("#editing-banner").innerHTML = "";
     resetForm(container, form);
     await refreshList(container);
     await refreshPainInsights(container);
   });
 }
 
+function labelForZone(id){ return id.startsWith("head_") ? headZoneLabel(id.replace(/^head_/,"")) : zoneLabel(id); }
+function wireMapArea(container){
+  const bodyViewButtons = container.querySelector('#body-view-buttons');
+  const updateMapAreaControls = () => {
+    const showBodyViews = mapArea === 'body';
+    bodyViewButtons.hidden = !showBodyViews;
+    bodyViewButtons.classList.toggle('is-hidden', !showBodyViews);
+    bodyViewButtons.style.display = showBodyViews ? 'flex' : 'none';
+    container.querySelectorAll('[data-view-toggle]').forEach((button) => {
+      button.classList.toggle('chip-active', showBodyViews && button.dataset.viewToggle === currentView);
+    });
+  };
+
+  container.querySelectorAll('[data-map-area]').forEach((button) => {
+    button.addEventListener('click', () => {
+      mapArea = button.dataset.mapArea;
+      currentView = mapArea === 'head' ? 'head_back' : 'back';
+      container.querySelectorAll('[data-map-area]').forEach((item) => {
+        item.classList.toggle('chip-active', item === button);
+      });
+      updateMapAreaControls();
+      renderMap(container);
+    });
+  });
+  updateMapAreaControls();
+}
 function wireBodyMap(container) {
   container.querySelectorAll("[data-view-toggle]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -266,7 +306,7 @@ function committedZoneIds() {
 function renderMap(container) {
   const wrap = container.querySelector("#bodymap-wrap");
   wrap.classList.toggle("paint-mode", interactionMode === "paint");
-  wrap.innerHTML = renderBodyMapSvg(currentView, committedZoneIds(), pickingZones, drawingStrokes);
+  wrap.innerHTML = mapArea === "head" ? renderHeadMapSvg(currentView, committedZoneIds(), pickingZones, drawingStrokes) : renderBodyMapSvg(currentView, committedZoneIds(), pickingZones, drawingStrokes);
   const svg = wrap.querySelector("svg");
 
   wrap.querySelectorAll("[data-zone-id]").forEach((shape) => {
@@ -356,7 +396,7 @@ function renderPickingList(container) {
     btn.disabled = true;
     return;
   }
-  list.innerHTML = pickingZones.map(id => `<span class="badge">${zoneLabel(id)}</span>`).join("");
+  list.innerHTML = pickingZones.map(id => `<span class="badge">${labelForZone(id)}</span>`).join("");
   btn.disabled = false;
 }
 
@@ -364,7 +404,7 @@ function openAssignPanel(container) {
   if (pickingZones.length === 0) return;
   const panel = container.querySelector("#assign-panel");
   panel.style.display = "block";
-  container.querySelector("#assign-panel-title").textContent = `Tipus i patró per a: ${pickingZones.map(zoneLabel).join(", ")}`;
+  container.querySelector("#assign-panel-title").textContent = `Tipus i patró per a: ${pickingZones.map(labelForZone).join(", ")}`;
   container.querySelectorAll('.chip[data-chip-group="tipusZona"]').forEach(c => c.classList.remove("chip-active"));
   container.querySelectorAll('.chip[data-chip-group="patroZona"]').forEach(c => c.classList.remove("chip-active"));
   container.querySelector("#tipusAltresText").value = "";
@@ -386,7 +426,7 @@ function addEntry(container) {
   const tipusAltresText = container.querySelector("#tipusAltresText").value.trim();
   entries.push({
     zonaIds: [...pickingZones],
-    zonaLabels: pickingZones.map(zoneLabel),
+    zonaLabels: pickingZones.map(labelForZone),
     tipus,
     tipusAltresText,
     patroTemporal,
@@ -437,6 +477,12 @@ function resetForm(container, form) {
   renderEntriesList(container);
 }
 
+async function editPainEntry(container,id){
+ const e=await repo.get(id); if(!e)return; editingId=id; entries=(e.entries||[]).map(x=>({...x,zonaIds:[...(x.zonaIds||[])],zonaLabels:[...(x.zonaLabels||[])],tipus:[...(x.tipus||[])],patroTemporal:[...(x.patroTemporal||[])]})); drawingStrokes=(e.painDrawing||[]).map(x=>({...x,points:(x.points||[]).map(p=>({...p}))})); pickingZones=[];
+ container.querySelector('#entryDatetime').value=isoToLocalInput(e.timestamp);container.querySelector('[name="intensitat"]').value=e.intensitat||0;container.querySelector('[name="intensitat"]').dispatchEvent(new Event('input'));container.querySelector('#comentari').value=e.comentari||'';
+ for(const group of ['empitjora','naturalesaDolor','impacteSon','limitacions'])container.querySelectorAll(`[data-chip-group="${group}"]`).forEach(b=>b.classList.toggle('chip-active',(e[group]||[]).includes(b.dataset.value)));
+ renderMap(container);renderEntriesList(container);container.querySelector('#form-title').textContent='Editant registre';container.querySelector('#submit-btn').textContent='Desar canvis';container.querySelector('#editing-banner').innerHTML='<div class="editing-banner"><span>Estàs editant un registre de dolor.</span><button type="button" class="btn btn-ghost" id="cancel-edit-btn">Cancel·la</button></div>';container.querySelector('#cancel-edit-btn').onclick=()=>renderPain(container);container.querySelector('#pain-form').scrollIntoView({behavior:'smooth'});
+}
 async function refreshList(container) {
   const recent = await repo.getRecent("timestamp", 10);
   const list = container.querySelector("#event-list");
@@ -445,6 +491,7 @@ async function refreshList(container) {
     return;
   }
   list.innerHTML = recent.map(rowTemplate).join("");
+  list.querySelectorAll("[data-edit]").forEach(btn => btn.addEventListener("click", () => editPainEntry(container, btn.dataset.edit)));
   list.querySelectorAll("[data-delete]").forEach(btn => {
     btn.addEventListener("click", async () => {
       if (!confirm("Segur que vols eliminar aquest registre?")) return;
@@ -468,7 +515,7 @@ function rowTemplate(e) {
       <div class="event-row-top">
         <span class="event-when">${formatDateTime(e.timestamp)}</span>
         ${intensityBadge(e.intensitat)}
-        <span class="row-actions"><button type="button" class="danger" data-delete="${e.id}">eliminar</button></span>
+        <span class="row-actions"><button type="button" data-edit="${e.id}">editar</button><button type="button" class="danger" data-delete="${e.id}">eliminar</button></span>
       </div>
       ${entriesLabel ? `<div class="event-tags">${escapeHtml(entriesLabel)}</div>` : ""}
       ${drawingLabel ? `<div class="event-tags">${escapeHtml(drawingLabel)}</div>` : ""}

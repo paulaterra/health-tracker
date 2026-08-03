@@ -5,6 +5,7 @@ import { escapeHtml, formatDate, formatDateTime } from "../../utils/dom.js";
 import { generateIntelligence } from "../../engine/intelligence.js";
 import { intelligentSummaryHtml } from "../../engine/intelligence-view.js";
 import { renderBodyMapSvg } from "../pain/zones.js";
+import { renderHeadMapSvg } from "../pain/head-zones.js";
 import { buildPersonalProfile, buildPredictions, calendarIconsForDay } from "../../engine/personal-insights.js";
 
 const MODULES = [
@@ -499,8 +500,9 @@ function painMapPairHtml(pain, { compact = false } = {}) {
   const hasFront = strokes.some(s => s.view === "front") || activeZones.some(id => !id.endsWith("_post") && !["cervical","lumbar","columna_dorsal_alta","columna_dorsal_mitjana","columna_dorsal_baixa","trapezi_esquerre","trapezi_dret","omoplat_esquerre","omoplat_dret","costat_esquerre_post","costat_dret_post","natja_esquerra","natja_dreta","cuixa_esquerra_post","cuixa_dreta_post","bessons_esquerre","bessons_dret","taló_esquerre","taló_dret","cap_post"].includes(id));
   const hasBack = strokes.some(s => s.view === "back") || activeZones.some(id => id.endsWith("_post") || ["cervical","lumbar","columna_dorsal_alta","columna_dorsal_mitjana","columna_dorsal_baixa","trapezi_esquerre","trapezi_dret","omoplat_esquerre","omoplat_dret","costat_esquerre_post","costat_dret_post","natja_esquerra","natja_dreta","cuixa_esquerra_post","cuixa_dreta_post","bessons_esquerre","bessons_dret","taló_esquerre","taló_dret","cap_post"].includes(id));
   const maps = [];
-  if (hasFront || (!hasFront && !hasBack)) maps.push(`<div class="dashboard-bodymap"><span>Davant</span>${renderBodyMapSvg("front", activeZones, [], strokes)}</div>`);
-  if (hasBack || (!hasFront && !hasBack)) maps.push(`<div class="dashboard-bodymap"><span>Darrere</span>${renderBodyMapSvg("back", activeZones, [], strokes)}</div>`);
+  if (hasFront || (!hasFront && !hasBack)) maps.push(`<div class="dashboard-bodymap"><span>Cos · davant</span>${renderBodyMapSvg("front", activeZones, [], strokes)}</div>`);
+  if (hasBack || (!hasFront && !hasBack)) maps.push(`<div class="dashboard-bodymap"><span>Cos · darrere</span>${renderBodyMapSvg("back", activeZones, [], strokes)}</div>`);
+  if (strokes.some(s => s.view === "head_back") || activeZones.some(z => String(z).startsWith("head_"))) maps.push(`<div class="dashboard-bodymap"><span>Detall del cap · darrere</span>${renderHeadMapSvg("head_back",activeZones,[],strokes)}</div>`);
   return `<div class="dashboard-bodymap-pair ${compact ? "is-compact" : ""}">${maps.join("")}</div>`;
 }
 
@@ -669,7 +671,7 @@ async function dayDetailHtml(date) {
 
   const sleep = (await new Repository("sleep_log").getByIndex("date", date))[0];
   if (sleep) {
-    const stats = [stat("Qualitat", `${sleep.qualitat}/10`, "tone-sleep"), stat("Despertars", sleep.numDespertars ?? 0), stat("Durada estimada", sleepDuration(sleep)), stat("Fatiga al matí", sleep.fatigaMati !== undefined ? `${sleep.fatigaMati}/10` : "")].join("");
+    const stats = [stat("Qualitat", `${sleep.qualitat}/10`, "tone-sleep"), stat("Despertars", sleep.numDespertars ?? 0), stat("Hores dormides", sleep.horesDormides || sleepDuration(sleep)), stat("Fatiga al matí", sleep.fatigaMati !== undefined ? `${sleep.fatigaMati}/10` : "")].join("");
     const flags = [
       sleep.llumEnces && "Llum encesa", sleep.anatLavabo && "Anar al lavabo", sleep.ronc && "Roncs",
       sleep.bruxisme && "Bruxisme", sleep.suorsNocturns && "Suors nocturns", sleep.camesInquietes && "Cames inquietes",

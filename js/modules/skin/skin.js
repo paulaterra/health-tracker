@@ -11,11 +11,13 @@ const WHOLE_BODY_LABEL = "Tot el cos";
 let currentView = "front";
 let pickedZoneId = null; // zona seleccionada ara mateix, pendent d'assignar-li tipus
 let entries = []; // [{ zonaId, zonaLabel, tipus: [] }]
+let editingId = null;
 
 export async function renderSkin(container) {
   currentView = "front";
   pickedZoneId = null;
   entries = [];
+  editingId = null;
 
   container.innerHTML = `
     <div class="view-header">
@@ -26,7 +28,7 @@ export async function renderSkin(container) {
 
     <div class="grid-2">
       <form class="card" id="skin-form" novalidate>
-        <h2 class="card-title">Nou episodi</h2>
+        <h2 class="card-title" id="form-title">Nou episodi</h2><div id="editing-banner"></div>
 
         <div class="bodymap-toggle">
           <button type="button" class="chip chip-active" data-view-toggle="front">Davant</button>
@@ -97,7 +99,7 @@ export async function renderSkin(container) {
     const fotoBlob = fotoInput.files[0] || null;
 
     const payload = {
-      id: makeId(),
+      id: editingId || makeId(),
       entries: entries.map(en => ({ ...en })),
       intensitat: Number(form.querySelector('[name="intensitat"]').value),
       dataInici: form.querySelector("#dataInici").value,
@@ -107,6 +109,9 @@ export async function renderSkin(container) {
     };
     await repo.put(payload);
     flashSaved(container);
+    editingId = null;
+    container.querySelector("#form-title").textContent = "Nou episodi";
+    container.querySelector("#editing-banner").innerHTML = "";
     entries = [];
     pickedZoneId = null;
     renderEntriesList(container);
@@ -194,6 +199,7 @@ function renderEntriesList(container) {
   });
 }
 
+async function editSkinEntry(container,id){const e=await repo.get(id);if(!e)return;editingId=id;entries=(e.entries||[]).map(x=>({...x,tipus:[...(x.tipus||[])]}));container.querySelector('[name="intensitat"]').value=e.intensitat||0;container.querySelector('[name="intensitat"]').dispatchEvent(new Event('input'));container.querySelector('#dataInici').value=e.dataInici||'';container.querySelector('#dataFi').value=e.dataFi||'';container.querySelector('#comentari').value=e.comentari||'';renderEntriesList(container);renderMap(container);container.querySelector('#form-title').textContent='Editant episodi';container.querySelector('#editing-banner').innerHTML='<div class="editing-banner"><span>Estàs editant un episodi.</span><button type="button" class="btn btn-ghost" id="cancel-edit-btn">Cancel·la</button></div>';container.querySelector('#cancel-edit-btn').onclick=()=>renderSkin(container);container.querySelector('#skin-form').scrollIntoView({behavior:'smooth'});}
 async function refreshList(container) {
   const recent = await repo.getRecent("dataInici", 10);
   const list = container.querySelector("#event-list");
@@ -207,6 +213,7 @@ async function refreshList(container) {
     const img = list.querySelector(`[data-photo-for="${e.id}"]`);
     if (img) img.src = URL.createObjectURL(e.foto);
   });
+  list.querySelectorAll("[data-edit]").forEach(btn => btn.addEventListener("click", () => editSkinEntry(container, btn.dataset.edit)));
   list.querySelectorAll("[data-delete]").forEach(btn => {
     btn.addEventListener("click", async () => {
       if (!confirm("Segur que vols eliminar aquest episodi?")) return;
@@ -223,7 +230,7 @@ function rowTemplate(e) {
       <div class="event-row-top">
         <span class="event-when">${formatDate(e.dataInici)}${e.dataFi ? " – " + formatDate(e.dataFi) : " (obert)"}</span>
         <span class="badge">${e.intensitat}/10</span>
-        <span class="row-actions"><button type="button" class="danger" data-delete="${e.id}">eliminar</button></span>
+        <span class="row-actions"><button type="button" data-edit="${e.id}">editar</button><button type="button" class="danger" data-delete="${e.id}">eliminar</button></span>
       </div>
       <div class="event-tags">${escapeHtml(entriesLabel)}</div>
       ${e.foto ? `<img data-photo-for="${e.id}" style="max-width:120px;border-radius:8px;margin-top:4px;" alt="foto episodi pell">` : ""}

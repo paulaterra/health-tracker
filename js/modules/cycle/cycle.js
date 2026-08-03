@@ -263,6 +263,7 @@ async function refreshList(container) {
     return;
   }
   list.innerHTML = recent.map(rowTemplate).join("");
+  list.querySelectorAll("[data-edit-date]").forEach(btn => btn.addEventListener("click", () => renderCycle(container, btn.dataset.editDate)));
   list.querySelectorAll("[data-delete]").forEach(btn => {
     btn.addEventListener("click", async () => {
       if (!confirm("Segur que vols eliminar aquest registre?")) return;
@@ -279,7 +280,7 @@ function rowTemplate(e) {
       <div class="event-row-top">
         <span class="event-when">${formatDate(e.date)}</span>
         ${bleedingLabel ? `<span class="badge badge-high">regla · ${escapeHtml(bleedingLabel)}</span>` : ""}
-        <span class="row-actions"><button type="button" class="danger" data-delete="${e.id}">eliminar</button></span>
+        <span class="row-actions"><button type="button" data-edit-date="${e.date}">editar</button><button type="button" class="danger" data-delete="${e.id}">eliminar</button></span>
       </div>
       ${e.simptomes?.length ? `<div class="event-tags">${e.simptomes.map(escapeHtml).join(", ")}</div>` : ""}
       ${e.anticonceptius ? `<div class="event-tags">anticonceptius</div>` : ""}

@@ -1,141 +1,18 @@
 import { Repository } from "../../db/repository.js";
-import {
-  escapeHtml, nowLocalInput, isoToLocalInput, localInputToISO, formatDateTime,
-  sliderField, wireSliders, flashSaved, radioChipGroup, wireRadioChips, getRadioValue,
-} from "../../utils/dom.js";
-
-const repo = new Repository("exercise_log");
-
-const TYPES = [
-  { value: "gimnas_entrenador", label: "Gimnàs / entrenador personal" },
-  { value: "fisio", label: "Fisioteràpia" },
-  { value: "activacio_neuromuscular", label: "Activació neuromuscular" },
-  { value: "caminar", label: "Caminar" },
+import { escapeHtml, nowLocalInput, isoToLocalInput, localInputToISO, formatDateTime, sliderField, wireSliders, flashSaved, radioChipGroup, wireRadioChips, getRadioValue, chipGroup, wireChips, getChipValues } from "../../utils/dom.js";
+const repo=new Repository("exercise_log");
+const CATEGORIES=[
+ {value:"terapia",label:"Fisioteràpia / teràpies"},{value:"gimnas_entrenador",label:"Gimnàs / entrenador personal"},{value:"caminar",label:"Caminar"}
 ];
-
-let editingId = null;
-
-export async function renderExercise(container) {
-  editingId = null;
-  container.innerHTML = `
-    <div class="view-header">
-      <span class="view-eyebrow">Registre — exercici</span>
-      <h1 class="view-title">Exercici</h1>
-      <p class="view-sub">Registra cada sessió: tipus, durada i com t'ha sentat. Pots canviar la data/hora per registrar una sessió d'un dia anterior.</p>
-    </div>
-
-    <div class="grid-2">
-      <form class="card" id="exercise-form" novalidate>
-        <h2 class="card-title" id="form-title">Nova sessió</h2>
-        <div id="editing-banner"></div>
-
-        <div class="field">
-          <label class="field-label" for="entryDatetime">Data i hora</label>
-          <input type="datetime-local" id="entryDatetime" value="${nowLocalInput()}">
-        </div>
-
-        ${radioChipGroup("tipus", "Tipus", TYPES, null)}
-        <div class="field">
-          <label class="field-label" for="durada">Durada (minuts)</label>
-          <input type="text" id="durada" placeholder="p. ex. 45">
-        </div>
-        ${sliderField("intensitat", "Intensitat percebuda", 0, "molt suau", "molt intens")}
-        <div class="field">
-          <label class="field-label" for="comentari">Comentari (opcional)</label>
-          <textarea id="comentari" placeholder="Com t'ha sentat, dolor durant/després..."></textarea>
-        </div>
-        <div style="display:flex; align-items:center; gap: var(--sp-4); margin-top: var(--sp-5);">
-          <button type="submit" class="btn btn-primary" id="submit-btn">Desar sessió</button>
-          <span class="save-flash" id="save-flash"><span class="dot"></span> Desat</span>
-        </div>
-      </form>
-
-      <div class="card">
-        <h2 class="card-title">Últimes sessions</h2>
-        <div class="event-list" id="event-list"><p class="ledger-empty">Carregant…</p></div>
-      </div>
-    </div>
-  `;
-
-  wireSliders(container);
-  wireRadioChips(container);
-  await refreshList(container);
-
-  container.querySelector("#exercise-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const tipus = getRadioValue(container, "tipus");
-    if (!tipus) { alert("Selecciona un tipus d'exercici."); return; }
-    const form = e.target;
-    const payload = {
-      id: editingId || undefined,
-      timestamp: localInputToISO(form.querySelector("#entryDatetime").value),
-      tipus,
-      durada: form.querySelector("#durada").value.trim(),
-      intensitat: Number(form.querySelector('[name="intensitat"]').value),
-      comentari: form.querySelector("#comentari").value.trim(),
-    };
-    await repo.put(payload);
-    flashSaved(container);
-    await renderExercise(container);
-  });
+const THERAPIES=["fisioteràpia","activació neuromuscular","quiromassatge"].map(v=>({value:v,label:v}));
+const GYM_TYPES=["exercici de força","mobilitat","cardio","estiraments","equilibri / estabilitat","altres"].map(v=>({value:v,label:v}));
+let editingId=null;
+export async function renderExercise(container){
+ editingId=null;
+ container.innerHTML=`<div class="view-header"><span class="view-eyebrow">Registre — exercici i tractament</span><h1 class="view-title">Exercici</h1><p class="view-sub">Separa les teràpies, el gimnàs i les caminades. Pots indicar passos diaris i el tipus concret de treball realitzat.</p></div><div class="grid-2"><form class="card" id="exercise-form"><h2 class="card-title" id="form-title">Nou registre</h2><div id="editing-banner"></div><div class="field"><label class="field-label" for="entryDatetime">Data i hora</label><input type="datetime-local" id="entryDatetime" value="${nowLocalInput()}"></div>${radioChipGroup("categoria","Categoria",CATEGORIES,null)}<div id="therapy-fields" hidden>${chipGroup("terapies","Tipus de teràpia",THERAPIES)}</div><div id="gym-fields" hidden>${chipGroup("tipusGimnas","Treball realitzat",GYM_TYPES)}<div class="field"><label class="field-label" for="altresGimnas">Altres (opcional)</label><input type="text" id="altresGimnas"></div></div><div id="walk-fields" hidden><div class="field"><label class="field-label" for="passos">Passos diaris</label><input type="number" min="0" step="1" id="passos" placeholder="p. ex. 10500"></div></div><div class="field"><label class="field-label" for="durada">Durada (minuts)</label><input type="number" min="0" id="durada" placeholder="p. ex. 45"></div>${sliderField("intensitat","Intensitat percebuda",0,"molt suau","molt intens")}<div class="field"><label class="field-label" for="comentari">Comentari (opcional)</label><textarea id="comentari" placeholder="Com t'ha sentat, dolor durant/després..."></textarea></div><div style="display:flex;gap:var(--sp-4);align-items:center"><button class="btn btn-primary" id="submit-btn">Desar registre</button><span class="save-flash" id="save-flash"><span class="dot"></span> Desat</span></div></form><div class="card"><h2 class="card-title">Últims registres</h2><div id="event-list" class="event-list"></div></div></div>`;
+ wireSliders(container);wireRadioChips(container);wireChips(container);wireCategory(container);await refreshList(container);
+ container.querySelector('#exercise-form').addEventListener('submit',async e=>{e.preventDefault();const f=e.target,categoria=getRadioValue(container,'categoria');if(!categoria)return alert('Selecciona una categoria.');const payload={id:editingId||undefined,timestamp:localInputToISO(f.querySelector('#entryDatetime').value),categoria,tipus:categoria,terapies:getChipValues(container,'terapies'),tipusGimnas:getChipValues(container,'tipusGimnas'),altresGimnas:f.querySelector('#altresGimnas').value.trim(),passos:f.querySelector('#passos').value?Number(f.querySelector('#passos').value):null,durada:f.querySelector('#durada').value.trim(),intensitat:Number(f.querySelector('[name="intensitat"]').value),comentari:f.querySelector('#comentari').value.trim()};await repo.put(payload);flashSaved(container);await renderExercise(container);});
 }
-
-async function editEntry(container, id) {
-  const entry = await repo.get(id);
-  if (!entry) return;
-  editingId = id;
-
-  container.querySelector("#entryDatetime").value = isoToLocalInput(entry.timestamp);
-  container.querySelectorAll('[data-radio-group="tipus"]').forEach(b => b.classList.toggle("chip-active", b.dataset.value === entry.tipus));
-  container.querySelector("#durada").value = entry.durada || "";
-  container.querySelector('[name="intensitat"]').value = entry.intensitat || 0;
-  container.querySelector('[name="intensitat"]').dispatchEvent(new Event("input"));
-  container.querySelector("#comentari").value = entry.comentari || "";
-
-  container.querySelector("#form-title").textContent = "Editant sessió";
-  container.querySelector("#submit-btn").textContent = "Desar canvis";
-  container.querySelector("#editing-banner").innerHTML = `
-    <div class="editing-banner">
-      <span>Estàs editant una sessió existent.</span>
-      <button type="button" class="btn btn-ghost" id="cancel-edit-btn">Cancel·la</button>
-    </div>
-  `;
-  container.querySelector("#cancel-edit-btn").addEventListener("click", () => renderExercise(container));
-  container.querySelector("#exercise-form").scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-async function deleteEntry(container, id) {
-  if (!confirm("Segur que vols eliminar aquest registre?")) return;
-  await repo.delete(id);
-  await renderExercise(container);
-}
-
-async function refreshList(container) {
-  const recent = await repo.getRecent("timestamp", 10);
-  const list = container.querySelector("#event-list");
-  if (recent.length === 0) {
-    list.innerHTML = `<p class="ledger-empty">Encara no hi ha cap sessió registrada.</p>`;
-    return;
-  }
-  list.innerHTML = recent.map(rowTemplate).join("");
-  list.querySelectorAll("[data-edit]").forEach(btn => btn.addEventListener("click", () => editEntry(container, btn.dataset.edit)));
-  list.querySelectorAll("[data-delete]").forEach(btn => btn.addEventListener("click", () => deleteEntry(container, btn.dataset.delete)));
-}
-
-function rowTemplate(e) {
-  const label = TYPES.find(t => t.value === e.tipus)?.label || e.tipus;
-  return `
-    <div class="event-row">
-      <div class="event-row-top">
-        <span class="event-when">${formatDateTime(e.timestamp)}</span>
-        ${e.intensitat != null ? `<span class="badge">intensitat ${e.intensitat}/10</span>` : ""}
-        <span class="row-actions">
-          <button type="button" data-edit="${e.id}">editar</button>
-          <button type="button" class="danger" data-delete="${e.id}">eliminar</button>
-        </span>
-      </div>
-      <div class="event-tags">${escapeHtml(label)}${e.durada ? " · " + escapeHtml(e.durada) + " min" : ""}</div>
-      ${e.comentari ? `<div class="event-comment">${escapeHtml(e.comentari)}</div>` : ""}
-    </div>
-  `;
-}
+function wireCategory(container){const update=()=>{const c=getRadioValue(container,'categoria');container.querySelector('#therapy-fields').hidden=c!=='terapia';container.querySelector('#gym-fields').hidden=c!=='gimnas_entrenador';container.querySelector('#walk-fields').hidden=c!=='caminar';};container.querySelectorAll('[data-radio-group="categoria"]').forEach(b=>b.addEventListener('click',()=>setTimeout(update)));update();}
+async function editEntry(container,id){const e=await repo.get(id);if(!e)return;editingId=id;container.querySelector('#entryDatetime').value=isoToLocalInput(e.timestamp);const cat=e.categoria||e.tipus;container.querySelectorAll('[data-radio-group="categoria"]').forEach(b=>b.classList.toggle('chip-active',b.dataset.value===cat));container.querySelectorAll('[data-chip-group="terapies"]').forEach(b=>b.classList.toggle('chip-active',(e.terapies||[]).includes(b.dataset.value)));container.querySelectorAll('[data-chip-group="tipusGimnas"]').forEach(b=>b.classList.toggle('chip-active',(e.tipusGimnas||[]).includes(b.dataset.value)));container.querySelector('#altresGimnas').value=e.altresGimnas||'';container.querySelector('#passos').value=e.passos??'';container.querySelector('#durada').value=e.durada||'';container.querySelector('[name="intensitat"]').value=e.intensitat||0;container.querySelector('[name="intensitat"]').dispatchEvent(new Event('input'));container.querySelector('#comentari').value=e.comentari||'';wireCategory(container);container.querySelector('#form-title').textContent='Editant registre';container.querySelector('#submit-btn').textContent='Desar canvis';container.querySelector('#editing-banner').innerHTML=`<div class="editing-banner"><span>Estàs editant un registre.</span><button type="button" class="btn btn-ghost" id="cancel-edit-btn">Cancel·la</button></div>`;container.querySelector('#cancel-edit-btn').onclick=()=>renderExercise(container);container.querySelector('#exercise-form').scrollIntoView({behavior:'smooth'});}
+async function refreshList(container){const rows=await repo.getRecent('timestamp',12),list=container.querySelector('#event-list');if(!rows.length){list.innerHTML='<p class="ledger-empty">Encara no hi ha registres.</p>';return;}list.innerHTML=rows.map(e=>{const details=e.categoria==='terapia'?(e.terapies||[]).join(', '):e.categoria==='caminar'?`Caminar${e.passos!=null?` · ${e.passos.toLocaleString('ca-ES')} passos`:''}`:[...(e.tipusGimnas||[]),e.altresGimnas].filter(Boolean).join(', ');return `<div class="event-row"><div class="event-row-top"><span class="event-when">${formatDateTime(e.timestamp)}</span><span class="badge">${e.intensitat??0}/10</span><span class="row-actions"><button data-edit="${e.id}">editar</button><button class="danger" data-delete="${e.id}">eliminar</button></span></div><div class="event-tags">${escapeHtml(details||e.tipus||'Exercici')}${e.durada?` · ${escapeHtml(String(e.durada))} min`:''}</div>${e.comentari?`<div class="event-comment">${escapeHtml(e.comentari)}</div>`:''}</div>`}).join('');list.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editEntry(container,b.dataset.edit));list.querySelectorAll('[data-delete]').forEach(b=>b.onclick=async()=>{if(confirm('Segur que vols eliminar aquest registre?')){await repo.delete(b.dataset.delete);await refreshList(container);}});}

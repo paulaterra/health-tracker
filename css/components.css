@@ -911,3 +911,43 @@ textarea { min-height: 72px; resize: vertical; }
   .day-stat { padding: 10px; }
   .day-stat strong { font-size: var(--fs-sm); }
 }
+
+/* v1.3.9 · Selector Cos / Cap amb controls condicionals */
+.bodymap-primary-toggle {
+  margin-bottom: var(--sp-2);
+}
+.bodymap-primary-toggle .chip {
+  min-width: 132px;
+  justify-content: center;
+}
+.headmap-back-detailed {
+  max-width: 430px;
+  margin-inline: auto;
+}
+.headmap-back-detailed .head-back-outline path {
+  fill: var(--paper-alt);
+  stroke: var(--line-strong);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.headmap-back-detailed .zone-shape {
+  fill: rgba(108, 143, 87, 0.08);
+  stroke: rgba(45, 45, 45, 0.22);
+  stroke-width: 1.25;
+}
+.headmap-back-detailed .zone-shape:hover {
+  fill: rgba(108, 143, 87, 0.18);
+}
+.headmap-back-detailed .zone-shape.zone-picking,
+.headmap-back-detailed .zone-shape.zone-active {
+  fill: rgba(108, 143, 87, 0.44);
+  stroke: var(--ink);
+}
+
+
+/* v1.3.10 · Controls de vista visibles exclusivament al mapa del cos */
+#body-view-buttons[hidden],
+#body-view-buttons.is-hidden {
+  display: none !important;
+}

@@ -78,6 +78,7 @@ export async function renderSleep(container, dateOverride) {
           <input type="text" id="horaLlevar" placeholder="07:30" value="${escapeHtml(s.horaLlevar || "")}">
         </div>
 
+        <div class="field"><label class="field-label" for="horesDormides">Temps dormint / hores dormides</label><input type="text" id="horesDormides" placeholder="p. ex. 7 h 20 min" value="${escapeHtml(s.horesDormides || "")}"><p class="field-help">Indica el temps que creus que has dormit realment, descomptant el temps desperta.</p></div>
         ${sliderField("qualitat", "Qualitat del son", s.qualitat ?? 5, "molt dolent", "excel·lent")}
         ${sliderField("numDespertars", "Nombre de despertars", s.numDespertars ?? 0, "cap", "molts")}
         ${sliderField("fatigaMati", "Fatiga en llevar-me", s.fatigaMati ?? 0, "cap", "extrema")}
@@ -141,6 +142,7 @@ export async function renderSleep(container, dateOverride) {
       horaIntent: form.querySelector("#horaIntent").value.trim(),
       horaAdormir: form.querySelector("#horaAdormir").value.trim(),
       horaLlevar: form.querySelector("#horaLlevar").value.trim(),
+      horesDormides: form.querySelector("#horesDormides").value.trim(),
       qualitat: Number(form.querySelector('[name="qualitat"]').value),
       numDespertars: Number(form.querySelector('[name="numDespertars"]').value),
       fatigaMati: Number(form.querySelector('[name="fatigaMati"]').value),
@@ -174,6 +176,7 @@ async function refreshList(container) {
     return;
   }
   list.innerHTML = recent.map(rowTemplate).join("");
+  list.querySelectorAll("[data-edit-date]").forEach(btn => btn.addEventListener("click", () => renderSleep(container, btn.dataset.editDate)));
   list.querySelectorAll("[data-delete]").forEach(btn => {
     btn.addEventListener("click", async () => {
       if (!confirm("Segur que vols eliminar aquest registre?")) return;
@@ -191,9 +194,9 @@ function rowTemplate(e) {
       <div class="event-row-top">
         <span class="event-when">${formatDate(e.date)}</span>
         <span class="badge">qualitat ${e.qualitat ?? "–"}/10</span>
-        <span class="row-actions"><button type="button" class="danger" data-delete="${e.id}">eliminar</button></span>
+        <span class="row-actions"><button type="button" data-edit-date="${e.date}">editar</button><button type="button" class="danger" data-delete="${e.id}">eliminar</button></span>
       </div>
-      <div class="event-tags">${e.horaLlit || "–"} → ${e.horaLlevar || "–"} · ${e.numDespertars ?? 0} despertars</div>
+      <div class="event-tags">${e.horaLlit || "–"} → ${e.horaLlevar || "–"}${e.horesDormides ? " · " + escapeHtml(e.horesDormides) + " dormides" : ""} · ${e.numDespertars ?? 0} despertars</div>
       ${flags.length ? `<div class="event-tags">${flags.join(", ")}</div>` : ""}
       ${parasomnias.length ? `<div class="event-tags" style="color: var(--clay);">Parasomnias: ${parasomnias.join(", ")}</div>` : ""}
       ${e.mocsMati?.length ? `<div class="event-tags">Mocs: ${e.mocsMati.map(escapeHtml).join(", ")}</div>` : ""}
