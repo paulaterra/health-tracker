@@ -3,6 +3,32 @@ import { generateIntelligence } from "../../engine/intelligence.js";
 import { buildPersonalProfile, buildPredictions } from "../../engine/personal-insights.js";
 import { escapeHtml } from "../../utils/dom.js";
 
+
+const PROFILE_SCORE_SCALES = [
+  ["Dolor corporal", "sense dolor", "molt dolor"],
+  ["Mal de cap", "sense dolor", "molt intens"],
+  ["Vertígens i boira mental", "cap símptoma", "molt intens"],
+  ["Digestiu", "cap molèstia", "molt intens"],
+  ["Mal descans", "descans reparador", "mal descans"],
+  ["Cansament físic", "molta energia", "esgotament"],
+  ["Pell", "sense molèsties", "molt intens"],
+];
+
+function profileScoreReferencesHtml(){
+  return `<section class="card profile-scale-reference">
+    <h2 class="card-title">Com interpretar les puntuacions</h2>
+    <p style="margin:0 0 var(--sp-3); color:var(--ink-soft); font-size:var(--fs-sm);">A totes les escales de símptomes, 0 representa el millor estat i 10 el pitjor.</p>
+    <div class="day-score-guide is-multiple" style="margin:0;">
+      ${PROFILE_SCORE_SCALES.map(([label, low, high]) => `<div class="day-score-guide-row">
+        <span class="day-score-guide-label">${escapeHtml(label)}</span>
+        <div class="day-score-guide-scale" aria-label="Escala ${escapeHtml(label)}: 0 ${escapeHtml(low)}, 10 ${escapeHtml(high)}">
+          <span><b>0</b> ${escapeHtml(low)}</span><i aria-hidden="true"></i><span><b>10</b> ${escapeHtml(high)}</span>
+        </div>
+      </div>`).join("")}
+    </div>
+  </section>`;
+}
+
 function valueCard(label,value,help=""){
   return `<div class="profile-stat"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>${help?`<small>${escapeHtml(help)}</small>`:""}</div>`;
 }
@@ -25,6 +51,7 @@ export async function renderProfile(container){
         ${valueCard("Energia",p.energy==null?"—":`${p.energy.toFixed(1)}/10`)}
       </div>
     </div>
+    ${profileScoreReferencesHtml()}
     <div class="grid-2 profile-grid">
       <section class="card"><h2 class="card-title">Dolor</h2>${patternList([
         p.pain.mainZone?`Zona més repetida: ${p.pain.mainZone}.`:null,

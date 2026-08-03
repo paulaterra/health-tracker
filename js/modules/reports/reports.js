@@ -8,6 +8,31 @@ import { intelligentSummaryHtml, recommendationsHtml } from "../../engine/intell
 import { escapeHtml, formatDate } from "../../utils/dom.js";
 import { medicalSummaryData } from "../../engine/personal-insights.js";
 
+
+const REPORT_SCORE_SCALES = [
+  ["Dolor corporal", "sense dolor", "molt dolor"],
+  ["Mal de cap", "sense dolor", "molt intens"],
+  ["Vertígens i boira mental", "cap símptoma", "molt intens"],
+  ["Digestiu", "cap molèstia", "molt intens"],
+  ["Mal descans", "descans reparador", "mal descans"],
+  ["Cansament físic", "molta energia", "esgotament"],
+  ["Pell", "sense molèsties", "molt intens"],
+];
+
+function scoreReferencesHtml({ compact = false } = {}) {
+  return `<div class="card ${compact ? "medical-scale-reference" : ""}" style="margin-top: var(--sp-5);">
+    <h2 class="card-title">Referència de les escales 0–10</h2>
+    <div class="day-score-guide is-multiple" style="margin:0;">
+      ${REPORT_SCORE_SCALES.map(([label, low, high]) => `<div class="day-score-guide-row">
+        <span class="day-score-guide-label">${escapeHtml(label)}</span>
+        <div class="day-score-guide-scale" aria-label="Escala ${escapeHtml(label)}: 0 ${escapeHtml(low)}, 10 ${escapeHtml(high)}">
+          <span><b>0</b> ${escapeHtml(low)}</span><i aria-hidden="true"></i><span><b>10</b> ${escapeHtml(high)}</span>
+        </div>
+      </div>`).join("")}
+    </div>
+  </div>`;
+}
+
 const ALL_STORES = [
   "daily_checkin", "pain_events", "movement_limitations", "headache_events", "vertigo_events", "digestive_events",
   "bowel_movements", "sleep_log", "exercise_log", "cycle_log", "skin_episodes", "medications",
@@ -201,6 +226,8 @@ async function generateReport(container, start, end) {
       <p style="color: var(--ink-soft); margin: 0;">${escapeHtml(formatDate(start))} — ${escapeHtml(formatDate(end))} (${periodDates.length} dies amb dades) · generat el ${escapeHtml(formatDate(todayISO()))}</p>
     </div>
 
+    ${scoreReferencesHtml()}
+
     ${intelligentSummaryHtml(intel, { title: "Resum intel·ligent del període" })}
     ${recommendationsHtml(intel, "Recomanacions i dades a seguir") }
 
@@ -272,6 +299,7 @@ function medicalSummaryHtml(data, avgPeriod, avgPrev, start, end, dayCount) {
       <h1>Resum de salut personal</h1>
       <p>${escapeHtml(formatDate(start))} — ${escapeHtml(formatDate(end))} · ${dayCount} dies amb dades</p>
     </div>
+    ${scoreReferencesHtml({ compact: true })}
     <div class="medical-metrics">
       <div><span>Benestar</span><strong>${avgPeriod ?? "—"}/100</strong><small>${avgPrev!=null?`període anterior ${avgPrev}/100`:"sense comparació"}</small></div>
       <div><span>Dolor</span><strong>${p.pain.average==null?"—":`${p.pain.average.toFixed(1)}/10`}</strong><small>${p.pain.count} registres</small></div>
@@ -434,8 +462,8 @@ async function buildFlags(start, end) {
   });
   if (pains.length > 0) flags.push(`${pains.length} episodi${pains.length === 1 ? "" : "s"} de dolor molt intens (≥8/10).`);
 
-  const skins = (await new Repository("skin_episodes").getAll()).filter(sk => sk.dataInici && sk.dataInici <= end && (sk.dataFi || end) >= start);
-  if (skins.length > 0) flags.push(`${skins.length} episodi${skins.length === 1 ? "" : "s"} de pell actiu${skins.length === 1 ? "" : "s"} en aquest període.`);
+  const skins = (await new Repository("skin_episodes").getAll()).filter(sk => sk.dataInici && sk.dataInici >= start && sk.dataInici <= end);
+  if (skins.length > 0) flags.push(`${skins.length} registre${skins.length === 1 ? "" : "s"} de pell en aquest període.`);
 
   return flags;
 }
