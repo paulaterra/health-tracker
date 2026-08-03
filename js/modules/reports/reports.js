@@ -226,8 +226,6 @@ async function generateReport(container, start, end) {
       <p style="color: var(--ink-soft); margin: 0;">${escapeHtml(formatDate(start))} — ${escapeHtml(formatDate(end))} (${periodDates.length} dies amb dades) · generat el ${escapeHtml(formatDate(todayISO()))}</p>
     </div>
 
-    ${scoreReferencesHtml()}
-
     ${intelligentSummaryHtml(intel, { title: "Resum intel·ligent del període" })}
     ${recommendationsHtml(intel, "Recomanacions i dades a seguir") }
 
