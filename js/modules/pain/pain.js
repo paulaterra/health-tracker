@@ -16,12 +16,14 @@ const DRAWING_TYPES = [
   { value: "rigidesa", label: "Rigidesa", color: PAIN_DRAWING_COLORS.rigidesa },
   { value: "descarrega", label: "Descàrrega / elèctric", color: PAIN_DRAWING_COLORS.descarrega },
   { value: "difus", label: "Dolor difús", color: PAIN_DRAWING_COLORS.difus },
+  { value: "tendo", label: "Mal de tendó", color: PAIN_DRAWING_COLORS.tendo },
+  { value: "tiba", label: "Em tiba", color: PAIN_DRAWING_COLORS.tiba },
 ];
 
 const PAIN_TYPES = [
   "dolor", "sord (mal difús)", "muscular", "tensió", "punxant", "polsàtil",
   "cremor", "elèctric / descàrrega", "pressió / opressiu", "rigidesa",
-  "espasme", "estrebada", "formigueig", "adormiment", "altres",
+  "espasme", "estrebada", "formigueig", "adormiment", "mal de tendó", "em tiba", "altres",
 ].map(v => ({ value: v, label: v }));
 
 const TIME_PATTERN = [

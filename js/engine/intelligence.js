@@ -12,7 +12,7 @@ const medicationRepo = new Repository("medications");
 const PAIN_TYPE_LABELS = {
   punxant: "punxant / ganivet", cremor: "cremor", pressio: "pressió",
   contractura: "contractura", rigidesa: "rigidesa", descarrega: "descàrrega",
-  difus: "dolor difús", altres: "altres"
+  difus: "dolor difús", tendo: "mal de tendó", tiba: "em tiba", altres: "altres"
 };
 
 function dateOnly(value) { return (value || "").slice(0,10); }

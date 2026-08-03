@@ -3,7 +3,7 @@ import { buildDailyMatrix, VARIABLE_META } from "../../engine/normalizer.js";
 import { computeWellbeingByDay, averageWellbeing, wellbeingColor } from "../../engine/wellbeing.js";
 import { escapeHtml, formatDate, formatDateTime } from "../../utils/dom.js";
 import { generateIntelligence } from "../../engine/intelligence.js";
-import { intelligentSummaryHtml } from "../../engine/intelligence-view.js";
+import { intelligentSummaryHtml, sectionalIntelligenceHtml } from "../../engine/intelligence-view.js";
 import { renderBodyMapSvg } from "../pain/zones.js";
 import { renderHeadMapSvg } from "../pain/head-zones.js";
 import { buildPersonalProfile, buildPredictions, calendarIconsForDay } from "../../engine/personal-insights.js";
@@ -117,7 +117,6 @@ export async function renderDashboard(container) {
 
     ${intelligentSummaryHtml(intel, { compact: true, title: "Què destaca ara" })}
 
-
     <div class="grid-2" style="grid-template-columns: 1fr 1fr;">
       ${wellbeingCard(todayScore, avg7, avgPrev7, avg30)}
       ${heatmapCard(byDay)}
@@ -130,6 +129,8 @@ export async function renderDashboard(container) {
     <div class="card" style="margin-top: var(--sp-6);" id="day-detail-card">
       ${await dayDetailHtml(selectedDate)}
     </div>
+
+    ${sectionalIntelligenceHtml(matrix, intel)}
 
     <div class="card" style="margin-top: var(--sp-6);">
       <h2 class="card-title">Evolució</h2>
@@ -519,6 +520,11 @@ const PAIN_VISUAL_COLORS = Object.freeze({
   "estrebada": "#3F7C85",
   "formigueig": "#6B62A8",
   "adormiment": "#7B8794",
+  "mal de tendó": "#3F8F6B",
+  "mal de tendo": "#3F8F6B",
+  "tendó": "#3F8F6B",
+  "em tiba": "#D9822B",
+  "tiba": "#D9822B",
   "altres": "#777777"
 });
 

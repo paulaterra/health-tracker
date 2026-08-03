@@ -6,6 +6,8 @@ export const PAIN_DRAWING_COLORS = Object.freeze({
   rigidesa: "#6F8FAE",
   descarrega: "#D9A21B",
   difus: "#E78FB3",
+  tendo: "#3F8F6B",
+  tiba: "#D9822B",
 });
 
 const LABEL_TO_TYPE = Object.freeze({
@@ -22,6 +24,12 @@ const LABEL_TO_TYPE = Object.freeze({
   "dolor difús": "difus",
   "sord (mal difús)": "difus",
   "difus": "difus",
+  "mal de tendó": "tendo",
+  "mal de tendo": "tendo",
+  "tendó": "tendo",
+  "tendo": "tendo",
+  "em tiba": "tiba",
+  "tiba": "tiba",
 });
 
 export function canonicalPainType(typeOrLabel) {

@@ -122,53 +122,200 @@ function strongestForCategory(intel, category) {
   return (intel?.patterns||[]).find(p=>VARIABLE_META[p.outcomeKey]?.category===category || VARIABLE_META[p.predictorKey]?.category===category);
 }
 
-export function answerHealthQuestion(question, matrix, intel) {
-  const q=String(question||"").trim().toLowerCase();
-  const profile=buildPersonalProfile(matrix,intel);
-  const dates=Object.keys(matrix).sort();
-  if(!q) return {title:"Escriu una pregunta",text:"Pots preguntar quan tens més dolor, què ha canviat aquest mes, què coincideix amb la diarrea o com influeix el cicle.",evidence:[]};
+function normalizeQuestion(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
 
-  if(q.includes("esquena") || q.includes("dolor")){
-    const pattern=strongestForCategory(intel,"Dolor");
-    const evidence=[];
-    if(profile.pain.mainZone) evidence.push(`Zona més repetida: ${profile.pain.mainZone}.`);
-    if(profile.pain.average!=null) evidence.push(`Intensitat mitjana: ${fmt(profile.pain.average)}/10 en ${profile.pain.count} registres.`);
-    if(pattern) evidence.push(pattern.text);
-    return {title:"Què mostren les dades del dolor",text:evidence.length?"Aquest és el resum més consistent que puc extreure ara mateix.":"Encara no hi ha prou registres de dolor per respondre amb fiabilitat.",evidence};
+function relevantDatesForQuestion(q, allDates) {
+  if (!allDates.length) return [];
+  const last = allDates.at(-1);
+  const end = new Date(`${last}T00:00:00`);
+  let days = null;
+  if (q.includes("avui")) days = 1;
+  else if (q.includes("aquesta setmana") || q.includes("ultima setmana") || q.includes("darrers 7") || q.includes("ultims 7")) days = 7;
+  else if (q.includes("aquest mes") || q.includes("ultim mes") || q.includes("darrers 30") || q.includes("ultims 30")) days = 30;
+  else if (q.includes("tres mesos") || q.includes("90 dies")) days = 90;
+  if (!days) return allDates;
+  const min = new Date(end); min.setDate(min.getDate() - days + 1);
+  return allDates.filter(date => new Date(`${date}T00:00:00`) >= min);
+}
+
+function metricSummary(matrix, key, dates) {
+  const rows = dates.map(date => ({ date, value: Number(matrix[date]?.[key]) })).filter(row => Number.isFinite(row.value));
+  if (!rows.length) return null;
+  const avg = mean(rows.map(row => row.value));
+  const max = Math.max(...rows.map(row => row.value));
+  const maxDates = rows.filter(row => row.value === max).map(row => row.date).slice(-3);
+  return { count: rows.length, avg, max, maxDates };
+}
+
+function booleanSummary(matrix, key, dates) {
+  const active = dates.filter(date => matrix[date]?.[key] === true);
+  return { count: active.length, total: dates.length, rate: dates.length ? active.length / dates.length : 0, dates: active.slice(-5) };
+}
+
+function phaseBreakdown(matrix, symptomKey, dates) {
+  const phases = [
+    ["Premenstrual", "cicle_premenstrual"],
+    ["Postmenstrual", "cicle_postmenstrual"],
+    ["Ovulació", "cicle_ovulacio_finestra"],
+    ["Menstruació", "cicle_regla"],
+  ];
+  const rows = phases.map(([label, phaseKey]) => {
+    const phaseDates = dates.filter(date => matrix[date]?.[phaseKey] === true);
+    const symptomDates = phaseDates.filter(date => {
+      const value = matrix[date]?.[symptomKey];
+      return value === true || Number(value) > 0;
+    });
+    return { label, n: phaseDates.length, hits: symptomDates.length, rate: phaseDates.length ? symptomDates.length / phaseDates.length : 0 };
+  }).filter(row => row.n >= 2).sort((a,b) => b.rate - a.rate);
+  return rows;
+}
+
+function matchingPatterns(intel, keys) {
+  const wanted = new Set(keys);
+  return (intel?.patterns || [])
+    .filter(p => wanted.has(p.outcomeKey) || wanted.has(p.predictorKey))
+    .slice(0, 3)
+    .map(p => p.text)
+    .filter(Boolean);
+}
+
+function comparisonEvidence(matrix, key, dates) {
+  if (dates.length < 8) return null;
+  const half = Math.floor(dates.length / 2);
+  const a = mean(values(matrix, key, dates.slice(0, half)));
+  const b = mean(values(matrix, key, dates.slice(half)));
+  if (a == null || b == null) return null;
+  const diff = b - a;
+  if (Math.abs(diff) < 0.25) return `S'ha mantingut estable (${fmt(a)} → ${fmt(b)}).`;
+  return `${diff > 0 ? "Ha augmentat" : "Ha disminuït"} ${Math.abs(diff).toFixed(1)} punts (${fmt(a)} → ${fmt(b)}).`;
+}
+
+export function answerHealthQuestion(question, matrix, intel) {
+  const q = normalizeQuestion(question);
+  const allDates = Object.keys(matrix).sort();
+  const dates = relevantDatesForQuestion(q, allDates);
+  const scope = dates.length === allDates.length ? `tot l'historial (${dates.length} dies)` : `els ${dates.length} dies més recents amb dades`;
+  if (!q) return { title: "Escriu una pregunta", text: "Pots preguntar per una zona, un símptoma, una fase del cicle o un període concret.", evidence: [] };
+  if (!dates.length) return { title: "Sense dades", text: "Encara no hi ha dades registrades per respondre.", evidence: [] };
+
+  const includes = (...words) => words.some(word => q.includes(word));
+  let keys = [];
+  let title = "Resposta basada en el teu historial";
+  let evidence = [];
+
+  if (includes("esquena", "lumbar", "dorsal", "cervical", "dolor")) {
+    keys = includes("esquena", "lumbar", "dorsal", "cervical") ? ["dolor_esquena_intensitat", "dolor_intensitat_max", "dolor_rigidesa"] : ["dolor_general", "dolor_intensitat_max", "dolor_rigidesa"];
+    title = includes("esquena", "lumbar", "dorsal", "cervical") ? "Anàlisi del mal d’esquena" : "Anàlisi del dolor";
+    const metric = metricSummary(matrix, keys[0], dates) || metricSummary(matrix, "dolor_intensitat_max", dates);
+    if (metric) {
+      evidence.push(`Mitjana: ${fmt(metric.avg)}/10 en ${metric.count} dies o registres comparables.`);
+      evidence.push(`Màxim: ${fmt(metric.max,0)}/10${metric.maxDates.length ? ` (${metric.maxDates.join(", ")})` : ""}.`);
+    }
+    const profile = intel?.pain?.profile;
+    if (profile?.topZone?.[0]) evidence.push(`Zona més repetida: ${profile.topZone[0]}.`);
+    if (profile?.topType?.[0]) evidence.push(`Tipus més repetit: ${profile.topType[0]}.`);
+    const phases = phaseBreakdown(matrix, keys[0], dates);
+    if (phases[0]?.hits >= 2) evidence.push(`Fase amb més coincidència: ${phases[0].label} (${phases[0].hits}/${phases[0].n} dies registrats).`);
+    const trend = comparisonEvidence(matrix, keys[0], dates); if (trend) evidence.push(`Evolució: ${trend}`);
+  } else if (includes("mal de cap", "migranya", "cefalea")) {
+    keys = ["mal_de_cap_ocorregut", "mal_de_cap_intensitat"];
+    title = "Anàlisi del mal de cap";
+    const freq = booleanSummary(matrix, "mal_de_cap_ocorregut", dates);
+    const metric = metricSummary(matrix, "mal_de_cap_intensitat", dates);
+    evidence.push(`${freq.count} episodis en ${dates.length} dies analitzats.`);
+    if (metric) evidence.push(`Intensitat mitjana ${fmt(metric.avg)}/10; màxima ${fmt(metric.max,0)}/10.`);
+  } else if (includes("vertigen", "mareig")) {
+    keys = ["vertigen_ocorregut", "vertigen_intensitat"];
+    title = "Anàlisi dels vertígens";
+    const freq = booleanSummary(matrix, "vertigen_ocorregut", dates);
+    const metric = metricSummary(matrix, "vertigen_intensitat", dates);
+    evidence.push(`${freq.count} episodis en ${dates.length} dies analitzats.`);
+    if (metric) evidence.push(`Intensitat mitjana ${fmt(metric.avg)}/10; màxima ${fmt(metric.max,0)}/10.`);
+  } else if (includes("diarrea", "digest", "inflor", "gasos", "bristol", "panxa")) {
+    const key = includes("diarrea", "bristol") ? "digestiu_diarrea" : includes("inflor", "panxa") ? "digestiu_inflor" : includes("gasos") ? "digestiu_gasos" : "digestiu_general";
+    keys = [key, "digestiu_diarrea", "digestiu_inflor", "digestiu_urgencia"];
+    title = "Anàlisi digestiva";
+    if (key === "digestiu_diarrea") {
+      const freq = booleanSummary(matrix, key, dates);
+      evidence.push(`${freq.count} dies amb diarrea en ${dates.length} dies analitzats.`);
+    } else {
+      const metric = metricSummary(matrix, key, dates);
+      if (metric) evidence.push(`Mitjana ${fmt(metric.avg)}/10; màxim ${fmt(metric.max,0)}/10 en ${metric.count} registres.`);
+    }
+    const phases = phaseBreakdown(matrix, key, dates);
+    if (phases[0]?.hits >= 2) evidence.push(`Fase amb més coincidència: ${phases[0].label} (${phases[0].hits}/${phases[0].n}).`);
+  } else if (includes("son", "dorm", "despert", "llums")) {
+    const key = includes("despert") ? "son_despertars" : includes("llums") ? "son_llums_dormida" : "son_qualitat";
+    keys = [key, "son_qualitat", "son_despertars", "son_fatiga_mati"];
+    title = "Anàlisi del son";
+    if (key === "son_llums_dormida") {
+      const freq = booleanSummary(matrix, key, dates);
+      evidence.push(`${freq.count} nits amb llums enceses dormida en ${dates.length} dies analitzats.`);
+    } else {
+      const metric = metricSummary(matrix, key, dates);
+      if (metric) evidence.push(`${VARIABLE_META[key]?.label || "Valor"}: mitjana ${fmt(metric.avg)}${key === "son_qualitat" ? "/10" : ""}; màxim ${fmt(metric.max,0)}.`);
+    }
+    const quality = metricSummary(matrix, "son_qualitat", dates); if (quality && key !== "son_qualitat") evidence.push(`Qualitat mitjana del son: ${fmt(quality.avg)}/10.`);
+    const trend = comparisonEvidence(matrix, "son_qualitat", dates); if (trend) evidence.push(`Evolució de la qualitat: ${trend}`);
+  } else if (includes("pell", "eczema", "acne", "urtic", "picor")) {
+    keys = ["pell_brot"];
+    title = "Anàlisi de la pell";
+    const freq = booleanSummary(matrix, "pell_brot", dates);
+    evidence.push(`${freq.count} dies amb brot en ${dates.length} dies analitzats.`);
+    const phases = phaseBreakdown(matrix, "pell_brot", dates);
+    if (phases[0]?.hits >= 2) evidence.push(`Fase amb més brots: ${phases[0].label} (${phases[0].hits}/${phases[0].n}).`);
+  } else if (includes("exercici", "gimnas", "caminar", "passos", "fisio")) {
+    const key = includes("passos", "caminar") ? "exercici_passos" : "exercici_fet";
+    keys = [key, "exercici_fet", "exercici_passos", "exercici_gimnas", "exercici_fisio"];
+    title = "Anàlisi de l’activitat";
+    if (key === "exercici_passos") {
+      const metric = metricSummary(matrix, key, dates);
+      if (metric) evidence.push(`Mitjana de ${Math.round(metric.avg).toLocaleString("ca-ES")} passos; màxim ${Math.round(metric.max).toLocaleString("ca-ES")}.`);
+    }
+    const freq = booleanSummary(matrix, "exercici_fet", dates);
+    evidence.push(`Activitat registrada en ${freq.count} de ${dates.length} dies.`);
+  } else if (includes("regla", "cicle", "ovul", "premenstrual", "postmenstrual")) {
+    keys = ["cicle_regla", "cicle_premenstrual", "cicle_postmenstrual", "cicle_ovulacio_finestra"];
+    title = "Anàlisi del cicle";
+    evidence = (intel?.cycle?.detected || []).map(item => item.text).slice(0, 5);
+    if (!evidence.length && intel?.cycle?.summary) evidence.push(intel.cycle.summary);
+  } else if (includes("medic", "ibuprofen", "paracetamol")) {
+    keys = ["medicacio_presa"];
+    title = "Anàlisi de la medicació";
+    const freq = booleanSummary(matrix, "medicacio_presa", dates);
+    evidence.push(`Medicació registrada en ${freq.count} de ${dates.length} dies.`);
+    const med = intel?.medication?.summary || intel?.medication?.text; if (med) evidence.push(med);
+  } else if (includes("energia", "cans", "esgot")) {
+    const key = includes("mental") ? "energia_mental" : "energia_fisica";
+    keys = [key, "energia_esgotament"];
+    title = "Anàlisi de l’energia";
+    const metric = metricSummary(matrix, key, dates);
+    if (metric) evidence.push(`Mitjana ${fmt(metric.avg)}/10; mínims i màxims basats en ${metric.count} dies.`);
+    const exhausted = booleanSummary(matrix, "energia_esgotament", dates); if (exhausted.count) evidence.push(`Esgotament registrat en ${exhausted.count} dies.`);
+  } else if (includes("pitjor", "empitjora", "desencaden")) {
+    title = "Factors que coincideixen amb dies pitjors";
+    evidence = (intel?.triggers || []).slice(0, 5).map(x => x.text).filter(Boolean);
+  } else if (includes("millor", "protector")) {
+    title = "Factors que coincideixen amb dies millors";
+    evidence = (intel?.protectors || []).slice(0, 5).map(x => x.text).filter(Boolean);
+  } else if (includes("canvi", "evoluc", "setmana", "mes")) {
+    title = "Canvis recents";
+    evidence = (intel?.trends || []).slice(0, 5).map(t => t.text || `${t.label || t.key}: tendència detectada.`);
   }
-  if(q.includes("diarrea") || q.includes("digest" ) || q.includes("inflor")){
-    const pattern=strongestForCategory(intel,"Digestiu");
-    const evidence=[`Diarrea registrada en el ${(profile.digestion.diarrheaRate*100).toFixed(0)}% dels dies amb dades.`];
-    if(profile.digestion.bloating!=null) evidence.push(`Inflor mitjana registrada: ${fmt(profile.digestion.bloating)}/10.`);
-    if(pattern) evidence.push(pattern.text);
-    return {title:"Patrons digestius",text:"He comparat els registres digestius amb son, dolor, exercici i cicle.",evidence};
-  }
-  if(q.includes("regla") || q.includes("cicle") || q.includes("ovul")){
-    const evidence=profile.cyclePatterns.length?profile.cyclePatterns:[intel?.cycle?.summary].filter(Boolean);
-    return {title:"Relació amb el cicle",text:profile.cyclePatterns.length?"Només mostro patrons que han superat els llindars mínims de dades.":"Encara no s’ha detectat cap relació consistent amb el cicle.",evidence};
-  }
-  if(q.includes("son") || q.includes("despert")){
-    const pattern=strongestForCategory(intel,"Son");
-    const evidence=[];
-    if(profile.sleep.quality!=null)evidence.push(`Qualitat mitjana del son: ${fmt(profile.sleep.quality)}/10.`);
-    if(profile.sleep.awakenings!=null)evidence.push(`Mitjana de despertars: ${fmt(profile.sleep.awakenings)}.`);
-    if(pattern)evidence.push(pattern.text);
-    return {title:"Son i símptomes",text:evidence.length?"Aquests són els resultats disponibles.":"Encara falten registres de son comparables.",evidence};
-  }
-  if(q.includes("setmana") || q.includes("mes") || q.includes("canvi")){
-    const trends=(intel?.trends||[]).slice(0,5).map(t=>t.text||`${t.label||t.key}: tendència detectada.`);
-    return {title:"Canvis recents",text:trends.length?"He comparat la primera i la segona meitat del període disponible.":"Encara no hi ha prou dies per comparar tendències.",evidence:trends};
-  }
-  if(q.includes("pitjor") || q.includes("malament")){
-    const evidence=(intel?.triggers||[]).slice(0,5).map(x=>x.text).filter(Boolean);
-    return {title:"Factors que coincideixen amb dies pitjors",text:evidence.length?"Són associacions observades, no causes demostrades.":"Encara no hi ha cap possible desencadenant amb prou evidència.",evidence};
-  }
-  if(q.includes("millor") || q.includes("protector")){
-    const evidence=(intel?.protectors||[]).slice(0,5).map(x=>x.text).filter(Boolean);
-    return {title:"Factors que coincideixen amb dies millors",text:evidence.length?"Aquests factors s’han associat amb valors més favorables.":"Encara no hi ha cap factor protector consistent.",evidence};
-  }
-  const evidence=(intel?.patterns||[]).slice(0,5).map(p=>p.text);
-  return {title:"Resposta basada en el teu historial",text:evidence.length?"No he pogut associar la pregunta a un únic apartat; et mostro els patrons més forts disponibles.":"Encara no hi ha prou dades per respondre aquesta pregunta.",evidence};
+
+  const patterns = matchingPatterns(intel, keys);
+  patterns.forEach(text => { if (!evidence.includes(text)) evidence.push(text); });
+  evidence = evidence.filter(Boolean).slice(0, 7);
+  const text = evidence.length
+    ? `He analitzat ${scope}. La resposta separa els valors observats dels patrons que compleixen els llindars mínims.`
+    : `No hi ha prou dades específiques per respondre amb precisió sobre ${scope}. Prova d'indicar el símptoma, la zona o el període.`;
+  return { title, text, evidence };
 }
 
 export function medicalSummaryData(matrix,intel){
