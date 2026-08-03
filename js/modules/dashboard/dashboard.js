@@ -34,6 +34,64 @@ const METRICS = [
 let currentMetric = "wellbeing";
 let selectedDate = null;
 let calendarMonth = null;
+let currentAnalysisDays = 30;
+
+
+function analysisDateRange(days) {
+  const end = new Date();
+  const start = new Date(end);
+  start.setDate(start.getDate() - (days - 1));
+  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+}
+
+function matrixForLastDays(matrix, days) {
+  const { start, end } = analysisDateRange(days);
+  return Object.fromEntries(Object.entries(matrix).filter(([date]) => date >= start && date <= end));
+}
+
+function analysisPeriodHtml(matrix, intel, days) {
+  return `
+    <div class="card dashboard-analysis-period" style="margin-top: var(--sp-6);">
+      <div class="section-analysis-heading" style="margin-bottom: var(--sp-4);">
+        <div>
+          <span class="view-eyebrow">Període d’anàlisi</span>
+          <h2 class="card-title">Anàlisi intel·ligent</h2>
+        </div>
+        <div class="tabs" id="analysis-period-tabs" aria-label="Selecciona el període de l’anàlisi">
+          ${[30, 60, 90].map(value => `<button type="button" class="tab-btn ${value === days ? "active" : ""}" data-analysis-days="${value}">Últims ${value} dies</button>`).join("")}
+        </div>
+      </div>
+      <div id="sectional-intelligence-wrap">
+        ${sectionalIntelligenceHtml(matrix, intel, { title: `Lectura dels últims ${days} dies` })}
+      </div>
+    </div>`;
+}
+
+function wireAnalysisPeriod(container, fullMatrix) {
+  container.querySelectorAll("[data-analysis-days]").forEach(button => {
+    button.addEventListener("click", async () => {
+      const days = Number(button.dataset.analysisDays);
+      if (!days || days === currentAnalysisDays) return;
+      currentAnalysisDays = days;
+      container.querySelectorAll("[data-analysis-days]").forEach(item => {
+        item.classList.toggle("active", item === button);
+        item.disabled = true;
+      });
+      const wrap = container.querySelector("#sectional-intelligence-wrap");
+      if (wrap) wrap.innerHTML = `<div class="ledger-empty">Calculant l’anàlisi dels últims ${days} dies…</div>`;
+      try {
+        const range = analysisDateRange(days);
+        const intel = await generateIntelligence(range);
+        if (wrap) wrap.innerHTML = sectionalIntelligenceHtml(matrixForLastDays(fullMatrix, days), intel, { title: `Lectura dels últims ${days} dies` });
+      } catch (error) {
+        console.error("No s’ha pogut actualitzar el període d’anàlisi", error);
+        if (wrap) wrap.innerHTML = `<div class="ledger-empty">No s’ha pogut calcular l’anàlisi. Torna-ho a provar.</div>`;
+      } finally {
+        container.querySelectorAll("[data-analysis-days]").forEach(item => { item.disabled = false; });
+      }
+    });
+  });
+}
 
 function dateOnly(v) {
   return (v || "").slice(0, 10);
@@ -72,6 +130,7 @@ function movementShortLabel(value) {
 
 export async function renderDashboard(container) {
   currentMetric = "wellbeing";
+  currentAnalysisDays = 30;
   selectedDate = new Date().toISOString().slice(0, 10);
   calendarMonth = selectedDate.slice(0, 7);
 
@@ -84,7 +143,12 @@ export async function renderDashboard(container) {
     <div class="card"><p class="ledger-empty">Calculant…</p></div>
   `;
 
-  const [matrix, intel] = await Promise.all([buildDailyMatrix(), generateIntelligence()]);
+  const initialRange = analysisDateRange(currentAnalysisDays);
+  const [matrix, intel, analysisIntel] = await Promise.all([
+    buildDailyMatrix(),
+    generateIntelligence(),
+    generateIntelligence(initialRange),
+  ]);
   const byDay = computeWellbeingByDay(matrix);
   const allDates = Object.keys(matrix).sort();
 
@@ -130,7 +194,7 @@ export async function renderDashboard(container) {
       ${await dayDetailHtml(selectedDate)}
     </div>
 
-    ${sectionalIntelligenceHtml(matrix, intel)}
+    ${analysisPeriodHtml(matrixForLastDays(matrix, currentAnalysisDays), analysisIntel, currentAnalysisDays)}
 
     <div class="card" style="margin-top: var(--sp-6);">
       <h2 class="card-title">Evolució</h2>
@@ -148,6 +212,7 @@ export async function renderDashboard(container) {
 
   wireDateCells(container);
   wireDetailedCalendar(container, byDay, dailyRecordCounts, matrix);
+  wireAnalysisPeriod(container, matrix);
   container.querySelectorAll("[data-smart-route]").forEach(button => button.addEventListener("click", () => {
     const route = button.dataset.smartRoute;
     document.querySelector(`[data-route="${route}"]`)?.click();
@@ -188,6 +253,7 @@ function wireDetailedCalendar(container, byDay, dailyRecordCounts, matrix) {
       wrap.innerHTML = detailedCalendarHtml(byDay, dailyRecordCounts, calendarMonth, selectedDate, matrix);
       wireDateCells(container, wrap);
       wireDetailedCalendar(container, byDay, dailyRecordCounts, matrix);
+  wireAnalysisPeriod(container, matrix);
     });
   });
 }
@@ -987,11 +1053,12 @@ async function dayDetailHtml(date) {
     pushCard("cycle", `${listChips(chips)}${note(cycle.comentari)}`);
   }
 
-  const skins = (await new Repository("skin_episodes").getAll()).filter(sk => {
-    if (!sk.dataInici) return false;
-    const end = sk.dataFi || new Date().toISOString().slice(0, 10);
-    return sk.dataInici <= date && date <= end;
-  });
+  // El resum per apartats és estrictament del dia seleccionat.
+  // Per tant, un episodi de pell només hi apareix el dia en què es registra,
+  // encara que tingui una data de finalització posterior o continuï actiu.
+  const skins = (await new Repository("skin_episodes").getAll()).filter(sk =>
+    sk.dataInici && dateOnly(sk.dataInici) === date
+  );
   if (skins.length) {
     const body = skins.map(sk => {
       const entries = (sk.entries || []).flatMap(en => (en.tipus || []).map(type => `${en.zonaLabel}: ${type}`));
