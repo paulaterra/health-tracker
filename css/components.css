@@ -1136,3 +1136,43 @@ textarea { min-height: 72px; resize: vertical; }
   .section-analysis-grid { grid-template-columns:1fr; }
   .section-analysis-heading { align-items:center; }
 }
+
+
+/* v1.4.3 · Limitacions visibles dins del mapa de dolor */
+.pain-movement-summary {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, #9A5B45 32%, var(--line));
+  border-radius: 14px;
+  background: color-mix(in srgb, #F5E9E3 72%, var(--paper));
+}
+.pain-movement-summary-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 7px;
+  color: #744535;
+  font-size: 12px;
+  letter-spacing: .02em;
+}
+.pain-movement-summary-title > span { font-size: 15px; line-height: 1; }
+.pain-movement-chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.pain-movement-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 25px;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, #9A5B45 30%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, #F5E9E3 54%, var(--paper));
+  color: color-mix(in srgb, #744535 82%, var(--ink));
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+.pain-movement-chip i { color: #9A5B45; font-size: 12px; font-style: normal; }
+@media (max-width: 560px) {
+  .pain-movement-summary { padding: 9px 10px; }
+  .pain-movement-chip { font-size: 10.5px; }
+}

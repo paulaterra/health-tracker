@@ -649,7 +649,23 @@ function painRecordHasPart(pain, part) {
   return filtered.entries.length > 0 || filtered.painDrawing.length > 0;
 }
 
-function painGroupedRecordsHtml(records, part) {
+function movementLimitationsCompactHtml(records = []) {
+  const neck = [...new Set(records.flatMap(item => Array.isArray(item?.neck) ? item.neck : []).filter(Boolean))];
+  const back = [...new Set(records.flatMap(item => Array.isArray(item?.back) ? item.back : []).filter(Boolean))];
+  if (!neck.length && !back.length) return "";
+
+  const chips = [
+    ...neck.map(value => `<span class="pain-movement-chip"><i aria-hidden="true">↺</i>${escapeHtml(movementShortLabel(value))}</span>`),
+    ...back.map(value => `<span class="pain-movement-chip"><i aria-hidden="true">↔</i>${escapeHtml(movementShortLabel(value))}</span>`),
+  ].join("");
+
+  return `<aside class="pain-movement-summary" aria-label="Limitacions de moviment del dia">
+    <div class="pain-movement-summary-title"><span aria-hidden="true">↔</span><strong>Limitacions de moviment</strong></div>
+    <div class="pain-movement-chip-list">${chips}</div>
+  </aside>`;
+}
+
+function painGroupedRecordsHtml(records, part, movementLimitations = []) {
   const label = part === "head" ? "Cap" : "Cos";
   const filteredRecords = records
     .filter(record => painRecordHasPart(record, part) || (part === "body" && !painRecordHasPart(record, "head")))
@@ -661,6 +677,7 @@ function painGroupedRecordsHtml(records, part) {
       <div><span class="day-pain-part-kicker">Dolor corporal</span><h4>${label}</h4></div>
       <span class="badge">${filteredRecords.length} ${filteredRecords.length === 1 ? "registre" : "registres"}</span>
     </div>
+    ${part === "body" ? movementLimitationsCompactHtml(movementLimitations) : ""}
     <div class="day-pain-records">
       ${filteredRecords.map(({ original, filtered }) => `<article class="day-pain-record">
         <div class="day-pain-record-head"><strong>${escapeHtml(formatDateTime(original.timestamp))}</strong><span class="badge">${Number(original.intensitat) || 0}/10</span></div>
@@ -900,8 +917,8 @@ async function dayDetailHtml(date) {
     <section class="day-pain-section">
       <div class="dashboard-section-heading"><h3 class="day-section-title">Mapa del dolor</h3><span class="badge">${pains.length} ${pains.length === 1 ? "registre" : "registres"}</span></div>
       <div class="day-pain-parts">
-        ${painGroupedRecordsHtml(pains, "body")}
-        ${painGroupedRecordsHtml(pains, "head")}
+        ${painGroupedRecordsHtml(pains, "body", movementLimitations)}
+        ${painGroupedRecordsHtml(pains, "head", movementLimitations)}
       </div>
     </section>` : "";
 
