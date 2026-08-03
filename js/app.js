@@ -17,6 +17,7 @@ import { renderAbout } from "./modules/about/about.js";
 import { renderProfile } from "./modules/profile/profile.js";
 import { renderAssistant } from "./modules/assistant/assistant.js";
 import { APP_INFO } from "./app-info.js";
+import { migrateUnifiedScoreDirection } from "./engine/score-scale-migration.js";
 import { isViewerMode, startViewerSession, clearViewerSession } from "./view-mode.js";
 
 // Rutes construïdes fins ara (Fase 0 a Fase 3, completa).
@@ -259,6 +260,7 @@ function renderLogin(message = "") {
   });
 }
 async function enterApp() {
+  if (!isViewerMode()) await migrateUnifiedScoreDirection();
   renderShell();
   await navigateTo(isViewerMode() ? "dashboard" : "inici");
 }

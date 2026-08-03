@@ -38,7 +38,7 @@ export function buildPersonalProfile(matrix, intel) {
   const protector=intel?.protectors?.[0];
   const best=[
     protector ? protector.text || null : null,
-    energy!=null ? `Energia física habitual: ${fmt(energy)}/10.` : null,
+    energy!=null ? `Cansament físic habitual: ${fmt(energy)}/10.` : null,
   ].filter(Boolean);
   return {
     days: dates.length,
@@ -261,8 +261,8 @@ export function answerHealthQuestion(question, matrix, intel) {
       const metric = metricSummary(matrix, key, dates);
       if (metric) evidence.push(`${VARIABLE_META[key]?.label || "Valor"}: mitjana ${fmt(metric.avg)}${key === "son_qualitat" ? "/10" : ""}; màxim ${fmt(metric.max,0)}.`);
     }
-    const quality = metricSummary(matrix, "son_qualitat", dates); if (quality && key !== "son_qualitat") evidence.push(`Qualitat mitjana del son: ${fmt(quality.avg)}/10.`);
-    const trend = comparisonEvidence(matrix, "son_qualitat", dates); if (trend) evidence.push(`Evolució de la qualitat: ${trend}`);
+    const quality = metricSummary(matrix, "son_qualitat", dates); if (quality && key !== "son_qualitat") evidence.push(`Mal descans mitjà: ${fmt(quality.avg)}/10.`);
+    const trend = comparisonEvidence(matrix, "son_qualitat", dates); if (trend) evidence.push(`Evolució del mal descans: ${trend}`);
   } else if (includes("pell", "eczema", "acne", "urtic", "picor")) {
     keys = ["pell_brot"];
     title = "Anàlisi de la pell";
@@ -294,7 +294,7 @@ export function answerHealthQuestion(question, matrix, intel) {
   } else if (includes("energia", "cans", "esgot")) {
     const key = includes("mental") ? "energia_mental" : "energia_fisica";
     keys = [key, "energia_esgotament"];
-    title = "Anàlisi de l’energia";
+    title = "Anàlisi del cansament i la boira mental";
     const metric = metricSummary(matrix, key, dates);
     if (metric) evidence.push(`Mitjana ${fmt(metric.avg)}/10; mínims i màxims basats en ${metric.count} dies.`);
     const exhausted = booleanSummary(matrix, "energia_esgotament", dates); if (exhausted.count) evidence.push(`Esgotament registrat en ${exhausted.count} dies.`);

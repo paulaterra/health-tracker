@@ -38,7 +38,7 @@ export const VARIABLE_META = {
   digestiu_deposicio_registrada: { label: "Deposició registrada", type: "boolean", category: "Digestiu" },
   digestiu_llagues_boca:    { label: "Llagues a la boca", type: "boolean", category: "Digestiu", valence: "negative" },
 
-  son_qualitat:             { label: "Qualitat del son", type: "numeric", category: "Son", valence: "positive" },
+  son_qualitat:             { label: "Mal descans", type: "numeric", category: "Son", valence: "negative" },
   son_despertars:           { label: "Nombre de despertars", type: "numeric", category: "Son", valence: "negative" },
   son_fatiga_mati:          { label: "Fatiga en llevar-se", type: "numeric", category: "Son", valence: "negative" },
   son_parasomnia:           { label: "Parasomnia (caminar, visions, crits...)", type: "boolean", category: "Son", valence: "negative" },
@@ -46,8 +46,8 @@ export const VARIABLE_META = {
   son_registrat:            { label: "Registre de son completat", type: "boolean", category: "Son" },
   son_mocs_matinals:        { label: "Mocs en llevar-me", type: "boolean", category: "Son", valence: "negative" },
 
-  energia_fisica:           { label: "Energia física", type: "numeric", category: "Energia", valence: "positive" },
-  energia_mental:           { label: "Energia mental", type: "numeric", category: "Energia", valence: "positive" },
+  energia_fisica:           { label: "Cansament físic", type: "numeric", category: "Energia", valence: "negative" },
+  energia_mental:           { label: "Boira mental", type: "numeric", category: "Energia", valence: "negative" },
   energia_esgotament:       { label: "Esgotament físic", type: "boolean", category: "Energia", valence: "negative" },
 
   exercici_fet:             { label: "Exercici (qualsevol tipus)", type: "boolean", category: "Exercici" },
@@ -115,7 +115,7 @@ export async function buildDailyMatrix() {
     setValue(matrix, d, "son_qualitat", c.sonQualitat);
     setValue(matrix, d, "energia_fisica", c.energiaFisica);
     setValue(matrix, d, "energia_mental", c.energiaMental);
-    if (Number(c.energiaFisica) <= 3) setBool(matrix, d, "energia_esgotament");
+    if (Number(c.energiaFisica) >= 7) setBool(matrix, d, "energia_esgotament");
     if (c.malDeCap) setBool(matrix, d, "mal_de_cap_ocorregut");
   });
 

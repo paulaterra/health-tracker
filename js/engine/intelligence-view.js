@@ -92,7 +92,7 @@ const SECTIONAL_ANALYSIS = [
   { key:"vertigo", icon:"◎", title:"Vertígens", tone:"violet", vars:["vertigen_ocorregut","vertigen_intensitat"] },
   { key:"digestive", icon:"≈", title:"Digestiu", tone:"amber", category:"Digestiu", vars:["digestiu_general","digestiu_inflor","digestiu_dolorAbdominal","digestiu_retortijons","digestiu_gasos","digestiu_urgencia","digestiu_diarrea"] },
   { key:"sleep", icon:"☾", title:"Son", tone:"teal", category:"Son", vars:["son_qualitat","son_despertars","son_fatiga_mati","son_parasomnia","son_llums_dormida"] },
-  { key:"energy", icon:"⚡", title:"Energia i check-in", tone:"sage", category:"Energia", vars:["energia_fisica","energia_mental","energia_esgotament"] },
+  { key:"energy", icon:"⚡", title:"Cansament i check-in", tone:"sage", category:"Energia", vars:["energia_fisica","energia_mental","energia_esgotament"] },
   { key:"exercise", icon:"↗", title:"Exercici i activitat", tone:"blue", category:"Exercici", vars:["exercici_fet","exercici_gimnas","exercici_fisio","exercici_activacio_neuromuscular","exercici_caminar","exercici_passos"] },
   { key:"cycle", icon:"○", title:"Cicle menstrual", tone:"pink", category:"Cicle", vars:["cicle_regla","cicle_premenstrual","cicle_postmenstrual","cicle_ovulacio_finestra"] },
   { key:"skin", icon:"✦", title:"Pell", tone:"orange", category:"Pell", vars:["pell_brot"] },
@@ -153,15 +153,15 @@ function sectionObservations(section, matrix, intel) {
     const awakenings=valuesFor(matrix,"son_despertars").map(Number).filter(Number.isFinite);
     const parasomnia=valuesFor(matrix,"son_parasomnia").filter(Boolean).length;
     evidence=quality.length;
-    if (quality.length) observations.push(`Qualitat mitjana del son ${meanValue(quality).toFixed(1)}/10 en ${quality.length} nits.`);
+    if (quality.length) observations.push(`Mal descans mitjà ${meanValue(quality).toFixed(1)}/10 en ${quality.length} nits.`);
     if (awakenings.length) observations.push(`Mitjana de ${meanValue(awakenings).toFixed(1)} despertars per nit registrada.`);
     if (parasomnia) observations.push(`${parasomnia} nits amb incidències de parasòmnia.`);
   } else if (section.key === "energy") {
     const physical=valuesFor(matrix,"energia_fisica").map(Number).filter(Number.isFinite);
     const mental=valuesFor(matrix,"energia_mental").map(Number).filter(Number.isFinite);
     evidence=Math.max(physical.length,mental.length);
-    if (physical.length) observations.push(`Energia física mitjana ${meanValue(physical).toFixed(1)}/10.`);
-    if (mental.length) observations.push(`Energia mental mitjana ${meanValue(mental).toFixed(1)}/10.`);
+    if (physical.length) observations.push(`Cansament físic mitjà ${meanValue(physical).toFixed(1)}/10.`);
+    if (mental.length) observations.push(`Boira mental mitjana ${meanValue(mental).toFixed(1)}/10.`);
   } else if (section.key === "exercise") {
     const active=valuesFor(matrix,"exercici_fet").filter(Boolean).length;
     const walking=valuesFor(matrix,"exercici_caminar").filter(Boolean).length;

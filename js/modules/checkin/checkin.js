@@ -6,9 +6,9 @@ const repo = new Repository("daily_checkin");
 const FIELDS = [
   { key: "dolorGeneral", label: "Dolor general", low: "sense dolor", high: "dolor extrem" },
   { key: "digestiuGeneral", label: "Malestar digestiu", low: "cap molèstia", high: "molt intens" },
-  { key: "sonQualitat", label: "Qualitat del son (nit passada)", low: "molt dolent", high: "excel·lent" },
-  { key: "energiaFisica", label: "Energia física", low: "esgotament, cansament", high: "molta energia" },
-  { key: "energiaMental", label: "Energia mental", low: "boira mental, distreta", high: "clara, concentrada" },
+  { key: "sonQualitat", label: "Mal descans (nit passada)", low: "descans reparador", high: "molt mal son" },
+  { key: "energiaFisica", label: "Cansament físic", low: "molta energia", high: "esgotament" },
+  { key: "energiaMental", label: "Boira mental", low: "ment clara", high: "boira mental intensa" },
 ];
 
 function todayISO() {
@@ -22,8 +22,7 @@ function shiftDate(dateStr, days) {
 }
 
 function levelFor(key, value) {
-  const invert = key === "sonQualitat" || key === "energiaFisica" || key === "energiaMental";
-  const v = invert ? 10 - value : value;
+  const v = Number(value) || 0;
   if (v <= 3) return "low";
   if (v <= 6) return "mid";
   return "high";
@@ -40,9 +39,9 @@ export async function renderCheckin(container, dateOverride) {
         date,
         dolorGeneral: 0,
         digestiuGeneral: 0,
-        sonQualitat: 5,
-        energiaFisica: 5,
-        energiaMental: 5,
+        sonQualitat: 0,
+        energiaFisica: 0,
+        energiaMental: 0,
         malDeCap: false,
         comentari: "",
       };
@@ -88,6 +87,7 @@ export async function renderCheckin(container, dateOverride) {
     e.preventDefault();
     const payload = {
       id: existing?.id,
+      scoreScaleVersion: 2,
       date,
       dolorGeneral: Number(form.querySelector('[name="dolorGeneral"]').value),
       digestiuGeneral: Number(form.querySelector('[name="digestiuGeneral"]').value),

@@ -58,7 +58,7 @@ function painSpecificInsights(records, matrix) {
       return {labelA,labelB,nA:a.length,nB:b.length,meanA,meanB,diff};
     }
     const associations=[
-      compare(d=>Number(d.son_qualitat)<=3,d=>Number(d.son_qualitat)>=6,"son dolent","son bo"),
+      compare(d=>Number(d.son_qualitat)>=7,d=>Number(d.son_qualitat)<=3,"son dolent","son bo"),
       compare(d=>d.cicle_premenstrual===true,d=>d.cicle_premenstrual!==true,"fase premenstrual","resta de dies"),
       compare(d=>d.exercici_fet===true,d=>d.exercici_fet!==true,"dies amb exercici","dies sense exercici"),
       compare(d=>Number(d.digestiu_general)>=6||Number(d.digestiu_inflor)>=6,d=>Number(d.digestiu_general)<=3&&Number(d.digestiu_inflor)<=3,"malestar digestiu alt","malestar digestiu baix"),

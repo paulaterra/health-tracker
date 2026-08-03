@@ -21,7 +21,7 @@ export async function renderProfile(container){
       <div class="profile-stat-grid">
         ${valueCard("Dolor habitual",p.pain.average==null?"—":`${p.pain.average.toFixed(1)}/10`,`${p.pain.count} registres`)}
         ${valueCard("Zona principal",p.pain.mainZone||"Encara no detectada")}
-        ${valueCard("Qualitat del son",p.sleep.quality==null?"—":`${p.sleep.quality.toFixed(1)}/10`)}
+        ${valueCard("Mal descans",p.sleep.quality==null?"—":`${p.sleep.quality.toFixed(1)}/10`)}
         ${valueCard("Energia",p.energy==null?"—":`${p.energy.toFixed(1)}/10`)}
       </div>
     </div>
@@ -35,7 +35,7 @@ export async function renderProfile(container){
       <section class="card"><h2 class="card-title">Son i energia</h2>${patternList([
         p.sleep.quality!=null?`Qualitat mitjana: ${p.sleep.quality.toFixed(1)}/10.`:null,
         p.sleep.awakenings!=null?`Mitjana de despertars: ${p.sleep.awakenings.toFixed(1)}.`:null,
-        p.energy!=null?`Energia física mitjana: ${p.energy.toFixed(1)}/10.`:null,
+        p.energy!=null?`Cansament físic mitjà: ${p.energy.toFixed(1)}/10.`:null,
       ].filter(Boolean),"Encara falten registres de son i energia.")}</section>
       <section class="card"><h2 class="card-title">Digestiu i cicle</h2>${patternList([
         `Diarrea en el ${(p.digestion.diarrheaRate*100).toFixed(0)}% dels dies amb dades.`,

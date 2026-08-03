@@ -79,7 +79,7 @@ export async function renderSleep(container, dateOverride) {
         </div>
 
         <div class="field"><label class="field-label" for="horesDormides">Temps dormint / hores dormides</label><input type="text" id="horesDormides" placeholder="p. ex. 7 h 20 min" value="${escapeHtml(s.horesDormides || "")}"><p class="field-help">Indica el temps que creus que has dormit realment, descomptant el temps desperta.</p></div>
-        ${sliderField("qualitat", "Qualitat del son", s.qualitat ?? 5, "molt dolent", "excel·lent")}
+        ${sliderField("qualitat", "Mal descans / qualitat del son", s.qualitat ?? 0, "descans reparador", "molt mal son")}
         ${sliderField("numDespertars", "Nombre de despertars", s.numDespertars ?? 0, "cap", "molts")}
         ${sliderField("fatigaMati", "Fatiga en llevar-me", s.fatigaMati ?? 0, "cap", "extrema")}
 
@@ -137,6 +137,7 @@ export async function renderSleep(container, dateOverride) {
     const form = e.target;
     const payload = {
       id: existing?.id,
+      scoreScaleVersion: 2,
       date,
       horaLlit: form.querySelector("#horaLlit").value.trim(),
       horaIntent: form.querySelector("#horaIntent").value.trim(),
@@ -193,7 +194,7 @@ function rowTemplate(e) {
     <div class="event-row">
       <div class="event-row-top">
         <span class="event-when">${formatDate(e.date)}</span>
-        <span class="badge">qualitat ${e.qualitat ?? "–"}/10</span>
+        <span class="badge">mal descans ${e.qualitat ?? "–"}/10</span>
         <span class="row-actions"><button type="button" data-edit-date="${e.date}">editar</button><button type="button" class="danger" data-delete="${e.id}">eliminar</button></span>
       </div>
       <div class="event-tags">${e.horaLlit || "–"} → ${e.horaLlevar || "–"}${e.horesDormides ? " · " + escapeHtml(e.horesDormides) + " dormides" : ""} · ${e.numDespertars ?? 0} despertars</div>

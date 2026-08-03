@@ -1176,3 +1176,76 @@ textarea { min-height: 72px; resize: vertical; }
   .pain-movement-summary { padding: 9px 10px; }
   .pain-movement-chip { font-size: 10.5px; }
 }
+
+/* v1.4.5 · Guia d'escales fora de les targetes */
+.day-score-guide {
+  margin: -2px 14px 12px;
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, var(--module-color, #888) 14%, var(--line));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--module-soft, var(--paper-soft)) 42%, var(--paper));
+}
+.day-score-guide.is-multiple {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px 14px;
+}
+.day-score-guide-row {
+  min-width: 0;
+}
+.day-score-guide-label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--ink-soft);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .01em;
+}
+.day-score-guide-scale {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(24px, 1fr) minmax(0, auto);
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  color: var(--ink-faint);
+  font-size: 10px;
+  line-height: 1.15;
+}
+.day-score-guide-scale span {
+  min-width: 0;
+  white-space: nowrap;
+}
+.day-score-guide-scale span:last-child {
+  justify-self: end;
+  text-align: right;
+}
+.day-score-guide-scale b {
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+.day-score-guide-scale i {
+  display: block;
+  min-width: 22px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--module-color, #888) 18%, transparent),
+    color-mix(in srgb, var(--module-color, #888) 64%, transparent));
+}
+.day-stat strong {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+}
+@media (max-width: 720px) {
+  .day-score-guide.is-multiple { grid-template-columns: 1fr; gap: 8px; }
+}
+@media (max-width: 480px) {
+  .day-score-guide { margin: -2px 10px 10px; padding: 8px 9px; }
+  .day-score-guide-scale { gap: 5px; font-size: 9px; }
+  .day-score-guide-scale b,
+  .day-score-guide-label { font-size: 9px; }
+  .day-score-guide-scale span { white-space: normal; }
+  .day-score-guide-scale span:last-child { max-width: 86px; }
+}

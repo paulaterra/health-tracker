@@ -190,7 +190,7 @@ export function analyzeCyclePatterns(matrix) {
       outcome: "energia_esgotament",
       observationKey: "energia_fisica",
       minDiff: 0.2,
-      trackingText: "Completa l'energia física cada dia, encara que et trobis bé.",
+      trackingText: "Completa el cansament físic cada dia, encara que et trobis bé.",
     }),
     numericHypothesis(matrix, starts, {
       id: "awakenings_before_period",
