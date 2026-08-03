@@ -6,6 +6,7 @@ import { PAIN_DRAWING_COLORS, normalizePainStroke } from "./pain-colors.js";
 import { isViewerMode } from "../../view-mode.js";
 
 const repo = new Repository("pain_events");
+const movementRepo = new Repository("movement_limitations");
 
 const DRAWING_TYPES = [
   { value: "punxant", label: "Punxant / ganivet", color: PAIN_DRAWING_COLORS.punxant },
@@ -55,11 +56,45 @@ const SLEEP_IMPACT = [
 ].map(v => ({ value: v, label: v }));
 
 const NECK_LIMITATIONS = [
-  "no puc girar el cap a l'esquerra",
-  "no puc girar el cap a la dreta",
-  "no puc girar el cap amunt",
-  "no puc girar el cap avall",
+  "Limitació per girar el cap a l'esquerra",
+  "Limitació per girar el cap a la dreta",
+  "Limitació per mirar amunt",
+  "Limitació per mirar avall",
+  "Limitació per inclinar el cap a l'esquerra",
+  "Limitació per inclinar el cap a la dreta",
 ].map(v => ({ value: v, label: v }));
+
+const BACK_LIMITATIONS = [
+  "Limitació a inclinar l'esquena endavant",
+  "Limitació a estendre l'esquena enrere",
+  "Limitació a inclinar l'esquena cap a l'esquerra",
+  "Limitació a inclinar l'esquena cap a la dreta",
+  "Limitació a girar el tronc cap a l'esquerra",
+  "Limitació a girar el tronc cap a la dreta",
+  "Limitació per ajupir-se",
+  "Limitació per incorporar-se",
+].map(v => ({ value: v, label: v }));
+
+const MOVEMENT_LIMITATION_LABELS = new Map([
+  ["no puc girar el cap a l'esquerra", "Limitació per girar el cap a l'esquerra"],
+  ["no puc girar el cap a la dreta", "Limitació per girar el cap a la dreta"],
+  ["no puc mirar amunt", "Limitació per mirar amunt"],
+  ["no puc mirar avall", "Limitació per mirar avall"],
+  ["no puc inclinar el cap a l'esquerra", "Limitació per inclinar el cap a l'esquerra"],
+  ["no puc inclinar el cap a la dreta", "Limitació per inclinar el cap a la dreta"],
+  ["no puc inclinar l'esquena endavant", "Limitació a inclinar l'esquena endavant"],
+  ["no puc estendre l'esquena enrere", "Limitació a estendre l'esquena enrere"],
+  ["no puc inclinar el tronc a l'esquerra", "Limitació a inclinar l'esquena cap a l'esquerra"],
+  ["no puc inclinar el tronc a la dreta", "Limitació a inclinar l'esquena cap a la dreta"],
+  ["no puc girar el tronc a l'esquerra", "Limitació a girar el tronc cap a l'esquerra"],
+  ["no puc girar el tronc a la dreta", "Limitació a girar el tronc cap a la dreta"],
+  ["no puc ajupir-me", "Limitació per ajupir-se"],
+  ["em costa incorporar-me", "Limitació per incorporar-se"],
+]);
+
+function normalizeMovementLimitation(value) {
+  return MOVEMENT_LIMITATION_LABELS.get(value) || value;
+}
 
 let currentView = "back";
 let mapArea = "body";
@@ -84,6 +119,46 @@ async function migrateStoredPainDrawingColors() {
     }
   } catch (error) {
     console.warn("No s'han pogut migrar els colors antics del dolor.", error);
+  }
+}
+
+async function migrateLegacyMovementLimitations() {
+  if (isViewerMode()) return;
+  try {
+    const records = await repo.getAll();
+    for (const record of records) {
+      const legacy = Array.isArray(record.limitacions) ? record.limitacions.filter(Boolean) : [];
+      if (!legacy.length) continue;
+      const neck = legacy.filter(value => /cap|mirar|coll/i.test(value));
+      const back = legacy.filter(value => !neck.includes(value));
+      await movementRepo.put({
+        id: `legacy-${record.id}`,
+        timestamp: record.timestamp,
+        neck,
+        back,
+        comment: "Migrat automàticament des d'un registre antic de dolor.",
+        sourcePainId: record.id,
+      });
+      const { limitacions, ...cleanRecord } = record;
+      await repo.put(cleanRecord);
+    }
+  } catch (error) {
+    console.warn("No s'han pogut separar les limitacions antigues.", error);
+  }
+}
+
+async function migrateMovementLimitationLabels() {
+  if (isViewerMode()) return;
+  try {
+    const rows = await movementRepo.getAll();
+    for (const row of rows) {
+      const neck = (Array.isArray(row.neck) ? row.neck : []).map(normalizeMovementLimitation);
+      const back = (Array.isArray(row.back) ? row.back : []).map(normalizeMovementLimitation);
+      const changed = JSON.stringify(neck) !== JSON.stringify(row.neck || []) || JSON.stringify(back) !== JSON.stringify(row.back || []);
+      if (changed) await movementRepo.put({ ...row, neck, back });
+    }
+  } catch (error) {
+    console.warn("No s'han pogut actualitzar les etiquetes antigues de limitacions.", error);
   }
 }
 
@@ -174,7 +249,6 @@ export async function renderPain(container) {
         ${chipGroup("empitjora", "Quan empitjora?", PAIN_CONTEXT)}
         ${chipGroup("naturalesaDolor", "És el mateix dolor de sempre?", PAIN_NATURE, [])}
         ${chipGroup("impacteSon", "Com afecta el son?", SLEEP_IMPACT, [])}
-        ${chipGroup("limitacions", "Limitacions de moviment (coll)", NECK_LIMITATIONS)}
 
         <div class="field">
           <label class="field-label" for="comentari">Comentari (opcional)</label>
@@ -188,6 +262,26 @@ export async function renderPain(container) {
       </form>
 
       <div style="display:flex; flex-direction:column; gap:var(--sp-4);">
+        <form class="card" id="movement-limitations-form" novalidate>
+          <span class="view-eyebrow">Registre independent</span>
+          <h2 class="card-title">Limitacions de moviment del dia</h2>
+          <p class="view-sub" style="margin-bottom:var(--sp-3);">Registra-les només els dies que apareguin. No queden vinculades a cap episodi concret de dolor.</p>
+          <div class="field">
+            <label class="field-label" for="movementDatetime">Data i hora</label>
+            <input type="datetime-local" id="movementDatetime" value="${nowLocalInput()}">
+          </div>
+          ${chipGroup("movementNeck", "Moviment del coll", NECK_LIMITATIONS)}
+          ${chipGroup("movementBack", "Moviment de l'esquena", BACK_LIMITATIONS)}
+          <div class="field">
+            <label class="field-label" for="movementComment">Comentari (opcional)</label>
+            <textarea id="movementComment" placeholder="Per exemple: em limita per conduir, vestir-me o aixecar-me."></textarea>
+          </div>
+          <div style="display:flex;align-items:center;gap:var(--sp-3);">
+            <button type="submit" class="btn btn-primary">Desar limitacions</button>
+            <span class="save-flash" id="movement-save-flash"><span class="dot"></span> Desat</span>
+          </div>
+          <div class="event-list" id="movement-limitations-list" style="margin-top:var(--sp-4);"><p class="ledger-empty">Carregant…</p></div>
+        </form>
         <div class="card">
           <h2 class="card-title">Anàlisi intel·ligent del dolor</h2>
           <p class="view-sub" style="margin-bottom:var(--sp-3);">Analitza localment els teus registres. No envia dades a cap servei extern i no substitueix una valoració mèdica.</p>
@@ -207,6 +301,10 @@ export async function renderPain(container) {
   wireMapArea(container);
   wirePaintControls(container);
   await migrateStoredPainDrawingColors();
+  await migrateLegacyMovementLimitations();
+  await migrateMovementLimitationLabels();
+  wireMovementLimitations(container);
+  await refreshMovementLimitations(container);
   await refreshList(container);
   await refreshPainInsights(container);
 
@@ -229,7 +327,6 @@ export async function renderPain(container) {
       empitjora: getChipValues(container, "empitjora"),
       naturalesaDolor: getChipValues(container, "naturalesaDolor"),
       impacteSon: getChipValues(container, "impacteSon"),
-      limitacions: getChipValues(container, "limitacions"),
       comentari: form.querySelector("#comentari").value.trim(),
     };
     await repo.put(payload);
@@ -485,7 +582,7 @@ function renderEntriesList(container) {
 function resetForm(container, form) {
   form.querySelector("#comentari").value = "";
   form.querySelectorAll('input[type="range"]').forEach(i => { i.value = 0; i.dispatchEvent(new Event("input")); });
-  container.querySelectorAll('.chip[data-chip-group="limitacions"], .chip[data-chip-group="empitjora"], .chip[data-chip-group="naturalesaDolor"], .chip[data-chip-group="impacteSon"]').forEach(c => c.classList.remove("chip-active"));
+  container.querySelectorAll('.chip[data-chip-group="empitjora"], .chip[data-chip-group="naturalesaDolor"], .chip[data-chip-group="impacteSon"]').forEach(c => c.classList.remove("chip-active"));
   entries = [];
   pickingZones = [];
   drawingStrokes = [];
@@ -498,7 +595,7 @@ function resetForm(container, form) {
 async function editPainEntry(container,id){
  const e=await repo.get(id); if(!e)return; editingId=id; entries=(e.entries||[]).map(x=>({...x,zonaIds:[...(x.zonaIds||[])],zonaLabels:[...(x.zonaLabels||[])],tipus:[...(x.tipus||[])],patroTemporal:[...(x.patroTemporal||[])]})); drawingStrokes=(e.painDrawing||[]).map(x=>normalizePainStroke({...x,points:(x.points||[]).map(p=>({...p}))})); pickingZones=[];
  container.querySelector('#entryDatetime').value=isoToLocalInput(e.timestamp);container.querySelector('[name="intensitat"]').value=e.intensitat||0;container.querySelector('[name="intensitat"]').dispatchEvent(new Event('input'));container.querySelector('#comentari').value=e.comentari||'';
- for(const group of ['empitjora','naturalesaDolor','impacteSon','limitacions'])container.querySelectorAll(`[data-chip-group="${group}"]`).forEach(b=>b.classList.toggle('chip-active',(e[group]||[]).includes(b.dataset.value)));
+ for(const group of ['empitjora','naturalesaDolor','impacteSon'])container.querySelectorAll(`[data-chip-group="${group}"]`).forEach(b=>b.classList.toggle('chip-active',(e[group]||[]).includes(b.dataset.value)));
  renderMap(container);renderEntriesList(container);container.querySelector('#form-title').textContent='Editant registre';container.querySelector('#submit-btn').textContent='Desar canvis';container.querySelector('#editing-banner').innerHTML='<div class="editing-banner"><span>Estàs editant un registre de dolor.</span><button type="button" class="btn btn-ghost" id="cancel-edit-btn">Cancel·la</button></div>';container.querySelector('#cancel-edit-btn').onclick=()=>renderPain(container);container.querySelector('#pain-form').scrollIntoView({behavior:'smooth'});
 }
 async function refreshList(container) {
@@ -540,12 +637,65 @@ function rowTemplate(e) {
       ${e.empitjora?.length ? `<div class="event-tags">Empitjora: ${e.empitjora.map(escapeHtml).join(", ")}</div>` : ""}
       ${e.naturalesaDolor?.length ? `<div class="event-tags">Tipus d’episodi: ${e.naturalesaDolor.map(escapeHtml).join(", ")}</div>` : ""}
       ${e.impacteSon?.length ? `<div class="event-tags">Son: ${e.impacteSon.map(escapeHtml).join(", ")}</div>` : ""}
-      ${e.limitacions?.length ? `<div class="event-tags" style="color: var(--clay);">${e.limitacions.map(escapeHtml).join(", ")}</div>` : ""}
       ${e.comentari ? `<div class="event-comment">${escapeHtml(e.comentari)}</div>` : ""}
     </div>
   `;
 }
 
+
+
+function wireMovementLimitations(container) {
+  const form = container.querySelector("#movement-limitations-form");
+  if (!form) return;
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const neck = getChipValues(form, "movementNeck");
+    const back = getChipValues(form, "movementBack");
+    if (!neck.length && !back.length) {
+      alert("Selecciona almenys una limitació de moviment.");
+      return;
+    }
+    await movementRepo.put({
+      id: makeId(),
+      timestamp: localInputToISO(form.querySelector("#movementDatetime").value),
+      neck,
+      back,
+      comment: form.querySelector("#movementComment").value.trim(),
+    });
+    form.querySelectorAll('[data-chip-group="movementNeck"], [data-chip-group="movementBack"]').forEach(button => button.classList.remove("chip-active"));
+    form.querySelector("#movementComment").value = "";
+    form.querySelector("#movementDatetime").value = nowLocalInput();
+    const flash = form.querySelector("#movement-save-flash");
+    flash?.classList.add("show");
+    setTimeout(() => flash?.classList.remove("show"), 1400);
+    await refreshMovementLimitations(container);
+  });
+}
+
+async function refreshMovementLimitations(container) {
+  const target = container.querySelector("#movement-limitations-list");
+  if (!target) return;
+  const rows = await movementRepo.getRecent("timestamp", 8);
+  if (!rows.length) {
+    target.innerHTML = `<p class="ledger-empty">Encara no hi ha cap limitació registrada.</p>`;
+    return;
+  }
+  target.innerHTML = rows.map(row => {
+    const neck = (Array.isArray(row.neck) ? row.neck : []).map(normalizeMovementLimitation);
+    const back = (Array.isArray(row.back) ? row.back : []).map(normalizeMovementLimitation);
+    return `<div class="event-row">
+      <div class="event-row-top"><span class="event-when">${formatDateTime(row.timestamp)}</span><span class="row-actions"><button type="button" class="danger" data-delete-movement="${row.id}">eliminar</button></span></div>
+      ${neck.length ? `<div class="event-tags"><strong>Coll:</strong> ${neck.map(escapeHtml).join(", ")}</div>` : ""}
+      ${back.length ? `<div class="event-tags"><strong>Esquena:</strong> ${back.map(escapeHtml).join(", ")}</div>` : ""}
+      ${row.comment ? `<div class="event-comment">${escapeHtml(row.comment)}</div>` : ""}
+    </div>`;
+  }).join("");
+  target.querySelectorAll("[data-delete-movement]").forEach(button => button.addEventListener("click", async () => {
+    if (!confirm("Segur que vols eliminar aquest registre de limitacions?")) return;
+    await movementRepo.delete(button.dataset.deleteMovement);
+    await refreshMovementLimitations(container);
+  }));
+}
 
 async function refreshPainInsights(container) {
   const target = container.querySelector("#pain-ai-insights");

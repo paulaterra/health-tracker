@@ -11,6 +11,7 @@ import { buildPersonalProfile, buildPredictions, calendarIconsForDay } from "../
 const MODULES = [
   { key: "daily_checkin", label: "Check-in ràpid", dateField: "date" },
   { key: "pain_events", label: "Dolor corporal", dateField: "timestamp" },
+  { key: "movement_limitations", label: "Limitacions de moviment", dateField: "timestamp" },
   { key: "headache_events", label: "Mal de cap", dateField: "timestamp" },
   { key: "vertigo_events", label: "Vertígens", dateField: "timestamp" },
   { key: "digestive_events", label: "Digestiu (símptomes)", dateField: "timestamp" },
@@ -46,6 +47,27 @@ function lastNDates(n, endDate = new Date()) {
     dates.push(d.toISOString().slice(0, 10));
   }
   return dates;
+}
+
+function movementShortLabel(value) {
+  const text = String(value || "").toLowerCase();
+  const labels = [
+    [/girar el cap.*esquerra/, "Girar cap · esquerra"],
+    [/girar el cap.*dreta/, "Girar cap · dreta"],
+    [/mirar amunt/, "Mirar amunt"],
+    [/mirar avall/, "Mirar avall"],
+    [/inclinar el cap.*esquerra/, "Inclinar cap · esquerra"],
+    [/inclinar el cap.*dreta/, "Inclinar cap · dreta"],
+    [/inclinar l'esquena endavant/, "Inclinar esquena · endavant"],
+    [/estendre l'esquena enrere/, "Estendre esquena · enrere"],
+    [/inclinar (?:el tronc|l'esquena).*esquerra/, "Inclinar esquena · esquerra"],
+    [/inclinar (?:el tronc|l'esquena).*dreta/, "Inclinar esquena · dreta"],
+    [/girar el tronc.*esquerra/, "Girar tronc · esquerra"],
+    [/girar el tronc.*dreta/, "Girar tronc · dreta"],
+    [/ajupir/, "Ajupir-se"],
+    [/incorporar/, "Incorporar-se"],
+  ];
+  return labels.find(([pattern]) => pattern.test(text))?.[1] || value;
 }
 
 export async function renderDashboard(container) {
@@ -574,7 +596,6 @@ function painRecordVisualSummary(pain) {
     ["Empitjora", (pain?.empitjora || []).join(", ")],
     ["Naturalesa", (pain?.naturalesaDolor || []).join(", ")],
     ["Impacte en el son", (pain?.impacteSon || []).join(", ")],
-    ["Limitacions", (pain?.limitacions || []).join(", ")],
   ].filter(([, value]) => value);
 
   return `<div class="pain-record-visual-summary">
@@ -663,6 +684,7 @@ function painTextSummary(pain) {
 const DAY_MODULE_META = {
   checkin: { label: "Check-in", color: "#4F7462", soft: "#E3EBE2", icon: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m7.5 12 3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
   pain: { label: "Dolor corporal", color: "#6C8F57", soft: "#E9F0E3", icon: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2.3" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 21v-5.5L7 11.5c-.6-1.8.4-3.8 2.2-4.4L12 6.2l2.8.9c1.8.6 2.8 2.6 2.2 4.4l-1.5 4V21M9 12h6M12 8v8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
+  movement: { label: "Limitacions de moviment", color: "#9A5B45", soft: "#F5E9E3", icon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v5a5 5 0 0 0 5 5h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="m14 11 3 3-3 3M9 20v-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
   headache: { label: "Mal de cap", color: "#C85B52", soft: "#FAE9E6", icon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 20H9.8a5 5 0 0 1-5-5v-4a7 7 0 0 1 7-7h1.4a5.8 5.8 0 0 1 5.8 5.8V13l-3.5 1.8V20Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m19.5 5.5 1.8-1.2M20.2 9h2.2M19.3 12.3l1.8 1.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>` },
   vertigo: { label: "Vertígens", color: "#6F5AA8", soft: "#EEEAF8", icon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.5 8.3a7.2 7.2 0 1 0 .4 6.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16.5 11.8a4.3 4.3 0 1 0-1.2 4.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M13.7 14.1a1.7 1.7 0 1 0-2.3 1.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>` },
   digestive: { label: "Digestiu", color: "#D28A20", soft: "#FBF0D8", icon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3.5v5c0 1.2-.8 2.2-2 2.6-1.8.6-3 2.2-3 4.1 0 2.9 2.4 5.3 5.3 5.3h2.4c4.6 0 8.3-3.7 8.3-8.3V9.8c0-2.2-1.8-4-4-4h-1.5v4.4c0 1.1-.9 2-2 2h-.3c-1.8 0-3.2-1.4-3.2-3.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>` },
@@ -762,12 +784,22 @@ async function dayDetailHtml(date) {
           ${detailRow("Empitjora", (p.empitjora || []).join(", "))}
           ${detailRow("Naturalesa", (p.naturalesaDolor || []).join(", "))}
           ${detailRow("Impacte en el son", (p.impacteSon || []).join(", "))}
-          ${detailRow("Limitacions", (p.limitacions || []).join(", "))}
         </div>
         ${note(p.comentari)}
       </div>`;
     }).join("");
     cards.push(moduleCard("pain", items, { count: pains.length, wide: true }));
+  }
+
+  const movementLimitations = (await new Repository("movement_limitations").getAll()).filter(e => dateOnly(e.timestamp) === date);
+  if (movementLimitations.length) {
+    const body = movementLimitations.map(item => `<div class="day-record-item compact">
+      <div class="day-record-title"><strong>Limitació registrada</strong><span>${escapeHtml(formatDateTime(item.timestamp))}</span></div>
+      ${item.neck?.length ? `<div class="day-detail-list">${detailRow("Coll", item.neck.map(movementShortLabel).join(", "))}</div>` : ""}
+      ${item.back?.length ? `<div class="day-detail-list">${detailRow("Esquena", item.back.map(movementShortLabel).join(", "))}</div>` : ""}
+      ${note(item.comment)}
+    </div>`).join("");
+    cards.push(moduleCard("movement", body, { count: movementLimitations.length, wide: true }));
   }
 
   const headaches = (await new Repository("headache_events").getAll()).filter(e => dateOnly(e.timestamp) === date);

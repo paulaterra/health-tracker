@@ -9,7 +9,7 @@ import { escapeHtml, formatDate } from "../../utils/dom.js";
 import { medicalSummaryData } from "../../engine/personal-insights.js";
 
 const ALL_STORES = [
-  "daily_checkin", "pain_events", "headache_events", "vertigo_events", "digestive_events",
+  "daily_checkin", "pain_events", "movement_limitations", "headache_events", "vertigo_events", "digestive_events",
   "bowel_movements", "sleep_log", "exercise_log", "cycle_log", "skin_episodes", "medications",
 ];
 
