@@ -8,7 +8,6 @@ const FIELDS = [
   { key: "digestiuGeneral", label: "Malestar digestiu", low: "cap molèstia", high: "molt intens" },
   { key: "sonQualitat", label: "Mal descans (nit passada)", low: "descans reparador", high: "molt mal son" },
   { key: "energiaFisica", label: "Cansament físic", low: "molta energia", high: "esgotament" },
-  { key: "energiaMental", label: "Boira mental", low: "ment clara", high: "boira mental intensa" },
 ];
 
 function todayISO() {
@@ -41,7 +40,6 @@ export async function renderCheckin(container, dateOverride) {
         digestiuGeneral: 0,
         sonQualitat: 0,
         energiaFisica: 0,
-        energiaMental: 0,
         malDeCap: false,
         comentari: "",
       };
@@ -93,7 +91,6 @@ export async function renderCheckin(container, dateOverride) {
       digestiuGeneral: Number(form.querySelector('[name="digestiuGeneral"]').value),
       sonQualitat: Number(form.querySelector('[name="sonQualitat"]').value),
       energiaFisica: Number(form.querySelector('[name="energiaFisica"]').value),
-      energiaMental: Number(form.querySelector('[name="energiaMental"]').value),
       malDeCap: form.querySelector("#malDeCap").checked,
       comentari: form.querySelector("#comentari").value.trim(),
     };

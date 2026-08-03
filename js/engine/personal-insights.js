@@ -15,7 +15,7 @@ export function calendarIconsForDay(day={}) {
   const icons=[];
   if (Number(day.dolor_intensitat_max)>0 || Number(day.dolor_general)>0) icons.push({icon:"●",label:"Dolor",tone:"pain"});
   if (day.mal_de_cap_ocorregut) icons.push({icon:"◆",label:"Mal de cap",tone:"head"});
-  if (day.vertigen_ocorregut) icons.push({icon:"◌",label:"Vertigen",tone:"vertigo"});
+  if (day.vertigen_ocorregut) icons.push({icon:"◌",label:"Vertigen / boira mental",tone:"vertigo"});
   if (Number(day.digestiu_general)>0 || Number(day.digestiu_inflor)>0 || day.digestiu_diarrea || day.digestiu_urgencia) icons.push({icon:"≈",label:"Digestiu",tone:"digestive"});
   if (day.son_registrat) icons.push({icon:"☾",label:"Son",tone:"sleep"});
   if (day.exercici_fet) icons.push({icon:"↗",label:"Exercici",tone:"exercise"});
@@ -230,9 +230,9 @@ export function answerHealthQuestion(question, matrix, intel) {
     const metric = metricSummary(matrix, "mal_de_cap_intensitat", dates);
     evidence.push(`${freq.count} episodis en ${dates.length} dies analitzats.`);
     if (metric) evidence.push(`Intensitat mitjana ${fmt(metric.avg)}/10; màxima ${fmt(metric.max,0)}/10.`);
-  } else if (includes("vertigen", "mareig")) {
+  } else if (includes("vertigen", "mareig", "boira", "se me’n va el cap", "se me'n va el cap", "sensació estranya")) {
     keys = ["vertigen_ocorregut", "vertigen_intensitat"];
-    title = "Anàlisi dels vertígens";
+    title = "Anàlisi dels vertígens i la boira mental";
     const freq = booleanSummary(matrix, "vertigen_ocorregut", dates);
     const metric = metricSummary(matrix, "vertigen_intensitat", dates);
     evidence.push(`${freq.count} episodis en ${dates.length} dies analitzats.`);

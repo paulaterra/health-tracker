@@ -9,11 +9,14 @@ const repo = new Repository("vertigo_events");
 
 const TYPES = [
   { value: "vertigen rotatori (tot roda)", label: "Vertigen rotatori (tot roda)" },
+  { value: "boira mental", label: "Boira mental" },
+  { value: "se me'n va el cap", label: "Se me'n va el cap" },
+  { value: "sensació estranya", label: "Sensació estranya" },
   { value: "presíncope (com si m'anés a desmaiar)", label: "Presíncope (com si m'anés a desmaiar)" },
   { value: "desequilibri en caminar", label: "Desequilibri en caminar" },
   { value: "cap flotant / estrany (no ben bé mareig)", label: "Cap flotant / estrany (no ben bé mareig)" },
 ];
-const SITUATIONS = ["en llevar-me", "en girar el cap", "dret molta estona", "en agafar-me ràpid", "sense motiu clar", "altre"].map(v => ({ value: v, label: v }));
+const SITUATIONS = ["en llevar-me", "en girar el cap", "caminant", "asseguda", "dret molta estona", "en aixecar-me ràpid", "després de menjar", "amb mal de cap", "sense motiu clar", "altre"].map(v => ({ value: v, label: v }));
 const ASSOCIATED = ["nàusees", "sudoració", "visió borrosa", "pèrdua d'equilibri", "zumzeig a les orelles", "palpitacions", "cap buit / mareig"].map(v => ({ value: v, label: v }));
 
 let editingId = null;
@@ -22,9 +25,9 @@ export async function renderVertigo(container) {
   editingId = null;
   container.innerHTML = `
     <div class="view-header">
-      <span class="view-eyebrow">Registre — vertígens</span>
-      <h1 class="view-title">Vertígens</h1>
-      <p class="view-sub">Registra el tipus de sensació, la intensitat, i si has notat altres símptomes alhora. Pots canviar la data/hora si vols registrar un episodi d'un dia anterior.</p>
+      <span class="view-eyebrow">Registre — vertígens i boira mental</span>
+      <h1 class="view-title">Vertígens i boira mental</h1>
+      <p class="view-sub">Registra el tipus de sensació —inclosa la boira mental—, la intensitat i si has notat altres símptomes alhora. Pots canviar la data/hora si vols registrar un episodi d'un dia anterior.</p>
     </div>
 
     <div class="grid-2">

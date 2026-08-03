@@ -24,8 +24,8 @@ export const VARIABLE_META = {
   dolor_registrat:          { label: "Registre de dolor completat", type: "boolean", category: "Dolor" },
   mal_de_cap_ocorregut:     { label: "Mal de cap", type: "boolean", category: "Dolor", valence: "negative" },
   mal_de_cap_intensitat:    { label: "Mal de cap (intensitat)", type: "numeric", category: "Dolor", valence: "negative" },
-  vertigen_ocorregut:       { label: "Vertígens", type: "boolean", category: "Dolor", valence: "negative" },
-  vertigen_intensitat:      { label: "Vertígens (intensitat)", type: "numeric", category: "Dolor", valence: "negative" },
+  vertigen_ocorregut:       { label: "Vertígens i boira mental", type: "boolean", category: "Vertígens i boira mental", valence: "negative" },
+  vertigen_intensitat:      { label: "Vertígens i boira mental (intensitat)", type: "numeric", category: "Vertígens i boira mental", valence: "negative" },
 
   digestiu_general:         { label: "Malestar digestiu general", type: "numeric", category: "Digestiu", valence: "negative" },
   digestiu_inflor:          { label: "Inflor", type: "numeric", category: "Digestiu", valence: "negative" },
@@ -47,7 +47,7 @@ export const VARIABLE_META = {
   son_mocs_matinals:        { label: "Mocs en llevar-me", type: "boolean", category: "Son", valence: "negative" },
 
   energia_fisica:           { label: "Cansament físic", type: "numeric", category: "Energia", valence: "negative" },
-  energia_mental:           { label: "Boira mental", type: "numeric", category: "Energia", valence: "negative" },
+  energia_mental:           { label: "Boira mental (check-ins antics)", type: "numeric", category: "Vertígens i boira mental", valence: "negative" },
   energia_esgotament:       { label: "Esgotament físic", type: "boolean", category: "Energia", valence: "negative" },
 
   exercici_fet:             { label: "Exercici (qualsevol tipus)", type: "boolean", category: "Exercici" },

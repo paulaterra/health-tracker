@@ -89,10 +89,9 @@ export function recommendationsHtml(intel,title="Recomanacions de seguiment"){
 const SECTIONAL_ANALYSIS = [
   { key:"pain", icon:"◇", title:"Dolor corporal", tone:"clay", category:"Dolor", vars:["dolor_intensitat_max","dolor_esquena_intensitat","dolor_rigidesa"], pain:true },
   { key:"headache", icon:"◉", title:"Mal de cap", tone:"coral", vars:["mal_de_cap_ocorregut","mal_de_cap_intensitat"] },
-  { key:"vertigo", icon:"◎", title:"Vertígens", tone:"violet", vars:["vertigen_ocorregut","vertigen_intensitat"] },
+  { key:"vertigo", icon:"◎", title:"Vertígens i boira mental", tone:"violet", vars:["vertigen_ocorregut","vertigen_intensitat","energia_mental"] },
   { key:"digestive", icon:"≈", title:"Digestiu", tone:"amber", category:"Digestiu", vars:["digestiu_general","digestiu_inflor","digestiu_dolorAbdominal","digestiu_retortijons","digestiu_gasos","digestiu_urgencia","digestiu_diarrea"] },
   { key:"sleep", icon:"☾", title:"Son", tone:"teal", category:"Son", vars:["son_qualitat","son_despertars","son_fatiga_mati","son_parasomnia","son_llums_dormida"] },
-  { key:"energy", icon:"⚡", title:"Cansament i check-in", tone:"sage", category:"Energia", vars:["energia_fisica","energia_mental","energia_esgotament"] },
   { key:"exercise", icon:"↗", title:"Exercici i activitat", tone:"blue", category:"Exercici", vars:["exercici_fet","exercici_gimnas","exercici_fisio","exercici_activacio_neuromuscular","exercici_caminar","exercici_passos"] },
   { key:"cycle", icon:"○", title:"Cicle menstrual", tone:"pink", category:"Cicle", vars:["cicle_regla","cicle_premenstrual","cicle_postmenstrual","cicle_ovulacio_finestra"] },
   { key:"skin", icon:"✦", title:"Pell", tone:"orange", category:"Pell", vars:["pell_brot"] },
@@ -137,9 +136,11 @@ function sectionObservations(section, matrix, intel) {
   } else if (section.key === "vertigo") {
     const occurred=valuesFor(matrix,"vertigen_ocorregut").filter(Boolean).length;
     const intensities=valuesFor(matrix,"vertigen_intensitat").map(Number).filter(v=>v>0);
-    evidence=occurred;
-    if (occurred) observations.push(`${occurred} dies amb vertigen (${pct(occurred,days)}% dels dies amb dades).`);
+    const historicalFog=valuesFor(matrix,"energia_mental").map(Number).filter(v=>v>0);
+    evidence=Math.max(occurred,historicalFog.length);
+    if (occurred) observations.push(`${occurred} dies amb vertigen, mareig o boira mental (${pct(occurred,days)}% dels dies amb dades).`);
     if (intensities.length) observations.push(`Intensitat mitjana ${meanValue(intensities).toFixed(1)}/10.`);
+    if (historicalFog.length) observations.push(`Boira mental històrica mitjana ${meanValue(historicalFog).toFixed(1)}/10 en ${historicalFog.length} check-ins anteriors.`);
   } else if (section.key === "digestive") {
     const affected=Object.values(matrix).filter(day => Number(day.digestiu_general)>0 || Number(day.digestiu_inflor)>0 || Number(day.digestiu_dolorAbdominal)>0 || day.digestiu_diarrea || day.digestiu_urgencia).length;
     const bloating=valuesFor(matrix,"digestiu_inflor").map(Number).filter(v=>v>0);
@@ -156,12 +157,6 @@ function sectionObservations(section, matrix, intel) {
     if (quality.length) observations.push(`Mal descans mitjà ${meanValue(quality).toFixed(1)}/10 en ${quality.length} nits.`);
     if (awakenings.length) observations.push(`Mitjana de ${meanValue(awakenings).toFixed(1)} despertars per nit registrada.`);
     if (parasomnia) observations.push(`${parasomnia} nits amb incidències de parasòmnia.`);
-  } else if (section.key === "energy") {
-    const physical=valuesFor(matrix,"energia_fisica").map(Number).filter(Number.isFinite);
-    const mental=valuesFor(matrix,"energia_mental").map(Number).filter(Number.isFinite);
-    evidence=Math.max(physical.length,mental.length);
-    if (physical.length) observations.push(`Cansament físic mitjà ${meanValue(physical).toFixed(1)}/10.`);
-    if (mental.length) observations.push(`Boira mental mitjana ${meanValue(mental).toFixed(1)}/10.`);
   } else if (section.key === "exercise") {
     const active=valuesFor(matrix,"exercici_fet").filter(Boolean).length;
     const walking=valuesFor(matrix,"exercici_caminar").filter(Boolean).length;
