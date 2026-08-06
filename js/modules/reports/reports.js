@@ -7,6 +7,7 @@ import { generateIntelligence } from "../../engine/intelligence.js";
 import { intelligentSummaryHtml, recommendationsHtml } from "../../engine/intelligence-view.js";
 import { escapeHtml, formatDate } from "../../utils/dom.js";
 import { medicalSummaryData } from "../../engine/personal-insights.js";
+import { dayDetailHtml } from "../dashboard/dashboard.js";
 
 
 const REPORT_SCORE_SCALES = [
@@ -56,6 +57,29 @@ export async function renderReports(container) {
       <p class="view-sub">Informe complet del període: benestar, símptomes, tots els patrons detectats (diaris, setmanals i mensuals), ritmes, tendències i conclusions. Es pot imprimir o desar com a PDF.</p>
     </div>
 
+    <div class="card report-medical-export no-print" style="margin-bottom:var(--sp-5);">
+      <div style="display:flex;justify-content:space-between;gap:var(--sp-4);align-items:flex-start;flex-wrap:wrap;">
+        <div>
+          <span class="view-eyebrow">Informe per a visites mèdiques</span>
+          <h2 class="card-title" style="font-size:var(--fs-xl);margin-top:var(--sp-1);">Informe mèdic complet</h2>
+          <p style="margin:0;color:var(--ink-soft);max-width:760px;">Genera un document A4 amb els registres reals del període. Cada dia comença en una pàgina nova i conserva els mateixos mapes, colors, icones i targetes del Dashboard.</p>
+        </div>
+        <span class="badge">A4 · multipàgina</span>
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:var(--sp-4);flex-wrap:wrap;margin-top:var(--sp-5);">
+        <div class="field" style="margin:0;">
+          <label class="field-label" for="medicalStartDate">Des de</label>
+          <input type="date" id="medicalStartDate" value="${defaultStart}">
+        </div>
+        <div class="field" style="margin:0;">
+          <label class="field-label" for="medicalEndDate">Fins a</label>
+          <input type="date" id="medicalEndDate" value="${defaultEnd}">
+        </div>
+        <button class="btn btn-primary" id="medical-report-btn">Genera PDF / Imprimeix</button>
+      </div>
+      <p style="margin:var(--sp-3) 0 0;color:var(--ink-faint);font-size:var(--fs-xs);">Safari obrirà el diàleg d’impressió a la mateixa pestanya. Tria «PDF → Desar com a PDF». No s’utilitzen finestres emergents ni captures amb html2canvas.</p>
+    </div>
+
     <div class="card no-print" style="display:flex; align-items:flex-end; gap: var(--sp-4); flex-wrap: wrap;">
       <div class="field" style="margin:0;">
         <label class="field-label" for="startDate">Des de</label>
@@ -90,6 +114,27 @@ export async function renderReports(container) {
     }
   });
 
+  container.querySelector("#medical-report-btn").addEventListener("click", async () => {
+    const start = container.querySelector("#medicalStartDate").value;
+    const end = container.querySelector("#medicalEndDate").value;
+    if (!start || !end || start > end) {
+      alert("Comprova les dates: la data d’inici ha de ser abans que la de final.");
+      return;
+    }
+    await openMedicalPrintView(container, start, end);
+  });
+
+  // Manté sincronitzats els dos selectors de dates de la pantalla d’Informes.
+  const syncDate = (sourceId, targetId) => {
+    const source = container.querySelector(sourceId);
+    const target = container.querySelector(targetId);
+    source?.addEventListener("change", () => { if (target) target.value = source.value; });
+  };
+  syncDate("#medicalStartDate", "#startDate");
+  syncDate("#medicalEndDate", "#endDate");
+  syncDate("#startDate", "#medicalStartDate");
+  syncDate("#endDate", "#medicalEndDate");
+
   container.querySelector("#print-btn").addEventListener("click", () => window.print());
   container.querySelector("#summary-pdf-btn").addEventListener("click", () => downloadPdf(container, "#medical-summary", "resum-medic-paula-tracker", "#summary-pdf-btn"));
   container.querySelector("#pdf-btn").addEventListener("click", () => downloadPdf(container, "#report-output", "informe-complet-paula-tracker", "#pdf-btn"));
@@ -103,6 +148,200 @@ export async function renderReports(container) {
   } catch (error) {
     console.error("Error generant l'informe inicial", error);
     container.querySelector("#report-output").innerHTML = `<div class="card" style="border-left:3px solid var(--clay);"><h2 class="card-title">No s'ha pogut generar l'informe</h2><p style="margin:0;color:var(--ink-soft);">${escapeHtml(error?.message || "Error desconegut")}</p></div>`;
+  }
+}
+
+
+function ensureMedicalPrintStyles() {
+  if (document.querySelector("#medical-print-styles")) return;
+  const style = document.createElement("style");
+  style.id = "medical-print-styles";
+  style.textContent = `
+    .medical-print-shell{position:fixed;inset:0;z-index:99999;background:#eceee8;overflow:auto;padding:24px;}
+    .medical-print-toolbar{position:sticky;top:0;z-index:3;display:flex;justify-content:space-between;align-items:center;gap:16px;max-width:210mm;margin:0 auto 18px;padding:12px 16px;background:#fff;border:1px solid #d6dacd;border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.08)}
+    .medical-print-pages{width:210mm;margin:0 auto;}
+    .medical-print-cover,.medical-print-day-start,.medical-print-analysis{box-sizing:border-box;width:210mm;background:#fff;padding:14mm 12mm;border:1px solid #d9ddd2;}
+    .medical-print-cover{min-height:297mm;display:flex;flex-direction:column;justify-content:space-between;}
+    .medical-print-cover h1{font-size:34px;line-height:1.05;margin:14px 0;max-width:150mm;}
+    .medical-print-meta{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;max-width:125mm;}
+    .medical-print-meta>div{padding:16px;border:1px solid #d9ddd2;border-radius:12px;background:#f6f7f3;}
+    .medical-access-card{display:grid;grid-template-columns:1fr 34mm;gap:14px;align-items:center;max-width:150mm;padding:16px;border:1px solid #d9ddd2;border-radius:14px;background:#f6f7f3;}
+    .medical-access-card img{display:block;width:32mm;height:32mm;background:#fff;border-radius:8px;}
+    .medical-access-url{font-size:13px;line-height:1.35;word-break:break-all;color:#315d42;font-weight:700;}
+    .medical-access-copy{margin:8px 0 0;font-size:12px;line-height:1.45;color:#535851;}
+    .medical-print-day-start{min-height:297mm;margin-top:0;}
+    .medical-print-day-start .day-detail-heading{margin-bottom:16px;}
+    .medical-print-day-start .day-pain-records{display:grid;grid-template-columns:1fr;gap:12px;align-items:start;}
+    .medical-print-day-start .day-pain-record{box-sizing:border-box;width:100%;height:auto!important;min-height:0!important;}
+    .medical-print-day-start .medical-pain-record-layout{display:grid;grid-template-columns:minmax(170px,38%) minmax(0,1fr);gap:12px;align-items:start;}
+    .medical-print-day-start .medical-pain-record-visual{min-width:0;display:flex;align-items:flex-start;justify-content:center;}
+    .medical-print-day-start .medical-pain-record-details{display:grid;gap:6px;min-width:0;align-content:start;font-size:11px;line-height:1.28;}
+    .medical-print-day-start .medical-pain-record-details .pain-detail-label{font-size:10px!important;line-height:1.15!important;}
+    .medical-print-day-start .medical-pain-record-details .day-chip{font-size:10px!important;line-height:1.1!important;padding:3px 7px!important;}
+    .medical-print-day-start .medical-pain-record-details .pain-detail-group,.medical-print-day-start .medical-pain-record-details .event-row{padding:8px 10px!important;}
+    .medical-print-day-start .medical-pain-record-details>.pain-drawing-legend{margin-top:0;}
+    .medical-print-day-start .dashboard-bodymap-pair{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+    .medical-print-day-start .dashboard-bodymap svg{max-height:220px;width:100%;}
+    .medical-print-day-start .day-modules-grid{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;}
+    .medical-print-day-start .day-module-card{box-sizing:border-box;flex:0 0 calc(50% - 6px);width:calc(50% - 6px);height:auto!important;min-height:0!important;align-self:flex-start;}
+    .medical-print-day-start .day-module-card.is-wide{flex-basis:100%;width:100%;}
+    .medical-print-analysis{min-height:297mm;}
+    @media print{
+      @page{size:A4 portrait;margin:10mm;}
+      html,body{background:#fff!important;margin:0!important;padding:0!important;}
+      body>*:not(.medical-print-shell){display:none!important;}
+      .medical-print-shell{position:static!important;inset:auto!important;overflow:visible!important;padding:0!important;background:#fff!important;}
+      .medical-print-toolbar{display:none!important;}
+      .medical-print-pages{width:auto!important;margin:0!important;}
+      .medical-print-cover,.medical-print-day-start,.medical-print-analysis{box-sizing:border-box!important;border:0!important;width:auto!important;padding:0!important;margin:0!important;}
+      .medical-print-cover{height:277mm!important;min-height:277mm!important;break-after:page;page-break-after:always;}
+      .medical-print-day-start{min-height:0!important;break-before:page;page-break-before:always;break-after:auto!important;page-break-after:auto!important;}
+      .medical-print-analysis{min-height:0!important;break-before:page;page-break-before:always;break-after:auto;page-break-after:auto;}
+      .medical-print-day-start .day-pain-section,.medical-print-day-start .day-modules-section{margin-top:5mm!important;}
+      .medical-print-day-start .day-pain-parts{gap:4mm!important;}
+      .medical-print-day-start .day-pain-part{padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;min-height:0!important;overflow:visible!important;}
+      .medical-print-day-start .day-pain-part-heading{margin:0 0 2.5mm!important;padding-top:1mm!important;break-after:avoid-page!important;page-break-after:avoid!important;}
+      .medical-print-day-start .day-pain-part.is-single-record{break-inside:avoid-page!important;page-break-inside:avoid!important;}
+      .medical-print-day-start .day-pain-records{display:block!important;}
+      .medical-print-day-start .day-modules-grid{display:block!important;font-size:0!important;}
+      .medical-print-day-start .day-pain-record{display:table!important;table-layout:fixed!important;width:100%!important;height:auto!important;min-height:0!important;margin:0 0 2.5mm!important;break-inside:avoid!important;page-break-inside:avoid!important;-webkit-column-break-inside:avoid!important;overflow:visible!important;}
+      .medical-print-day-start .day-module-card{display:inline-block!important;vertical-align:top!important;box-sizing:border-box!important;width:calc(50% - 2mm)!important;height:auto!important;min-height:0!important;margin:0 4mm 4mm 0!important;font-size:initial!important;break-inside:avoid!important;page-break-inside:avoid!important;-webkit-column-break-inside:avoid!important;overflow:visible!important;}
+      .medical-print-day-start .day-module-card:nth-child(even){margin-right:0!important;}
+      .medical-print-day-start .medical-pain-record-layout{display:grid!important;grid-template-columns:55mm minmax(0,1fr)!important;gap:2.5mm!important;align-items:start!important;}
+      .medical-print-day-start .medical-pain-record-visual{min-width:0!important;}
+      .medical-print-day-start .medical-pain-record-details{display:grid!important;gap:2.5mm!important;min-width:0!important;align-content:start!important;}
+      .medical-print-day-start .dashboard-bodymap-pair{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:2mm!important;}
+      .medical-print-day-start .dashboard-bodymap svg{max-height:52mm!important;width:100%!important;}
+      .medical-print-day-start .day-module-card.is-wide{display:block!important;width:100%!important;margin-right:0!important;}
+      .medical-print-day-start .dashboard-bodymap,
+      .medical-print-day-start .dashboard-bodymap-pair,
+      .medical-print-day-start .movement-limitations-summary,
+      .medical-print-day-start .pain-detail-group,
+      .medical-print-day-start .event-row,
+      .medical-print-analysis .card{break-inside:avoid-page!important;page-break-inside:avoid!important;}
+      .medical-print-day-start .dashboard-bodymap .bodymap-detailed{max-height:52mm!important;}
+      .medical-print-day-start .day-pain-record{font-size:10.5px!important;line-height:1.25!important;}
+      .medical-print-day-start .day-pain-record-head{margin-bottom:2mm!important;}
+      .medical-print-day-start .pain-detail-group,.medical-print-day-start .event-row{padding:1.8mm 2.2mm!important;}
+      .medical-print-day-start .medical-pain-record-details{gap:1.8mm!important;}
+      .medical-print-day-start .day-score-guide{font-size:10px!important;}
+      .medical-print-day-start .pain-detail-label{font-size:9.5px!important;line-height:1.1!important;}
+      .medical-print-day-start .day-chip{font-size:9.5px!important;line-height:1.05!important;padding:1mm 1.8mm!important;}
+      .medical-print-day-start .day-score-guide.is-multiple{grid-template-columns:1fr!important;gap:1.5mm!important;}
+      .medical-print-day-start .day-score-guide-row{display:grid!important;grid-template-columns:31mm minmax(0,1fr)!important;gap:2mm!important;align-items:center!important;}
+      .medical-print-day-start .day-score-guide-label{margin:0!important;font-size:9.5px!important;}
+      .medical-print-day-start .day-score-guide-scale{grid-template-columns:minmax(0,1fr) 24mm minmax(0,1fr)!important;gap:1.5mm!important;font-size:9px!important;line-height:1.08!important;}
+      .medical-print-day-start .day-score-guide-scale span{white-space:normal!important;}
+      .medical-print-day-start .day-score-guide-scale span:first-child{text-align:left!important;}
+      .medical-print-day-start .day-score-guide-scale span:last-child{text-align:right!important;justify-self:stretch!important;}
+      .medical-print-day-start .day-score-guide-scale b{font-size:9.5px!important;}
+      .medical-print-day-start .day-score-guide-row{break-inside:avoid!important;}
+      *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+
+function optimizeMedicalPainLayout(day) {
+  day.querySelectorAll(".day-pain-part").forEach((part) => {
+    const records = part.querySelectorAll(":scope .day-pain-record");
+    part.classList.toggle("is-single-record", records.length === 1);
+  });
+
+  day.querySelectorAll(".day-pain-record").forEach((record) => {
+    if (record.querySelector(":scope > .medical-pain-record-layout")) return;
+
+    const head = record.querySelector(":scope > .day-pain-record-head");
+    const map = record.querySelector(":scope > .dashboard-bodymap-pair, :scope > .dashboard-bodymap");
+    if (!map) return;
+
+    const layout = document.createElement("div");
+    layout.className = "medical-pain-record-layout";
+
+    const visual = document.createElement("div");
+    visual.className = "medical-pain-record-visual";
+    visual.appendChild(map);
+
+    const details = document.createElement("div");
+    details.className = "medical-pain-record-details";
+    [...record.children].forEach((child) => {
+      if (child !== head && child !== layout) details.appendChild(child);
+    });
+
+    layout.append(visual, details);
+    record.appendChild(layout);
+  });
+}
+
+
+async function openMedicalPrintView(container, start, end) {
+  const btn = container.querySelector("#medical-report-btn");
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Preparant l’informe…";
+  try {
+    const matrix = await buildDailyMatrix();
+    const dates = Object.keys(matrix).filter(date => date >= start && date <= end).sort();
+    if (!dates.length) {
+      alert("No hi ha registres dins del període seleccionat.");
+      return;
+    }
+
+    const intel = await generateIntelligence({ start, end });
+    ensureMedicalPrintStyles();
+    document.querySelector(".medical-print-shell")?.remove();
+
+    const shell = document.createElement("div");
+    shell.className = "medical-print-shell";
+    shell.innerHTML = `<div class="medical-print-toolbar no-print">
+      <div><strong>Informe mèdic</strong><div style="font-size:12px;color:#6f746c;">${escapeHtml(formatDate(start))} — ${escapeHtml(formatDate(end))} · ${dates.length} dies amb registres</div></div>
+      <div style="display:flex;gap:8px;"><button class="btn btn-ghost" data-close-medical-report>Tanca</button><button class="btn btn-primary" data-print-medical-report>Imprimeix / Desa PDF</button></div>
+    </div><main class="medical-print-pages"></main>`;
+    document.body.appendChild(shell);
+    const pages = shell.querySelector(".medical-print-pages");
+
+    const cover = document.createElement("section");
+    cover.className = "medical-print-cover";
+    cover.innerHTML = `<div><span class="view-eyebrow">Paula Tracker · Informe mèdic</span><h1>Informe de seguiment de salut</h1><p style="font-size:18px;color:var(--ink-soft);">${escapeHtml(formatDate(start))} — ${escapeHtml(formatDate(end))}</p></div>
+      <div class="medical-print-meta"><div><span>Dies amb registres</span><strong style="display:block;font-size:24px;">${dates.length}</strong></div><div><span>Generat el</span><strong style="display:block;font-size:24px;">${escapeHtml(formatDate(todayISO()))}</strong></div></div>
+      <div class="medical-access-card">
+        <div>
+          <div class="view-eyebrow" style="margin-bottom:6px;">Accés per a professionals</div>
+          <div class="medical-access-url">https://paulaterra.github.io/health-tracker/</div>
+          <p class="medical-access-copy">Escaneja el codi QR o entra a l’adreça anterior.<br><strong>Contrasenya:</strong> paulatrackview</p>
+        </div>
+        <img src="./assets/health-tracker-access-qr.svg" alt="Codi QR d’accés a Paula Tracker">
+      </div>
+      <p style="font-size:11px;color:var(--ink-faint);">Document generat a partir dels registres personals de Paula Tracker. No substitueix una valoració mèdica.</p>`;
+    pages.appendChild(cover);
+
+    for (const date of dates) {
+      const day = document.createElement("section");
+      day.className = "medical-print-day-start";
+      day.dataset.reportDate = date;
+      day.innerHTML = await dayDetailHtml(date);
+      optimizeMedicalPainLayout(day);
+      pages.appendChild(day);
+    }
+
+    const analysis = document.createElement("section");
+    analysis.className = "medical-print-analysis";
+    analysis.innerHTML = `<span class="view-eyebrow">Anàlisi del període</span><h2 style="font-size:28px;margin:8px 0 18px;">Patrons i conclusions</h2>${intelligentSummaryHtml(intel, { title: "Patrons detectats" })}${recommendationsHtml(intel, "Conclusions i recomanacions")}`;
+    pages.appendChild(analysis);
+
+    shell.querySelector("[data-close-medical-report]").addEventListener("click", () => shell.remove());
+    shell.querySelector("[data-print-medical-report]").addEventListener("click", () => window.print());
+
+    // Donem temps a Safari perquè acabi de pintar SVG, fonts i colors abans d'obrir el diàleg.
+    await new Promise(resolve => setTimeout(resolve, 350));
+    window.print();
+  } catch (error) {
+    console.error("Error preparant l’informe mèdic", error);
+    alert(error?.message || "No s’ha pogut preparar l’informe mèdic.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
   }
 }
 
