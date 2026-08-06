@@ -897,7 +897,7 @@ function principalCardsHtml(cards) {
 
 /* ---------------- Detall d'un dia concret ---------------- */
 
-async function dayDetailHtml(date) {
+export async function dayDetailHtml(date) {
   const cards = [];
   let checkinSleepSummary = null;
   let checkinPhysicalFatigue = null;
