@@ -361,30 +361,104 @@ function loadHtml2Pdf() {
   return html2pdfLoadPromise;
 }
 
+function pdfSafeColor(value) {
+  if (!value || !value.includes("color(")) return value;
+
+  // Safari pot resoldre color-mix() com a color(srgb ...), però html2canvas 1.4.1
+  // no entén la funció CSS color(). La convertim a rgb()/rgba().
+  const match = value.match(/color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\)/i);
+  if (!match) return value;
+
+  const [, r, g, b, a] = match;
+  const rgb = [r, g, b].map(x => Math.max(0, Math.min(255, Math.round(Number(x) * 255))));
+  return a == null
+    ? `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`
+    : `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${Math.max(0, Math.min(1, Number(a)))})`;
+}
+
+function preparePdfClone(element) {
+  const clone = element.cloneNode(true);
+  clone.classList.add("pdf-export-clone");
+  clone.style.width = "190mm";
+  clone.style.maxWidth = "190mm";
+  clone.style.margin = "0";
+  clone.style.background = "#ffffff";
+
+  const sandbox = document.createElement("div");
+  sandbox.className = "pdf-export-sandbox";
+  sandbox.style.cssText = "position:fixed;left:-100000px;top:0;width:190mm;background:#fff;z-index:-1;pointer-events:none;";
+  sandbox.appendChild(clone);
+  document.body.appendChild(sandbox);
+
+  const originals = [element, ...element.querySelectorAll("*")];
+  const clones = [clone, ...clone.querySelectorAll("*")];
+  const colorProps = [
+    "color", "backgroundColor", "borderTopColor", "borderRightColor",
+    "borderBottomColor", "borderLeftColor", "outlineColor",
+    "textDecorationColor", "columnRuleColor", "caretColor", "fill", "stroke",
+  ];
+
+  originals.forEach((source, index) => {
+    const target = clones[index];
+    if (!target) return;
+    const computed = getComputedStyle(source);
+
+    colorProps.forEach(prop => {
+      const value = computed[prop];
+      if (value && value !== "none") target.style[prop] = pdfSafeColor(value);
+    });
+
+    // Evitem altres propietats que Safari pot serialitzar amb colors CSS moderns.
+    // Són decoratives i no afecten la informació del PDF.
+    if (computed.boxShadow && computed.boxShadow !== "none") target.style.boxShadow = "none";
+    if (computed.textShadow && computed.textShadow !== "none") target.style.textShadow = "none";
+    if (computed.filter && computed.filter !== "none") target.style.filter = "none";
+    if (computed.backgroundImage && computed.backgroundImage.includes("color(")) target.style.backgroundImage = "none";
+  });
+
+  return { clone, cleanup: () => sandbox.remove() };
+}
+
 async function downloadPdf(container, selector = "#report-output", filenamePrefix = "informe-quadern-de-salut", buttonSelector = "#pdf-btn") {
   const btn = container.querySelector(buttonSelector);
   const original = btn.textContent;
   btn.textContent = "Generant PDF…";
   btn.disabled = true;
+  let cleanup = null;
   try {
     await loadHtml2Pdf();
     const element = container.querySelector(selector);
+    if (!element) throw new Error("No s'ha trobat el contingut de l'informe.");
+
     const start = container.querySelector("#startDate").value;
     const end = container.querySelector("#endDate").value;
+    const prepared = preparePdfClone(element);
+    cleanup = prepared.cleanup;
+
+    // Donem un frame al navegador perquè calculi els estils del clon sanejat.
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
     await window.html2pdf()
       .set({
         margin: 10,
         filename: `${filenamePrefix}-${start}-a-${end}.pdf`,
         image: { type: "jpeg", quality: 0.95 },
-        html2canvas: { scale: 2, backgroundColor: "#ffffff" },
+        html2canvas: {
+          scale: 2,
+          backgroundColor: "#ffffff",
+          useCORS: true,
+          logging: false,
+        },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
         pagebreak: { mode: ["css", "legacy"] },
       })
-      .from(element)
+      .from(prepared.clone)
       .save();
   } catch (err) {
+    console.error("Error exportant PDF", err);
     alert(`${err.message || "No s'ha pogut generar el PDF."} Pots fer servir el botó "Imprimeix" com a alternativa (des d'allà també pots triar "Desar com a PDF").`);
   } finally {
+    cleanup?.();
     btn.textContent = original;
     btn.disabled = false;
   }
