@@ -181,11 +181,18 @@ export async function buildDailyMatrix() {
 
   exercises.forEach(ex => {
     const d = dateOnly(ex.timestamp);
+    const category = ex.categoria || ex.tipus;
     setBool(matrix, d, "exercici_fet");
-    if (ex.tipus === "gimnas_entrenador") setBool(matrix, d, "exercici_gimnas");
-    if (ex.tipus === "fisio") setBool(matrix, d, "exercici_fisio");
-    if (ex.tipus === "activacio_neuromuscular") setBool(matrix, d, "exercici_activacio_neuromuscular");
-    if (ex.tipus === "caminar") setBool(matrix, d, "exercici_caminar");
+    if (category === "gimnas_entrenador") setBool(matrix, d, "exercici_gimnas");
+    if (category === "caminar") setBool(matrix, d, "exercici_caminar");
+    if (category === "terapia") {
+      const therapies = (ex.terapies || []).map(x => String(x).toLowerCase());
+      if (therapies.some(x => x.includes("fisioter"))) setBool(matrix, d, "exercici_fisio");
+      if (therapies.some(x => x.includes("activació neuromuscular") || x.includes("activacio neuromuscular"))) setBool(matrix, d, "exercici_activacio_neuromuscular");
+    }
+    if (ex.passos !== null && ex.passos !== undefined && ex.passos !== "" && Number.isFinite(Number(ex.passos))) {
+      setValue(matrix, d, "exercici_passos", Number(ex.passos));
+    }
   });
 
   // Cicle: regla, fase premenstrual, postmenstrual i finestra d'ovulació.

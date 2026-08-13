@@ -1091,7 +1091,14 @@ export async function dayDetailHtml(date) {
 
   const exercises = (await new Repository("exercise_log").getAll()).filter(e => dateOnly(e.timestamp) === date);
   if (exercises.length) {
-    const body = exercises.map(ex => `<div class="day-record-item compact"><strong>${escapeHtml(ex.tipus || "Activitat")}</strong><div class="day-stat-grid">${stat("Durada", ex.durada ? `${ex.durada} min` : "")}${stat("Intensitat", ex.intensitat !== undefined ? `${ex.intensitat}/10` : "", "", SCORE_SCALES.exercise)}</div>${note(ex.comentari)}</div>`).join("");
+    const exerciseLabel = ex => ex.categoria === "caminar" || ex.tipus === "caminar"
+      ? "Caminar"
+      : ex.categoria === "gimnas_entrenador" || ex.tipus === "gimnas_entrenador"
+        ? "Gimnàs / entrenador"
+        : ex.categoria === "terapia" || ex.tipus === "terapia"
+          ? "Fisioteràpia / teràpies"
+          : (ex.tipus || "Activitat");
+    const body = exercises.map(ex => `<div class="day-record-item compact"><strong>${escapeHtml(exerciseLabel(ex))}</strong><div class="day-stat-grid">${stat("Passos", ex.passos !== null && ex.passos !== undefined && ex.passos !== "" ? `${Number(ex.passos).toLocaleString("ca-ES")} passos` : "")}${stat("Durada", ex.durada ? `${ex.durada} min` : "")}${stat("Intensitat", ex.intensitat !== undefined ? `${ex.intensitat}/10` : "", "", SCORE_SCALES.exercise)}</div>${note(ex.comentari)}</div>`).join("");
     pushCard("exercise", body, { count: exercises.length, scales: [{ scale: SCORE_SCALES.exercise }] });
   }
 
