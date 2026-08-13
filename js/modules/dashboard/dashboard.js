@@ -210,7 +210,8 @@ export async function renderDashboard(container) {
     </div>
   `;
 
-  wireDateCells(container);
+  wireDateCells(container, container, byDay, dailyRecordCounts, matrix);
+  wireDayNavigation(container, byDay, dailyRecordCounts, matrix);
   wireDetailedCalendar(container, byDay, dailyRecordCounts, matrix);
   wireAnalysisPeriod(container, matrix);
   container.querySelectorAll("[data-smart-route]").forEach(button => button.addEventListener("click", () => {
@@ -228,16 +229,63 @@ export async function renderDashboard(container) {
 }
 
 
-function wireDateCells(container, root = container) {
+async function selectDashboardDate(container, date, { scrollToDetail = false, byDay = null, dailyRecordCounts = null, matrix = null } = {}) {
+  selectedDate = date;
+
+  // Si canviem de mes amb les fletxes del resum diari, actualitzem també el calendari
+  // perquè el dia seleccionat continuï sent visible i marcat.
+  const nextMonth = selectedDate.slice(0, 7);
+  if (nextMonth !== calendarMonth && byDay && dailyRecordCounts && matrix) {
+    calendarMonth = nextMonth;
+    const wrap = container.querySelector("#detailed-calendar-wrap");
+    if (wrap) {
+      wrap.innerHTML = detailedCalendarHtml(byDay, dailyRecordCounts, calendarMonth, selectedDate, matrix);
+      wireDateCells(container, wrap, byDay, dailyRecordCounts, matrix);
+      wireDetailedCalendar(container, byDay, dailyRecordCounts, matrix);
+    }
+  } else {
+    container.querySelectorAll("[data-date-cell]").forEach(c => c.classList.toggle("is-selected", c.dataset.dateCell === selectedDate));
+  }
+
+  const detail = container.querySelector("#day-detail-card");
+  if (detail) {
+    detail.innerHTML = await dayDetailHtml(selectedDate);
+    wireDayNavigation(container, byDay, dailyRecordCounts, matrix);
+    if (scrollToDetail) detail.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+function wireDateCells(container, root = container, byDay = null, dailyRecordCounts = null, matrix = null) {
   root.querySelectorAll("[data-date-cell]").forEach(cell => {
     cell.addEventListener("click", async () => {
-      selectedDate = cell.dataset.dateCell;
-      container.querySelectorAll("[data-date-cell]").forEach(c => c.classList.toggle("is-selected", c.dataset.dateCell === selectedDate));
-      const detail = container.querySelector("#day-detail-card");
-      if (detail) {
-        detail.innerHTML = await dayDetailHtml(selectedDate);
-        detail.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
+      await selectDashboardDate(container, cell.dataset.dateCell, {
+        scrollToDetail: true,
+        byDay,
+        dailyRecordCounts,
+        matrix,
+      });
+    });
+  });
+}
+
+function shiftIsoDate(date, amount) {
+  const [year, month, day] = date.split("-").map(Number);
+  const value = new Date(year, month - 1, day);
+  value.setDate(value.getDate() + amount);
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+}
+
+function wireDayNavigation(container, byDay, dailyRecordCounts, matrix) {
+  container.querySelectorAll("[data-day-nav]").forEach(button => {
+    button.addEventListener("click", async () => {
+      if (button.disabled) return;
+      const nextDate = shiftIsoDate(selectedDate, Number(button.dataset.dayNav));
+      await selectDashboardDate(container, nextDate, {
+        scrollToDetail: false,
+        byDay,
+        dailyRecordCounts,
+        matrix,
+      });
     });
   });
 }
@@ -251,7 +299,7 @@ function wireDetailedCalendar(container, byDay, dailyRecordCounts, matrix) {
       const next = new Date(year, month - 1 + Number(button.dataset.calendarNav), 1);
       calendarMonth = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
       wrap.innerHTML = detailedCalendarHtml(byDay, dailyRecordCounts, calendarMonth, selectedDate, matrix);
-      wireDateCells(container, wrap);
+      wireDateCells(container, wrap, byDay, dailyRecordCounts, matrix);
       wireDetailedCalendar(container, byDay, dailyRecordCounts, matrix);
   wireAnalysisPeriod(container, matrix);
     });
@@ -1082,9 +1130,14 @@ export async function dayDetailHtml(date) {
       </div>
     </section>` : "";
 
+  const today = new Date().toISOString().slice(0, 10);
   return `
     <div class="day-detail-heading">
       <div><span class="view-eyebrow">Resum diari</span><h2 class="card-title">${escapeHtml(formatDate(date))}</h2></div>
+      <div class="day-detail-nav" aria-label="Canviar de dia">
+        <button type="button" class="btn btn-ghost" data-day-nav="-1" aria-label="Dia anterior" title="Dia anterior">←</button>
+        <button type="button" class="btn btn-ghost" data-day-nav="1" aria-label="Dia següent" title="Dia següent" ${date >= today ? "disabled" : ""}>→</button>
+      </div>
     </div>
     ${painVisuals}
     <section class="day-modules-section">

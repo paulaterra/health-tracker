@@ -409,6 +409,25 @@ textarea { min-height: 72px; resize: vertical; }
   justify-content: space-between;
   gap: var(--sp-3);
 }
+
+.day-detail-nav {
+  display: flex;
+  gap: var(--sp-2);
+  flex: 0 0 auto;
+}
+.day-detail-nav .btn {
+  min-width: 46px;
+  padding-inline: var(--sp-3);
+  font-size: var(--fs-lg);
+}
+.day-detail-nav .btn:disabled {
+  opacity: .35;
+  cursor: default;
+}
+@media (max-width: 560px) {
+  .day-detail-heading { align-items: flex-start; }
+  .day-detail-nav .btn { min-width: 42px; }
+}
 .dashboard-pain-layout {
   display: grid;
   grid-template-columns: minmax(280px, .9fr) minmax(260px, 1.1fr);
