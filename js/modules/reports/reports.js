@@ -329,7 +329,7 @@ async function openMedicalPrintView(container, start, end) {
 
     const analysis = document.createElement("section");
     analysis.className = "medical-print-analysis";
-    analysis.innerHTML = `<span class="view-eyebrow">Anàlisi del període</span><h2 style="font-size:28px;margin:8px 0 18px;">Patrons i conclusions</h2>${intelligentSummaryHtml(intel, { title: "Patrons detectats" })}${recommendationsHtml(intel, "Conclusions i recomanacions")}${clinicalHypotheses.length ? `<div style="margin-top:18px;"><h2 style="font-size:20px;margin-bottom:10px;">Hipòtesis a explorar</h2><p style="font-size:11px;color:var(--ink-faint);">Separades dels patrons estadístics · no són diagnòstics.</p>${clinicalHypothesesHtml(clinicalHypotheses,{compact:true})}</div>` : ""}`;
+    analysis.innerHTML = `<span class="view-eyebrow">Anàlisi del període</span><h2 style="font-size:28px;margin:8px 0 18px;">Patrons i conclusions</h2>${intelligentSummaryHtml(intel, { title: "Patrons detectats" })}${temporalReportHtml(intel)}${recommendationsHtml(intel, "Conclusions i recomanacions")}${clinicalHypotheses.length ? `<div style="margin-top:18px;"><h2 style="font-size:20px;margin-bottom:10px;">Hipòtesis a explorar</h2><p style="font-size:11px;color:var(--ink-faint);">Separades dels patrons estadístics · no són diagnòstics.</p>${clinicalHypothesesHtml(clinicalHypotheses,{compact:true})}</div>` : ""}`;
     pages.appendChild(analysis);
 
     shell.querySelector("[data-close-medical-report]").addEventListener("click", () => shell.remove());
@@ -370,6 +370,15 @@ async function downloadPdf(container, selector = "#report-output", filenamePrefi
         .simple-pdf-print-shell{position:fixed;inset:0;z-index:999999;background:#eef0eb;overflow:auto;padding:24px;}
         .simple-pdf-print-toolbar{position:sticky;top:0;z-index:2;max-width:210mm;margin:0 auto 16px;padding:12px 16px;background:#fff;border:1px solid #d6dacd;border-radius:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;}
         .simple-pdf-print-content{box-sizing:border-box;width:210mm;min-height:297mm;margin:0 auto;background:#fff;padding:12mm;border:1px solid #d9ddd2;}
+        .simple-pdf-cover{min-height:250mm;display:flex;flex-direction:column;justify-content:space-between;gap:20px;padding:8mm 4mm 4mm;box-sizing:border-box;break-after:page;page-break-after:always;}
+        .simple-pdf-cover h1{font-size:34px;line-height:1.08;margin:10px 0 8px;}
+        .simple-pdf-cover-period{font-size:18px;color:var(--ink-soft);margin:0;}
+        .simple-pdf-cover-meta{display:grid;grid-template-columns:1fr;gap:10px;}
+        .simple-pdf-cover-meta>div{padding:14px 16px;border:1px solid #d8ddd2;border-radius:14px;background:#f7f8f4;}
+        .simple-pdf-cover-meta span{display:block;font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;}
+        .simple-pdf-cover-meta strong{display:block;font-size:20px;}
+        .simple-pdf-access-card{margin-top:auto;}
+        .simple-pdf-cover-note{font-size:11px;color:var(--ink-faint);margin:0;}
         @media print{
           @page{size:A4 portrait;margin:10mm;}
           html,body{background:#fff!important;margin:0!important;padding:0!important;}
@@ -393,7 +402,29 @@ async function downloadPdf(container, selector = "#report-output", filenamePrefi
       <div><strong>${escapeHtml(title)}</strong><div style="font-size:12px;color:#6f746c;">${escapeHtml(start)} — ${escapeHtml(end)}</div></div>
       <div style="display:flex;gap:8px;"><button class="btn btn-ghost" data-close-simple-pdf>Tanca</button><button class="btn btn-primary" data-print-simple-pdf>Imprimeix / Desa PDF</button></div>
     </div><main class="simple-pdf-print-content"></main>`;
-    shell.querySelector(".simple-pdf-print-content").appendChild(element.cloneNode(true));
+
+    const printContent = shell.querySelector(".simple-pdf-print-content");
+    const cover = document.createElement("section");
+    cover.className = "simple-pdf-cover";
+    cover.innerHTML = `<div>
+        <span class="view-eyebrow">Paula Tracker · ${escapeHtml(title)}</span>
+        <h1>${escapeHtml(title)}</h1>
+        <p class="simple-pdf-cover-period">${escapeHtml(formatDate(start))} — ${escapeHtml(formatDate(end))}</p>
+      </div>
+      <div class="simple-pdf-cover-meta">
+        <div><span>Generat el</span><strong>${escapeHtml(formatDate(todayISO()))}</strong></div>
+      </div>
+      <div class="medical-access-card simple-pdf-access-card">
+        <div>
+          <div class="view-eyebrow" style="margin-bottom:6px;">Accés per a professionals</div>
+          <div class="medical-access-url">https://paulaterra.github.io/health-tracker/</div>
+          <p class="medical-access-copy">Escaneja el codi QR o entra a l’adreça anterior.<br><strong>Contrasenya:</strong> paulatrackview</p>
+        </div>
+        <img src="./assets/health-tracker-access-qr.svg" alt="Codi QR d’accés a Paula Tracker">
+      </div>
+      <p class="simple-pdf-cover-note">Document generat a partir dels registres personals de Paula Tracker. No substitueix una valoració mèdica.</p>`;
+    printContent.appendChild(cover);
+    printContent.appendChild(element.cloneNode(true));
     document.body.appendChild(shell);
 
     shell.querySelector("[data-close-simple-pdf]").addEventListener("click", () => shell.remove());
@@ -469,6 +500,7 @@ async function generateReport(container, start, end) {
   // Aquí el limitem al període seleccionat perquè el PDF sigui coherent amb les dates.
   const intel = await generateIntelligence({ start, end });
   const medicalSummary = medicalSummaryData(periodMatrix, intel);
+  medicalSummary.intel = intel;
   setProgress(3);
 
   const symptomSummary = buildSymptomSummary(periodMatrix);
@@ -487,6 +519,7 @@ async function generateReport(container, start, end) {
     </div>
 
     ${intelligentSummaryHtml(intel, { title: "Resum intel·ligent del període" })}
+    ${temporalReportHtml(intel)}
     ${recommendationsHtml(intel, "Recomanacions i dades a seguir") }
     ${clinicalHypotheses.length ? `<div style="margin-top:var(--sp-5);"><h2 class="card-title">Hipòtesis a explorar</h2><p style="font-size:var(--fs-xs);color:var(--ink-faint);">Aquesta secció interpreta combinacions de símptomes per orientar què comentar amb un professional. No són diagnòstics.</p>${clinicalHypothesesHtml(clinicalHypotheses)}</div>` : ""}
 
@@ -548,11 +581,68 @@ async function generateReport(container, start, end) {
   `;
 }
 
+
+function temporalReportHtml(intel) {
+  const temporal = intel?.temporal || {};
+  const episodes = temporal.recurrentEpisodes || [];
+  const rhythms = temporal.rhythms || [];
+  const weekly = temporal.weeklySignals || [];
+  const coEvolution = temporal.coEvolution || [];
+  const longTerm = temporal.longTermTrends || [];
+  const flares = intel?.flares || [];
+  const cycle = intel?.cycle?.hypotheses || [];
+
+  const episodeLines = [];
+  episodes.slice(0,8).forEach(item => {
+    const avg = Number.isFinite(item.avgDuration) ? item.avgDuration.toFixed(1) : "—";
+    const gap = item.episodeCount >= 2 && Number.isFinite(item.avgGap) ? ` · separació mitjana entre inicis ${Math.round(item.avgGap)} dies` : "";
+    episodeLines.push(`<li><strong>${escapeHtml(item.label)}</strong>: ${item.episodeCount} episodi${item.episodeCount===1?"":"s"}, ${item.totalActiveDays} dies afectats, durada habitual ${avg} dies, màxim ${item.maxDuration} dies${gap}.</li>`);
+  });
+  flares.slice(0,6).forEach(f => episodeLines.push(`<li><strong>Brot multisimptomàtic</strong> · ${escapeHtml(formatDate(f.start))}${f.end!==f.start?` — ${escapeHtml(formatDate(f.end))}`:""}: ${f.days} dies, fins a ${f.maxDomains} àmbits alterats alhora${f.categories?.length?` (${f.categories.slice(0,5).map(c=>escapeHtml(c.label)).join(", ")})`:""}.</li>`));
+
+  const rhythmLines = [
+    ...rhythms.slice(0,6).map(r => `<li><strong>${escapeHtml(r.label)}</strong>: ${escapeHtml(r.text)} · confiança ${escapeHtml(r.confidence)}.</li>`),
+    ...weekly.slice(0,6).map(w => `<li><strong>Canvi setmanal${w.type==='domain'?` · ${escapeHtml(w.domain)}`:""}</strong>: ${escapeHtml(w.text)}</li>`),
+  ];
+
+  const coLines = coEvolution.slice(0,6).map(c => `<li>${escapeHtml(c.text)}</li>`);
+  const longLines = longTerm.slice(0,8).map(t => `<li>${escapeHtml(t.text)}</li>`);
+  const cycleLines = cycle.slice(0,8).map(c => `<li>${escapeHtml(c.text || c.label || String(c))}</li>`);
+
+  const section = (title, intro, lines, empty) => `
+    <div class="card" style="margin-top:var(--sp-5);">
+      <h2 class="card-title">${title}</h2>
+      <p style="font-size:var(--fs-xs);color:var(--ink-faint);margin:0 0 var(--sp-3);">${intro}</p>
+      ${lines.length ? `<ul style="margin:0;padding-left:20px;display:grid;gap:8px;">${lines.join("")}</ul>` : `<p class="ledger-empty">${empty}</p>`}
+    </div>`;
+
+  return `
+    ${section("Episodis i brots", "Agrupa dies consecutius com un únic episodi i identifica períodes on diversos àmbits empitjoren alhora.", episodeLines, "Encara no hi ha prou continuïtat per identificar episodis o brots rellevants.")}
+    ${section("Ritmes temporals · dies, setmanes i mesos", "Busca periodicitat entre episodis i canvis setmanals sense forçar patrons amb poques repeticions.", rhythmLines, "Encara no hi ha prou repeticions per identificar un ritme temporal consistent.")}
+    ${section("Patrons del cicle menstrual", "Només utilitza menstruacions reals i cicles complets comparables.", cycleLines, "Encara no hi ha prou cicles complets per detectar un patró menstrual repetit.")}
+    ${section("Símptomes que evolucionen junts", "Compara l'evolució entre setmanes; no és una simple coincidència d'un dia.", coLines, "Encara no hi ha prou setmanes comparables per detectar àmbits que evolucionin junts.")}
+    ${section("Tendències a llarg termini", "Busca canvis sostinguts al llarg de diverses setmanes o mesos.", longLines, "Encara no hi ha prou historial per parlar de tendències a llarg termini.")}
+  `;
+}
+
+function temporalMedicalSummaryItems(intel) {
+  const temporal = intel?.temporal || {};
+  const items = [];
+  (temporal.rhythms || []).slice(0,2).forEach(r => items.push(r.text));
+  (temporal.weeklySignals || []).slice(0,2).forEach(w => items.push(w.text));
+  (temporal.longTermTrends || []).slice(0,2).forEach(t => items.push(t.text));
+  (temporal.coEvolution || []).slice(0,1).forEach(c => items.push(c.text));
+  const eps=(temporal.recurrentEpisodes||[]).slice(0,2);
+  eps.forEach(e=>items.push(`${e.label}: ${e.episodeCount} episodis, durada habitual ${Number.isFinite(e.avgDuration)?e.avgDuration.toFixed(1):"—"} dies.`));
+  return items;
+}
+
 function medicalSummaryHtml(data, avgPeriod, avgPrev, start, end, dayCount) {
   const p=data.profile;
   const patternItems=data.patterns.map(item=>item.text).filter(Boolean);
   const cycleItems=p.cyclePatterns||[];
-  const keyPatterns=[...cycleItems,...patternItems].slice(0,5);
+  const temporalItems=temporalMedicalSummaryItems(data.intel || {});
+  const keyPatterns=[...cycleItems,...temporalItems,...patternItems].slice(0,8);
   const predictionItems=data.predictions.items||[];
   return `<section id="medical-summary" class="medical-summary report-page-break">
     <div class="medical-summary-cover">

@@ -5,6 +5,7 @@ import { classifyConclusions } from "./conclusions.js";
 import { detectFlares } from "./flares.js";
 import { analyzeMedicationResponse } from "./medication-analysis.js";
 import { analyzeCyclePatterns } from "./cycle-analysis.js";
+import { analyzeTemporalPatterns } from "./temporal-analysis.js";
 
 const painRepo = new Repository("pain_events");
 const medicationRepo = new Repository("medications");
@@ -115,6 +116,7 @@ export async function generateIntelligence({start=null,end=null}={}){
   const flares=detectFlares(matrix);
   const medication=analyzeMedicationResponse(medRecords,painRecords);
   const cycle=analyzeCyclePatterns(matrix);
+  const temporal=analyzeTemporalPatterns(matrix);
   const strongest=correlations.slice(0,5).map(p=>({...p,text:patternText(p)}));
   const conclusions=[
     ...triggers.slice(0,4).map(p=>({kind:"trigger",text:patternText(p),confidence:p.confidence.label,recommendation:p.recommendation})),
@@ -132,6 +134,6 @@ export async function generateIntelligence({start=null,end=null}={}){
     period:{start:start||dates[0]||null,end:end||dates.at(-1)||null,days:dates.length},
     dataQuality:{level:confidenceFromCount(dates.length),days:dates.length,painRecords:painRecords.length,minimumReached:dates.length>=14},
     pain,patterns:strongest,weekly:weekly.slice(0,5),trends:trends.slice(0,5),conclusions,recommendations,correlations,triggers,protectors,
-    flares:flares.slice(0,8),medication,cycle
+    flares:flares.slice(0,8),medication,cycle,temporal
   };
 }

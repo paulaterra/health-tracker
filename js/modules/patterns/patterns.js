@@ -1,6 +1,6 @@
 import { buildDailyMatrix } from "../../engine/normalizer.js";
 import { computeCorrelations, computeDayOfWeekPatterns, computeTrends, humanLagLabel } from "../../engine/correlation.js";
-import { escapeHtml } from "../../utils/dom.js";
+import { escapeHtml, formatDate } from "../../utils/dom.js";
 import { generateIntelligence } from "../../engine/intelligence.js";
 import { intelligentSummaryHtml } from "../../engine/intelligence-view.js";
 
@@ -31,7 +31,10 @@ export async function renderPatterns(container) {
     return;
   }
 
-  const totalFound = correlations.length + dowPatterns.length + trends.length + (intel.flares?.length || 0) + (intel.cycle?.hypotheses?.length || 0);
+  const temporal = intel.temporal || {};
+  const totalFound = correlations.length + dowPatterns.length + trends.length + (intel.flares?.length || 0) + (intel.cycle?.hypotheses?.length || 0)
+    + (temporal.recurrentEpisodes?.length || 0) + (temporal.rhythms?.length || 0) + (temporal.weeklySignals?.length || 0)
+    + (temporal.coEvolution?.length || 0) + (temporal.longTermTrends?.length || 0);
   if (totalFound === 0) {
     wrap.innerHTML = emptyState(`Amb ${numDays} dies de dades, encara no s'ha trobat cap relació prou consistent com per mostrar-la. Això és normal a l'inici — segueix registrant i torna-hi més endavant.`);
     return;
@@ -41,9 +44,33 @@ export async function renderPatterns(container) {
     ${intelligentSummaryHtml(intel, { title: "Visió conjunta del dolor i la resta de variables" })}
     <div style="height:var(--sp-5)"></div>
     <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: var(--sp-4);">
-      <p style="font-size: var(--fs-sm); color: var(--ink-soft);">${numDays} dies amb dades · ${totalFound} patrons trobats en total.</p>
+      <p style="font-size: var(--fs-sm); color: var(--ink-soft);">${numDays} dies amb dades · ${totalFound} senyals o patrons trobats en total.</p>
       <button class="btn btn-ghost" id="recalc-btn">Torna a calcular</button>
     </div>
+
+    ${section("Episodis i brots",
+      "Agrupa dies consecutius amb el mateix símptoma per entendre si formen un únic episodi. També mostra brots multisimptomàtics quan diversos àmbits empitjoren alhora.",
+      temporalEpisodesHtml(temporal.recurrentEpisodes || [], intel.flares || []))}
+
+    ${section("Ritmes temporals · dies, setmanes i mesos",
+      "Busca separacions recurrents entre episodis i setmanes amb una càrrega simptomàtica diferent de l'habitual. No força cap periodicitat si encara no hi ha prou repeticions.",
+      temporalRhythmsHtml(temporal.rhythms || [], temporal.weeklySignals || []))}
+
+    ${section("Patrons del cicle menstrual",
+      "Analitza el moment dels símptomes respecte a menstruacions reals registrades. Només compara cicles complets; un cicle obert no compta com a repetició.",
+      cyclePatternsHtml(intel.cycle))}
+
+    ${section("Símptomes que evolucionen junts",
+      "Compara l'evolució entre setmanes. És diferent d'una coincidència puntual: busca si dos àmbits tendeixen a pujar i baixar junts al llarg del temps.",
+      (temporal.coEvolution || []).length
+        ? temporal.coEvolution.map(coEvolutionCard).join("")
+        : `<p class="ledger-empty">Encara no hi ha prou setmanes comparables per detectar àmbits que evolucionin junts. Normalment calen almenys 4 setmanes amb variació real.</p>`)}
+
+    ${section("Tendències a llarg termini",
+      "Busca canvis sostinguts al llarg de setmanes o mesos, no només diferències entre uns quants dies.",
+      (temporal.longTermTrends || []).length
+        ? temporal.longTermTrends.map(longTermCard).join("")
+        : `<p class="ledger-empty">Encara no hi ha prou historial per parlar de tendències a llarg termini. Aquest apartat guanyarà valor quan hi hagi diverses setmanes o mesos de dades.</p>`)}
 
     ${section("Símptomes que tendeixen a aparèixer junts",
       "Coincidències del mateix dia entre àmbits diferents. No són causes ni desencadenants.",
@@ -90,6 +117,81 @@ function emptyState(message) {
       <p>${escapeHtml(message)}</p>
     </div>
   `;
+}
+
+function temporalEpisodesHtml(episodes, flares) {
+  const items = [];
+  episodes.slice(0,6).forEach(item => {
+    const latest = item.episodes?.at(-1);
+    const duration = item.avgDuration != null ? item.avgDuration.toFixed(1) : "—";
+    const separation = item.episodeCount >= 2 && item.avgGap != null
+      ? ` · separació mitjana entre inicis ${Math.round(item.avgGap)} dies`
+      : "";
+    items.push(`
+      <div class="card">
+        <p style="margin:0;font-size:var(--fs-md);font-weight:600;">${escapeHtml(item.label)} · ${item.episodeCount} episodi${item.episodeCount===1?"":"s"}</p>
+        <p style="margin:var(--sp-1) 0 0;color:var(--ink-soft);">${item.totalActiveDays} dies afectats · durada habitual ${duration} dies · episodi més llarg ${item.maxDuration} dies${separation}.</p>
+        ${latest ? `<p style="margin:var(--sp-1) 0 0;font-size:var(--fs-xs);color:var(--ink-faint);">Últim episodi: ${escapeHtml(formatDate(latest.start))}${latest.end!==latest.start?` — ${escapeHtml(formatDate(latest.end))}`:""} · ${latest.days} dies.</p>` : ""}
+      </div>`);
+  });
+  flares.slice(0,4).forEach(f => {
+    items.push(`
+      <div class="card" style="border-left:3px solid var(--clay);">
+        <p style="margin:0;font-size:var(--fs-md);font-weight:600;">Brot multisimptomàtic · ${escapeHtml(formatDate(f.start))}${f.end!==f.start?` — ${escapeHtml(formatDate(f.end))}`:""}</p>
+        <p style="margin:var(--sp-1) 0 0;color:var(--ink-soft);">${f.days} dies · fins a ${f.maxDomains} àmbits alterats alhora · intensitat ${escapeHtml(f.severity)}.</p>
+        <p style="margin:var(--sp-1) 0 0;font-size:var(--fs-xs);color:var(--ink-faint);">Àmbits: ${f.categories.slice(0,5).map(c=>escapeHtml(c.label)).join(", ")}.</p>
+      </div>`);
+  });
+  return items.length ? items.join("") : `<p class="ledger-empty">Encara no hi ha prou dies consecutius per identificar episodis o brots amb continuïtat.</p>`;
+}
+
+function temporalRhythmsHtml(rhythms, weeklySignals) {
+  const parts=[];
+  rhythms.slice(0,5).forEach(r=>parts.push(`
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;gap:var(--sp-3);align-items:flex-start;">
+        <div><p style="margin:0;font-size:var(--fs-md);font-weight:600;">${escapeHtml(r.label)} · possible ritme recurrent</p>
+        <p style="margin:var(--sp-1) 0 0;color:var(--ink-soft);">${escapeHtml(r.text)}</p></div>
+        <span class="badge">${escapeHtml(r.confidence)}</span>
+      </div>
+      <p style="margin:var(--sp-2) 0 0;font-size:var(--fs-xs);color:var(--ink-faint);font-style:italic;">És una regularitat temporal observada; no implica que l'episodi hagi de repetir-se amb aquesta periodicitat.</p>
+    </div>`));
+  weeklySignals.slice(0,5).forEach(w=>parts.push(`
+    <div class="card">
+      <p style="margin:0;font-size:var(--fs-md);font-weight:600;">Canvi setmanal · ${w.type==="global"?"càrrega global":escapeHtml(w.domain)}</p>
+      <p style="margin:var(--sp-1) 0 0;color:var(--ink-soft);">${escapeHtml(w.text)}</p>
+    </div>`));
+  return parts.length ? parts.join("") : `<p class="ledger-empty">Encara no s'ha detectat cap ritme temporal prou repetit. Les periodicitats necessiten almenys 3 episodis; les comparacions setmanals necessiten diverses setmanes amb dades.</p>`;
+}
+
+function cyclePatternsHtml(cycle) {
+  if (!cycle) return `<p class="ledger-empty">Encara no hi ha dades del cicle disponibles.</p>`;
+  const hypotheses=cycle.hypotheses || [];
+  if (!cycle.analysisAvailable || !hypotheses.length) return `<div class="card"><p style="margin:0;color:var(--ink-soft);">${escapeHtml(cycle.summary)}</p></div>`;
+  return `<div class="card"><p style="margin:0;color:var(--ink-soft);">${escapeHtml(cycle.summary)}</p></div>` + hypotheses.slice(0,6).map(item=>`
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;gap:var(--sp-3);align-items:flex-start;">
+        <div><p style="margin:0;font-size:var(--fs-md);font-weight:600;">${escapeHtml(item.title)}</p><p style="margin:var(--sp-1) 0 0;color:var(--ink-soft);">${escapeHtml(item.text)}</p></div>
+        <span class="badge">${item.status==="detected"?"patró":"senyal repetit"}</span>
+      </div>
+    </div>`).join("");
+}
+
+function coEvolutionCard(item) {
+  return `
+    <div class="card">
+      <p style="margin:0;font-size:var(--fs-md);font-weight:600;">${escapeHtml(item.a)} + ${escapeHtml(item.b)}</p>
+      <p style="margin:var(--sp-1) 0 0;color:var(--ink-soft);">${escapeHtml(item.text)}</p>
+      <p style="margin:var(--sp-2) 0 0;font-size:var(--fs-xs);color:var(--ink-faint);font-style:italic;">Evolució conjunta entre setmanes; no demostra que un àmbit causi l'altre.</p>
+    </div>`;
+}
+
+function longTermCard(item) {
+  return `
+    <div class="card">
+      <p style="margin:0;font-size:var(--fs-md);font-weight:600;">${escapeHtml(item.label)} · ${escapeHtml(item.direction)}</p>
+      <p style="margin:var(--sp-1) 0 0;color:var(--ink-soft);">${escapeHtml(item.text)}</p>
+    </div>`;
 }
 
 function confidenceBadge(label) {
