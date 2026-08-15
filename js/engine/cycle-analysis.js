@@ -1,233 +1,152 @@
 import { VARIABLE_META } from "./normalizer.js";
 
-function mean(values) {
-  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+function addDays(dateStr, days) {
+  const d = new Date(`${dateStr}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0,10);
 }
-
 function periodStarts(matrix) {
   const bleeding = new Set(Object.keys(matrix).filter(date => matrix[date]?.cicle_regla === true));
-  return [...bleeding].sort().filter(date => {
-    const previous = new Date(`${date}T00:00:00`);
-    previous.setDate(previous.getDate() - 1);
-    return !bleeding.has(previous.toISOString().slice(0, 10));
-  });
+  return [...bleeding].sort().filter(date => !bleeding.has(addDays(date,-1)));
 }
-
-function nearestCycleStart(date, starts) {
-  let result = null;
-  for (const start of starts) {
-    if (start > date) break;
-    result = start;
-  }
-  return result;
+function active(meta, value) {
+  if (value === undefined || value === null) return false;
+  if (meta.type === "boolean") return value === true;
+  return Number(value) >= 6;
 }
-
-function confidenceLabel({ cycleCount, phaseN, controlN, effectStrength }) {
-  if (cycleCount < 2 || phaseN < 4 || controlN < 7) return "dades insuficients";
-  if (cycleCount >= 5 && phaseN >= 12 && effectStrength >= 0.35) return "alta";
-  if (cycleCount >= 3 && phaseN >= 7 && effectStrength >= 0.2) return "moderada";
+function confidence(cycles, hitRate) {
+  if (cycles >= 4 && hitRate >= 0.75) return "alta";
+  if (cycles >= 3 && hitRate >= 0.67) return "moderada";
   return "preliminar";
 }
 
-function numericHypothesis(matrix, starts, config) {
-  const phaseRows = [];
-  const controlRows = [];
-  for (const [date, day] of Object.entries(matrix)) {
-    const value = Number(day[config.outcome]);
-    if (!Number.isFinite(value)) continue;
-    const row = { date, value, cycle: nearestCycleStart(date, starts) };
-    if (day[config.phase] === true) phaseRows.push(row);
-    else if (!day.cicle_regla) controlRows.push(row);
+const WINDOWS = [
+  { id:"before_22_28", min:-28, max:-22, label:"3–4 setmanes abans de la regla" },
+  { id:"before_15_21", min:-21, max:-15, label:"2–3 setmanes abans de la regla" },
+  { id:"before_8_14",  min:-14, max:-8,  label:"1–2 setmanes abans de la regla" },
+  { id:"before_1_7",   min:-7,  max:-1,  label:"la setmana abans de la regla" },
+  { id:"period",       min:0,   max:4,   label:"durant els primers dies de la regla" },
+  { id:"after_1_7",    min:5,   max:11,  label:"la setmana posterior a la regla" },
+];
+
+const EXCLUDED = new Set([
+  "dolor_registrat", "digestiu_deposicio_registrada", "son_registrat",
+  "cicle_regla", "cicle_premenstrual", "cicle_postmenstrual", "cicle_ovulacio_finestra", "cicle_ovulacio_registrada",
+  "exercici_fet", "exercici_gimnas", "exercici_fisio", "exercici_activacio_neuromuscular", "exercici_caminar", "exercici_passos",
+  "medicacio_presa",
+]);
+
+function hasRealObservation(day) {
+  if (!day) return false;
+  return Object.keys(day).some(key => !key.startsWith("cicle_"));
+}
+function windowCoverage(matrix, start, win) {
+  let observed = 0;
+  for (let offset=win.min; offset<=win.max; offset++) {
+    if (hasRealObservation(matrix[addDays(start,offset)])) observed++;
   }
-  const phaseMean = mean(phaseRows.map(row => row.value));
-  const controlMean = mean(controlRows.map(row => row.value));
-  const diff = phaseMean != null && controlMean != null ? phaseMean - controlMean : null;
-  const scale = config.scale || 10;
-  const strength = diff == null ? 0 : Math.min(1, Math.abs(diff) / scale);
-  const cyclesWithSignal = new Set(
-    phaseRows.filter(row => config.signal ? config.signal(row.value) : row.value >= (config.threshold ?? 6)).map(row => row.cycle).filter(Boolean)
-  ).size;
-  const confidence = confidenceLabel({
-    cycleCount: starts.length,
-    phaseN: phaseRows.length,
-    controlN: controlRows.length,
-    effectStrength: strength,
-  });
-  return {
-    id: config.id,
-    title: config.title,
-    phaseLabel: config.phaseLabel,
-    outcomeLabel: VARIABLE_META[config.outcome]?.label || config.outcome,
-    type: "numeric",
-    phaseN: phaseRows.length,
-    controlN: controlRows.length,
-    phaseMean,
-    controlMean,
-    diff,
-    cyclesObserved: starts.length,
-    cyclesWithSignal,
-    confidence,
-    supported: diff != null && diff >= (config.minDiff ?? 0.8) && phaseRows.length >= 4 && controlRows.length >= 7,
-    trackingText: config.trackingText,
-  };
+  return observed / (win.max-win.min+1);
 }
 
-function booleanHypothesis(matrix, starts, config) {
-  const phaseRows = [];
-  const controlRows = [];
-  for (const [date, day] of Object.entries(matrix)) {
-    const hasObservation = day[config.outcome] !== undefined || day[config.observationKey || config.outcome] !== undefined;
-    if (!hasObservation) continue;
-    const value = day[config.outcome] === true;
-    const row = { date, value, cycle: nearestCycleStart(date, starts) };
-    if (day[config.phase] === true) phaseRows.push(row);
-    else if (!day.cicle_regla) controlRows.push(row);
+function cyclesWithSignal(matrix, starts, key, meta, win) {
+  const eligible = [];
+  const hits = [];
+  for (const start of starts) {
+    // No atribuïm una finestra al cicle si gairebé no hi ha dies registrats en aquella finestra.
+    if (windowCoverage(matrix,start,win) < 0.5) continue;
+    eligible.push(start);
+    let found = false;
+    for (let offset=win.min; offset<=win.max; offset++) {
+      if (active(meta, matrix[addDays(start,offset)]?.[key])) { found = true; break; }
+    }
+    if (found) hits.push(start);
   }
-  const phaseRate = phaseRows.length ? phaseRows.filter(row => row.value).length / phaseRows.length : null;
-  const controlRate = controlRows.length ? controlRows.filter(row => row.value).length / controlRows.length : null;
-  const diff = phaseRate != null && controlRate != null ? phaseRate - controlRate : null;
-  const cyclesWithSignal = new Set(phaseRows.filter(row => row.value).map(row => row.cycle).filter(Boolean)).size;
-  const confidence = confidenceLabel({
-    cycleCount: starts.length,
-    phaseN: phaseRows.length,
-    controlN: controlRows.length,
-    effectStrength: diff == null ? 0 : Math.abs(diff),
-  });
-  return {
-    id: config.id,
-    title: config.title,
-    phaseLabel: config.phaseLabel,
-    outcomeLabel: VARIABLE_META[config.outcome]?.label || config.outcome,
-    type: "boolean",
-    phaseN: phaseRows.length,
-    controlN: controlRows.length,
-    phaseRate,
-    controlRate,
-    diff,
-    cyclesObserved: starts.length,
-    cyclesWithSignal,
-    confidence,
-    supported: diff != null && diff >= (config.minDiff ?? 0.2) && phaseRows.length >= 4 && controlRows.length >= 7,
-    trackingText: config.trackingText,
-  };
-}
-
-function formatHypothesis(item) {
-  if (item.confidence === "dades insuficients") {
-    return {
-      ...item,
-      status: "tracking",
-      text: `${item.title}: encara no hi ha prou dades comparables. ${item.trackingText}`,
-    };
-  }
-  if (!item.supported) {
-    return {
-      ...item,
-      status: "not_detected",
-      text: `${item.title}: de moment no s'observa una diferència consistent (${item.phaseN} dies de fase comparats amb ${item.controlN} dies de control).`,
-    };
-  }
-  if (item.type === "numeric") {
-    return {
-      ...item,
-      status: "detected",
-      text: `${item.title}: mitjana ${item.phaseMean.toFixed(1)} durant ${item.phaseLabel}, davant de ${item.controlMean.toFixed(1)} fora d'aquesta fase (+${item.diff.toFixed(1)}; ${item.cyclesWithSignal} de ${item.cyclesObserved} cicles amb senyal; confiança ${item.confidence}).`,
-    };
-  }
-  return {
-    ...item,
-    status: "detected",
-    text: `${item.title}: apareix en el ${(item.phaseRate * 100).toFixed(0)}% dels dies de ${item.phaseLabel}, davant del ${(item.controlRate * 100).toFixed(0)}% fora d'aquesta fase (${item.cyclesWithSignal} de ${item.cyclesObserved} cicles; confiança ${item.confidence}).`,
-  };
+  return { eligible, hits };
 }
 
 export function analyzeCyclePatterns(matrix) {
   const starts = periodStarts(matrix);
-  const definitions = [
-    numericHypothesis(matrix, starts, {
-      id: "back_after_period",
-      title: "Mal d'esquena després de la regla",
-      phase: "cicle_postmenstrual",
-      phaseLabel: "els 5 dies posteriors a la regla",
-      outcome: "dolor_esquena_intensitat",
-      minDiff: 0.8,
-      trackingText: "Registra el mapa del dolor i el cicle durant almenys 3 cicles.",
-    }),
-    booleanHypothesis(matrix, starts, {
-      id: "stiffness_after_period",
-      title: "Rigidesa després de la regla",
-      phase: "cicle_postmenstrual",
-      phaseLabel: "la fase postmenstrual",
-      outcome: "dolor_rigidesa",
-      observationKey: "dolor_registrat",
-      minDiff: 0.2,
-      trackingText: "Marca sempre el tipus «rigidesa» quan aparegui.",
-    }),
-    numericHypothesis(matrix, starts, {
-      id: "bloating_before_period",
-      title: "Inflor abdominal abans de la regla",
-      phase: "cicle_premenstrual",
-      phaseLabel: "els 5 dies previs a la regla",
-      outcome: "digestiu_inflor",
-      minDiff: 0.8,
-      trackingText: "Registra la inflor també els dies en què és baixa o absent.",
-    }),
-    booleanHypothesis(matrix, starts, {
-      id: "diarrhea_ovulation",
-      title: "Diarrea durant la setmana d'ovulació",
-      phase: "cicle_ovulacio_finestra",
-      phaseLabel: "la finestra d'ovulació (±3 dies)",
-      outcome: "digestiu_diarrea",
-      observationKey: "digestiu_deposicio_registrada",
-      minDiff: 0.2,
-      trackingText: "Registra l'ovulació i totes les deposicions durant almenys 3 cicles.",
-    }),
-    booleanHypothesis(matrix, starts, {
-      id: "exhaustion_before_period",
-      title: "Esgotament abans de la regla",
-      phase: "cicle_premenstrual",
-      phaseLabel: "la fase premenstrual",
-      outcome: "energia_esgotament",
-      observationKey: "energia_fisica",
-      minDiff: 0.2,
-      trackingText: "Completa el cansament físic cada dia, encara que et trobis bé.",
-    }),
-    numericHypothesis(matrix, starts, {
-      id: "awakenings_before_period",
-      title: "Múltiples despertars abans de la regla",
-      phase: "cicle_premenstrual",
-      phaseLabel: "la fase premenstrual",
-      outcome: "son_despertars",
-      scale: 6,
-      minDiff: 1,
-      threshold: 3,
-      trackingText: "Registra el nombre de despertars cada matí.",
-    }),
-    booleanHypothesis(matrix, starts, {
-      id: "lights_before_period",
-      title: "Encendre llums dormida abans de la regla",
-      phase: "cicle_premenstrual",
-      phaseLabel: "la fase premenstrual",
-      outcome: "son_llums_dormida",
-      observationKey: "son_registrat",
-      minDiff: 0.15,
-      trackingText: "Marca aquesta conducta al registre de son sempre que passi.",
-    }),
-  ];
+  // Només els intervals ENTRE dos inicis reals són cicles complets comparables.
+  // L'últim inici continua sent un cicle obert i no pot comptar com a cicle comparable.
+  const completedStarts = starts.slice(0, -1);
 
-  const hypotheses = definitions.map(formatHypothesis);
-  const detected = hypotheses.filter(item => item.status === "detected");
-  const tracking = hypotheses.filter(item => item.status === "tracking");
+  // Regla fonamental V3: sense menstruacions REALMENT registrades, el motor no
+  // genera ni observacions ni hipòtesis temporals sobre el cicle.
+  if (starts.length === 0) {
+    return {
+      cycleCount: 0,
+      periodStarts: [],
+      hypotheses: [], detected: [], tracking: [],
+      analysisAvailable: false,
+      summary: "Encara no hi ha cap inici de menstruació registrat. No s'analitzen patrons respecte al cicle fins que hi hagi dades reals del cicle.",
+    };
+  }
+
+  // Amb un únic inici només sabem situar temporalment els símptomes, però no
+  // podem afirmar que una finestra es repeteix. Evitem llistes d'"observacions"
+  // que podrien semblar patrons.
+  if (starts.length < 2) {
+    return {
+      cycleCount: starts.length,
+      periodStarts: starts,
+      hypotheses: [], detected: [], tracking: [],
+      analysisAvailable: false,
+      summary: "Hi ha un cicle registrat, però encara no es comparen símptomes per setmanes del cicle. Cal almenys un segon inici de menstruació real per buscar repeticions.",
+    };
+  }
+
+  const hypotheses = [];
+  for (const [key, meta] of Object.entries(VARIABLE_META)) {
+    if (EXCLUDED.has(key) || meta.valence !== "negative") continue;
+
+    const totalSignalDays = Object.keys(matrix).filter(d => active(meta, matrix[d]?.[key])).length;
+    if (totalSignalDays < 3) continue;
+
+    let best = null;
+    for (const win of WINDOWS) {
+      const { eligible, hits } = cyclesWithSignal(matrix, completedStarts, key, meta, win);
+      if (eligible.length < 2) continue;
+      const rate = hits.length / eligible.length;
+      const candidate = { win, eligible, hits, rate };
+      if (!best || candidate.rate > best.rate || (candidate.rate === best.rate && candidate.hits.length > best.hits.length)) best = candidate;
+    }
+    if (!best) continue;
+
+    const cyclesObserved = best.eligible.length;
+    const cyclesWithSignalCount = best.hits.length;
+    const recurrent = cyclesObserved >= 2 && cyclesWithSignalCount >= 2 && best.rate >= 0.67;
+    if (!recurrent) continue;
+
+    hypotheses.push({
+      id:`${key}_${best.win.id}`,
+      key,
+      title:`${meta.label} · ${best.win.label}`,
+      status: cyclesObserved >= 3 ? "detected" : "tracking",
+      confidence: confidence(cyclesObserved,best.rate),
+      cyclesObserved,
+      cyclesWithSignal:cyclesWithSignalCount,
+      rate:best.rate,
+      text:`${meta.label} ha aparegut en ${cyclesWithSignalCount} de ${cyclesObserved} cicles comparables dins de ${best.win.label} (${Math.round(best.rate*100)}%).`,
+      trackingText:`Continua registrant ${meta.label.toLowerCase()} i la menstruació per comprovar si aquesta finestra es manté en més cicles.`,
+    });
+  }
+
+  hypotheses.sort((a,b) => (b.status==="detected")-(a.status==="detected") || (b.rate||0)-(a.rate||0));
+  const detected = hypotheses.filter(x=>x.status==="detected");
+  const tracking = hypotheses.filter(x=>x.status==="tracking").slice(0,4);
   return {
     cycleCount: starts.length,
     periodStarts: starts,
     hypotheses,
     detected,
     tracking,
-    summary: detected.length
-      ? `S'han detectat ${detected.length} possibles patrons relacionats amb les fases del cicle en ${starts.length} cicles registrats.`
-      : starts.length < 2
-        ? "Encara cal registrar almenys dos inicis de regla per començar a comparar fases del cicle."
-        : "Encara no hi ha prou repeticions consistents per confirmar cap patró del cicle.",
+    analysisAvailable: completedStarts.length >= 2,
+    summary: completedStarts.length < 2
+      ? `Hi ha ${starts.length} inicis de menstruació registrats, però només ${completedStarts.length} cicle complet. Encara no es mostren patrons menstruals repetits: calen almenys 2 cicles complets comparables.`
+      : detected.length
+      ? `S'han detectat ${detected.length} patrons que es repeteixen respecte a la menstruació en almenys 3 cicles comparables.`
+      : tracking.length
+        ? `Hi ha ${tracking.length} senyal${tracking.length===1?"":"s"} que s'ha repetit en 2 cicles, però encara calen més cicles abans de considerar-lo patró.`
+        : "Encara no hi ha cap finestra del cicle que es repeteixi prou entre cicles per mostrar-la com a patró.",
   };
 }

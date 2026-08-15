@@ -1,75 +1,54 @@
 import { VARIABLE_META } from "./normalizer.js";
 import { humanLagLabel } from "./correlation.js";
 
-/**
- * A partir dels patrons bruts del motor de correlacions, decideix si cada
- * un representa un possible factor desencadenant o protector (només per a
- * variables de resultat que tenen "valence" definida, és a dir, símptomes
- * on és clar si pujar és bo o dolent).
- */
+// Un "factor protector" ha de ser una cosa potencialment modificable o una
+// intervenció; mai un símptoma (mocs, inflor, diarrea, dolor...).
+const ACTIONABLE_PROTECTORS = new Set([
+  "exercici_fet", "exercici_gimnas", "exercici_fisio",
+  "exercici_activacio_neuromuscular", "exercici_caminar", "exercici_passos",
+  "medicacio_presa",
+]);
+// Possibles antecedents: només context/intervencions que poden passar abans.
+const PLAUSIBLE_TRIGGERS = new Set([
+  ...ACTIONABLE_PROTECTORS,
+  "son_qualitat", "son_despertars", "son_fatiga_mati",
+]);
+
 export function classifyConclusions(correlations) {
-  const withValence = correlations.filter(p => VARIABLE_META[p.outcomeKey]?.valence);
+  const triggers = [];
+  const protectors = [];
 
-  const scored = withValence.map(p => {
-    const valence = VARIABLE_META[p.outcomeKey].valence;
-    const worsens = (p.direction === "augmenta" && valence === "negative") ||
-                    (p.direction === "disminueix" && valence === "positive");
-    const kind = worsens ? "trigger" : "protector";
-    return { ...p, kind };
-  });
-
-  // Deduplica: per cada parella (predictor, outcome, kind), es queda només
-  // amb la finestra temporal de força més alta, per no repetir gairebé el
-  // mateix missatge 5 cops amb lags diferents.
-  const bestByPair = new Map();
-  scored.forEach(p => {
-    const key = `${p.predictorKey}|${p.outcomeKey}|${p.kind}`;
-    const prev = bestByPair.get(key);
-    if (!prev || p.strength > prev.strength) bestByPair.set(key, p);
-  });
-
-  const deduped = [...bestByPair.values()];
-  const triggers = deduped.filter(p => p.kind === "trigger").sort((a, b) => b.strength - a.strength);
-  const protectors = deduped.filter(p => p.kind === "protector").sort((a, b) => b.strength - a.strength);
+  for (const p of correlations) {
+    const outcomeMeta = VARIABLE_META[p.outcomeKey];
+    if (!outcomeMeta?.valence || p.lag < 1) continue;
+    // Una observació inicial no es converteix en desencadenant/protector.
+    if (p.confidence?.label === "observació") continue;
+    const worsens = (p.direction === "augmenta" && outcomeMeta.valence === "negative") ||
+                    (p.direction === "disminueix" && outcomeMeta.valence === "positive");
+    if (worsens && PLAUSIBLE_TRIGGERS.has(p.predictorKey)) triggers.push(buildConclusion(p, "trigger"));
+    if (!worsens && ACTIONABLE_PROTECTORS.has(p.predictorKey)) protectors.push(buildConclusion(p, "protector"));
+  }
 
   return {
-    triggers: triggers.map(buildConclusion),
-    protectors: protectors.map(buildConclusion),
+    triggers: triggers.sort(rank).slice(0, 5),
+    protectors: protectors.sort(rank).slice(0, 5),
   };
 }
 
-function buildConclusion(p) {
-  const predictorMeta = VARIABLE_META[p.predictorKey];
-  return {
-    ...p,
-    lagLabel: humanLagLabel(p.lag),
-    recommendation: recommendationFor(predictorMeta.category, p.kind),
-  };
+function rank(a,b) {
+  return b.confidence.score-a.confidence.score || b.strength-a.strength;
 }
-
-const TRIGGER_RECOMMENDATIONS = {
-  Son: "Podria valer la pena parar atenció a la teva rutina de son i comentar-ho amb el metge si es repeteix.",
-  Digestiu: "Rellevant per al SIBO / intestí irritable — anota-ho per a la propera visita amb digestiu.",
-  Cicle: "Si es repeteix en diversos cicles, val la pena comentar-ho amb ginecologia.",
-  Exercici: "Fixa't si aquest tipus d'esforç et convé o si caldria adaptar-lo (per exemple amb el fisio).",
-  Medicació: "Comenta-ho amb qui te la va prescriure per si cal revisar la pauta.",
-  Dolor: "Anota-ho per comentar-ho amb el metge; pot ajudar a localitzar l'origen del dolor.",
-  Pell: "Anota-ho per a dermatologia, especialment si coincideix amb algun altre factor.",
-  Energia: "Anota-ho — pot ajudar a entendre els teus dies de baixada d'energia.",
-};
-
-const PROTECTOR_RECOMMENDATIONS = {
-  Son: "Sembla que ajuda al teu descans — podria valer la pena prioritzar-ho quan puguis.",
-  Digestiu: "Sembla que ajuda al teu digestiu — útil per comentar-ho amb digestiu com a possible pauta.",
-  Cicle: "Pot ser un factor protector real o casualitat del cicle — segueix observant-ho.",
-  Exercici: "Sembla que t'ajuda — podria valer la pena mantenir aquesta rutina.",
-  Medicació: "Sembla que ajuda quan la prens — comenta-ho amb qui te la va prescriure per confirmar-ho.",
-  Dolor: "Sembla que ho redueix — pot valer la pena mantenir-ho o parlar-ne amb el fisio.",
-  Pell: "Sembla protector per a la pell — útil per comentar-ho amb dermatologia.",
-  Energia: "Sembla que t'ajuda a tenir més energia — val la pena mantenir-ho si pots.",
-};
-
-function recommendationFor(category, kind) {
-  const table = kind === "trigger" ? TRIGGER_RECOMMENDATIONS : PROTECTOR_RECOMMENDATIONS;
-  return table[category] || "Anota-ho per comentar-ho amb el metge a la propera visita.";
+function buildConclusion(p, kind) {
+  return { ...p, kind, lagLabel: humanLagLabel(p.lag), recommendation: recommendationFor(p, kind) };
+}
+function recommendationFor(p, kind) {
+  const category = VARIABLE_META[p.predictorKey]?.category;
+  if (kind === "protector") {
+    if (category === "Exercici") return "Comprova si aquesta diferència es repeteix amb el mateix tipus i quantitat d'activitat abans de considerar-la una pauta útil.";
+    if (category === "Medicació") return "Comenta aquesta resposta temporal amb el professional que t'ha indicat la medicació; no la modifiquis només a partir de l'app.";
+  }
+  if (category === "Son") return "Segueix registrant el son la nit anterior i el símptoma de l'endemà per comprovar si la diferència es manté.";
+  if (category === "Exercici") return "Comprova si es repeteix amb el mateix tipus i intensitat d'activitat abans de canviar la rutina.";
+  if (category === "Medicació") return "Comenta aquesta associació temporal amb el professional sanitari; no modifiquis la medicació només a partir de l'app.";
+  return "Continua registrant aquesta variable abans de l'episodi per veure si la relació es manté.";
 }

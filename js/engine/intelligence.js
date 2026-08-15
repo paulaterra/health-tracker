@@ -89,9 +89,18 @@ function painSpecificInsights(records, matrix) {
 }
 
 function patternText(p){
-  const predictor=p.predictorType==="boolean"?p.predictorLabel.toLowerCase():`${p.predictorLabel.toLowerCase()} alt`;
-  const effect=p.outcomeType==="numeric"?`${p.outcomeLabel} passa de ${p.effect.meanB.toFixed(1)} a ${p.effect.meanA.toFixed(1)}/10`:`${p.outcomeLabel} passa de ${(p.effect.rateB*100).toFixed(0)}% a ${(p.effect.rateA*100).toFixed(0)}% dels dies`;
-  return `${predictor} ↔ ${effect} (${humanLagLabel(p.lag)}; n=${p.nA}/${p.nB}; estabilitat ${p.stability}).`;
+  const predictor=p.predictorType==="boolean"
+    ? p.predictorLabel.toLowerCase()
+    : p.predictorKey==="exercici_passos" && p.thresholds
+      ? `${p.predictorLabel.toLowerCase()} ${p.thresholds.labelHigh}`
+      : `${p.predictorLabel.toLowerCase()} alt`;
+  const rateA=Math.round((p.effect.rateA||0)*100);
+  const rateB=Math.round((p.effect.rateB||0)*100);
+  const evidence=`episodis alts: ${rateA}% vs ${rateB}% (${p.nA} vs ${p.nB} dies comparables)`;
+  if (p.lag === 0) {
+    return `${p.predictorLabel} i ${p.outcomeLabel.toLowerCase()} tendeixen a coincidir el mateix dia; ${evidence}.`;
+  }
+  return `Després de ${predictor}, ${p.lag===1?"l'endemà":`al cap de ${p.lag} dies`} ${p.outcomeLabel.toLowerCase()} és més diferent del nivell de comparació; ${evidence}.`;
 }
 
 export async function generateIntelligence({start=null,end=null}={}){
@@ -106,16 +115,16 @@ export async function generateIntelligence({start=null,end=null}={}){
   const flares=detectFlares(matrix);
   const medication=analyzeMedicationResponse(medRecords,painRecords);
   const cycle=analyzeCyclePatterns(matrix);
-  const strongest=correlations.slice(0,6).map(p=>({...p,text:patternText(p)}));
+  const strongest=correlations.slice(0,5).map(p=>({...p,text:patternText(p)}));
   const conclusions=[
     ...triggers.slice(0,4).map(p=>({kind:"trigger",text:patternText(p),confidence:p.confidence.label,recommendation:p.recommendation})),
     ...protectors.slice(0,4).map(p=>({kind:"protector",text:patternText(p),confidence:p.confidence.label,recommendation:p.recommendation})),
   ];
   const recommendations=[...new Set([
+    ...cycle.tracking.slice(0,3).map(item=>item.trackingText),
     ...pain.recommendations,
     ...conclusions.map(c=>c.recommendation).filter(Boolean),
     flares.length?"Quan aparegui un brot, registra son, digestió, dolor, energia i medicació el mateix dia per poder comparar-lo amb brots anteriors.":null,
-    ...cycle.tracking.slice(0,3).map(item=>item.trackingText),
     dates.length<14?"Completa el check-in, el son i el dolor el mateix dia; no es mostraran hipòtesis fins que hi hagi almenys 14 dies.":null,
     "Interpreta aquests resultats com associacions observades, no com causes demostrades ni diagnòstics."
   ].filter(Boolean))].slice(0,10);

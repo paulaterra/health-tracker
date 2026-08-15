@@ -50,7 +50,7 @@ export function buildPersonalProfile(matrix, intel) {
       sleepAffected:pain?.sleepAffected||0,
     },
     sleep:{ quality:sleep, awakenings },
-    digestion:{ bloating, diarrheaRate:rate(matrix,"digestiu_diarrea",dates) },
+    digestion:{ bloating, diarrheaRate:rate(matrix,"digestiu_diarrea",dates), diarrheaCount:dates.filter(d=>matrix[d]?.digestiu_diarrea===true).length, days:dates.length },
     energy,
     cyclePatterns,
     mainTrigger:trigger?.text||null,

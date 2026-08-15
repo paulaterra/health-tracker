@@ -8,6 +8,7 @@ import { intelligentSummaryHtml, recommendationsHtml } from "../../engine/intell
 import { escapeHtml, formatDate } from "../../utils/dom.js";
 import { medicalSummaryData } from "../../engine/personal-insights.js";
 import { dayDetailHtml } from "../dashboard/dashboard.js";
+import { buildClinicalHypotheses, clinicalHypothesesHtml } from "../../engine/clinical-hypotheses.js";
 
 
 const REPORT_SCORE_SCALES = [
@@ -289,6 +290,7 @@ async function openMedicalPrintView(container, start, end) {
     }
 
     const intel = await generateIntelligence({ start, end });
+    const clinicalHypotheses = buildClinicalHypotheses(Object.fromEntries(dates.map(d => [d, matrix[d]])));
     ensureMedicalPrintStyles();
     document.querySelector(".medical-print-shell")?.remove();
 
@@ -327,7 +329,7 @@ async function openMedicalPrintView(container, start, end) {
 
     const analysis = document.createElement("section");
     analysis.className = "medical-print-analysis";
-    analysis.innerHTML = `<span class="view-eyebrow">Anàlisi del període</span><h2 style="font-size:28px;margin:8px 0 18px;">Patrons i conclusions</h2>${intelligentSummaryHtml(intel, { title: "Patrons detectats" })}${recommendationsHtml(intel, "Conclusions i recomanacions")}`;
+    analysis.innerHTML = `<span class="view-eyebrow">Anàlisi del període</span><h2 style="font-size:28px;margin:8px 0 18px;">Patrons i conclusions</h2>${intelligentSummaryHtml(intel, { title: "Patrons detectats" })}${recommendationsHtml(intel, "Conclusions i recomanacions")}${clinicalHypotheses.length ? `<div style="margin-top:18px;"><h2 style="font-size:20px;margin-bottom:10px;">Hipòtesis a explorar</h2><p style="font-size:11px;color:var(--ink-faint);">Separades dels patrons estadístics · no són diagnòstics.</p>${clinicalHypothesesHtml(clinicalHypotheses,{compact:true})}</div>` : ""}`;
     pages.appendChild(analysis);
 
     shell.querySelector("[data-close-medical-report]").addEventListener("click", () => shell.remove());
@@ -345,120 +347,64 @@ async function openMedicalPrintView(container, start, end) {
   }
 }
 
-let html2pdfLoadPromise = null;
-
-/** Carrega la llibreria html2pdf.js sota demanda (només quan cal exportar). */
-function loadHtml2Pdf() {
-  if (window.html2pdf) return Promise.resolve();
-  if (html2pdfLoadPromise) return html2pdfLoadPromise;
-  html2pdfLoadPromise = new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("No s'ha pogut carregar la llibreria de PDF (comprova la connexió a internet)."));
-    document.head.appendChild(script);
-  });
-  return html2pdfLoadPromise;
-}
-
-function pdfSafeColor(value) {
-  if (!value || !value.includes("color(")) return value;
-
-  // Safari pot resoldre color-mix() com a color(srgb ...), però html2canvas 1.4.1
-  // no entén la funció CSS color(). La convertim a rgb()/rgba().
-  const match = value.match(/color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\)/i);
-  if (!match) return value;
-
-  const [, r, g, b, a] = match;
-  const rgb = [r, g, b].map(x => Math.max(0, Math.min(255, Math.round(Number(x) * 255))));
-  return a == null
-    ? `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`
-    : `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${Math.max(0, Math.min(1, Number(a)))})`;
-}
-
-function preparePdfClone(element) {
-  const clone = element.cloneNode(true);
-  clone.classList.add("pdf-export-clone");
-  clone.style.width = "190mm";
-  clone.style.maxWidth = "190mm";
-  clone.style.margin = "0";
-  clone.style.background = "#ffffff";
-
-  const sandbox = document.createElement("div");
-  sandbox.className = "pdf-export-sandbox";
-  sandbox.style.cssText = "position:fixed;left:-100000px;top:0;width:190mm;background:#fff;z-index:-1;pointer-events:none;";
-  sandbox.appendChild(clone);
-  document.body.appendChild(sandbox);
-
-  const originals = [element, ...element.querySelectorAll("*")];
-  const clones = [clone, ...clone.querySelectorAll("*")];
-  const colorProps = [
-    "color", "backgroundColor", "borderTopColor", "borderRightColor",
-    "borderBottomColor", "borderLeftColor", "outlineColor",
-    "textDecorationColor", "columnRuleColor", "caretColor", "fill", "stroke",
-  ];
-
-  originals.forEach((source, index) => {
-    const target = clones[index];
-    if (!target) return;
-    const computed = getComputedStyle(source);
-
-    colorProps.forEach(prop => {
-      const value = computed[prop];
-      if (value && value !== "none") target.style[prop] = pdfSafeColor(value);
-    });
-
-    // Evitem altres propietats que Safari pot serialitzar amb colors CSS moderns.
-    // Són decoratives i no afecten la informació del PDF.
-    if (computed.boxShadow && computed.boxShadow !== "none") target.style.boxShadow = "none";
-    if (computed.textShadow && computed.textShadow !== "none") target.style.textShadow = "none";
-    if (computed.filter && computed.filter !== "none") target.style.filter = "none";
-    if (computed.backgroundImage && computed.backgroundImage.includes("color(")) target.style.backgroundImage = "none";
-  });
-
-  return { clone, cleanup: () => sandbox.remove() };
-}
-
+/**
+ * Exportació robusta dels dos informes curts.
+ * Fem servir la impressió nativa del navegador, igual que l'informe mèdic complet,
+ * perquè Safari pot fallar amb html2canvas/html2pdf en informes llargs o amb SVG.
+ */
 async function downloadPdf(container, selector = "#report-output", filenamePrefix = "informe-quadern-de-salut", buttonSelector = "#pdf-btn") {
   const btn = container.querySelector(buttonSelector);
   const original = btn.textContent;
-  btn.textContent = "Generant PDF…";
+  btn.textContent = "Preparant PDF…";
   btn.disabled = true;
-  let cleanup = null;
+
   try {
-    await loadHtml2Pdf();
     const element = container.querySelector(selector);
     if (!element) throw new Error("No s'ha trobat el contingut de l'informe.");
 
-    const start = container.querySelector("#startDate").value;
-    const end = container.querySelector("#endDate").value;
-    const prepared = preparePdfClone(element);
-    cleanup = prepared.cleanup;
+    document.querySelector(".simple-pdf-print-shell")?.remove();
+    if (!document.querySelector("#simple-pdf-print-styles")) {
+      const style = document.createElement("style");
+      style.id = "simple-pdf-print-styles";
+      style.textContent = `
+        .simple-pdf-print-shell{position:fixed;inset:0;z-index:999999;background:#eef0eb;overflow:auto;padding:24px;}
+        .simple-pdf-print-toolbar{position:sticky;top:0;z-index:2;max-width:210mm;margin:0 auto 16px;padding:12px 16px;background:#fff;border:1px solid #d6dacd;border-radius:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;}
+        .simple-pdf-print-content{box-sizing:border-box;width:210mm;min-height:297mm;margin:0 auto;background:#fff;padding:12mm;border:1px solid #d9ddd2;}
+        @media print{
+          @page{size:A4 portrait;margin:10mm;}
+          html,body{background:#fff!important;margin:0!important;padding:0!important;}
+          body>*:not(.simple-pdf-print-shell){display:none!important;}
+          .simple-pdf-print-shell{position:static!important;inset:auto!important;overflow:visible!important;padding:0!important;background:#fff!important;}
+          .simple-pdf-print-toolbar{display:none!important;}
+          .simple-pdf-print-content{width:auto!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;}
+          .simple-pdf-print-content .card,.simple-pdf-print-content section,.simple-pdf-print-content article{break-inside:avoid-page;page-break-inside:avoid;}
+          *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+        }
+      `;
+      document.head.appendChild(style);
+    }
 
-    // Donem un frame al navegador perquè calculi els estils del clon sanejat.
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const start = container.querySelector("#startDate")?.value || "";
+    const end = container.querySelector("#endDate")?.value || "";
+    const title = filenamePrefix.includes("resum") ? "Resum mèdic" : "Informe complet";
+    const shell = document.createElement("div");
+    shell.className = "simple-pdf-print-shell";
+    shell.innerHTML = `<div class="simple-pdf-print-toolbar no-print">
+      <div><strong>${escapeHtml(title)}</strong><div style="font-size:12px;color:#6f746c;">${escapeHtml(start)} — ${escapeHtml(end)}</div></div>
+      <div style="display:flex;gap:8px;"><button class="btn btn-ghost" data-close-simple-pdf>Tanca</button><button class="btn btn-primary" data-print-simple-pdf>Imprimeix / Desa PDF</button></div>
+    </div><main class="simple-pdf-print-content"></main>`;
+    shell.querySelector(".simple-pdf-print-content").appendChild(element.cloneNode(true));
+    document.body.appendChild(shell);
 
-    await window.html2pdf()
-      .set({
-        margin: 10,
-        filename: `${filenamePrefix}-${start}-a-${end}.pdf`,
-        image: { type: "jpeg", quality: 0.95 },
-        html2canvas: {
-          scale: 2,
-          backgroundColor: "#ffffff",
-          useCORS: true,
-          logging: false,
-        },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: { mode: ["css", "legacy"] },
-      })
-      .from(prepared.clone)
-      .save();
+    shell.querySelector("[data-close-simple-pdf]").addEventListener("click", () => shell.remove());
+    shell.querySelector("[data-print-simple-pdf]").addEventListener("click", () => window.print());
+
+    await new Promise(resolve => setTimeout(resolve, 250));
+    window.print();
   } catch (err) {
-    console.error("Error exportant PDF", err);
-    alert(`${err.message || "No s'ha pogut generar el PDF."} Pots fer servir el botó "Imprimeix" com a alternativa (des d'allà també pots triar "Desar com a PDF").`);
+    console.error("Error preparant PDF", err);
+    alert(err.message || "No s'ha pogut preparar el PDF.");
   } finally {
-    cleanup?.();
     btn.textContent = original;
     btn.disabled = false;
   }
@@ -517,6 +463,7 @@ async function generateReport(container, start, end) {
   const dowPatterns = computeDayOfWeekPatterns(fullMatrix);
   const trends = computeTrends(fullMatrix);
   const { triggers, protectors } = classifyConclusions(correlations);
+  const clinicalHypotheses = buildClinicalHypotheses(periodMatrix);
 
   // Un únic motor compartit alimenta Dashboard, Patrons, Conclusions i Informes.
   // Aquí el limitem al període seleccionat perquè el PDF sigui coherent amb les dates.
@@ -541,6 +488,7 @@ async function generateReport(container, start, end) {
 
     ${intelligentSummaryHtml(intel, { title: "Resum intel·ligent del període" })}
     ${recommendationsHtml(intel, "Recomanacions i dades a seguir") }
+    ${clinicalHypotheses.length ? `<div style="margin-top:var(--sp-5);"><h2 class="card-title">Hipòtesis a explorar</h2><p style="font-size:var(--fs-xs);color:var(--ink-faint);">Aquesta secció interpreta combinacions de símptomes per orientar què comentar amb un professional. No són diagnòstics.</p>${clinicalHypothesesHtml(clinicalHypotheses)}</div>` : ""}
 
     <div class="card" style="margin-top: var(--sp-5);">
       <h2 class="card-title">Índex de benestar del període</h2>
@@ -563,30 +511,32 @@ async function generateReport(container, start, end) {
     ` : ""}
 
     <div class="card" style="margin-top: var(--sp-5);">
-      <h2 class="card-title">Tots els patrons detectats (${correlations.length})</h2>
-      <p style="font-size: var(--fs-xs); color: var(--ink-faint); margin: 0 0 var(--sp-3);">Relacions entre variables, de finestres diàries fins a mensuals (-30 a +30 dies), ordenades per força.</p>
-      ${correlations.length ? `<div class="event-list">${correlations.slice(0, 40).map(patternLine).join("")}</div>` : `<p class="ledger-empty">Encara no se n'ha trobat cap.</p>`}
-      ${correlations.length > 40 ? `<p style="font-size: var(--fs-xs); color: var(--ink-faint); margin-top: var(--sp-2);">... i ${correlations.length - 40} més (mostrant els 40 més forts).</p>` : ""}
+      <h2 class="card-title">Relacions destacades (${correlations.length})</h2>
+      <p style="font-size: var(--fs-xs); color: var(--ink-faint); margin: 0 0 var(--sp-3);">Només es mostren associacions que superen els llindars mínims de repetició i efecte. Les coincidències entre símptomes no es consideren desencadenants. En qualsevol percentatge: 0% = cap dels casos analitzats; 100% = tots els casos analitzats.</p>
+      ${correlations.length ? `<div class="event-list">${correlations.slice(0, 12).map(patternLine).join("")}</div>` : `<p class="ledger-empty">Encara no hi ha cap relació prou repetida per destacar.</p>`}
+      ${correlations.length > 12 ? `<p style="font-size: var(--fs-xs); color: var(--ink-faint); margin-top: var(--sp-2);">Es mostren les 12 relacions més consistents de ${correlations.length}.</p>` : ""}
     </div>
 
     <div class="card" style="margin-top: var(--sp-5);">
       <h2 class="card-title">Ritmes setmanals (${dowPatterns.length})</h2>
-      ${dowPatterns.length ? `<div class="event-list">${dowPatterns.map(dowLine).join("")}</div>` : `<p class="ledger-empty">Encara no se n'ha trobat cap.</p>`}
+      ${dowPatterns.length ? `<div class="event-list">${dowPatterns.map(dowLine).join("")}</div>` : `<p class="ledger-empty">Encara no s’ha detectat cap ritme setmanal prou consistent; apareixerà automàticament quan un mateix dia de la setmana presenti una diferència repetida respecte de la teva mitjana.</p>`}
     </div>
 
     <div class="card" style="margin-top: var(--sp-5);">
       <h2 class="card-title">Tendències generals (${trends.length})</h2>
-      ${trends.length ? `<div class="event-list">${trends.map(trendLine).join("")}</div>` : `<p class="ledger-empty">Encara no se n'ha trobat cap.</p>`}
+      ${trends.length ? `<div class="event-list">${trends.map(trendLine).join("")}</div>` : `<p class="ledger-empty">Encara no hi ha cap tendència general prou clara; apareixerà automàticament quan l’evolució amb el temps sigui consistent.</p>`}
     </div>
 
     <div class="card" style="margin-top: var(--sp-5);">
-      <h2 class="card-title" style="color: var(--clay);">Possibles factors desencadenants (${triggers.length})</h2>
-      ${triggers.length ? `<div class="event-list">${triggers.map(reportConclusionLine).join("")}</div>` : `<p class="ledger-empty">Cap detectat encara.</p>`}
+      <h2 class="card-title" style="color: var(--clay);">Possibles factors previs (${triggers.length})</h2>
+      <p style="font-size:var(--fs-xs);color:var(--ink-faint);margin:0 0 var(--sp-3);">Només antecedents plausibles que passen abans del símptoma; no implica causalitat.</p>
+      ${triggers.length ? `<div class="event-list">${triggers.slice(0,6).map(reportConclusionLine).join("")}</div>` : `<p class="ledger-empty">Encara no hi ha cap factor previ prou repetit.</p>`}
     </div>
 
     <div class="card" style="margin-top: var(--sp-5);">
       <h2 class="card-title" style="color: var(--sage);">Possibles factors protectors (${protectors.length})</h2>
-      ${protectors.length ? `<div class="event-list">${protectors.map(reportConclusionLine).join("")}</div>` : `<p class="ledger-empty">Cap detectat encara.</p>`}
+      <p style="font-size:var(--fs-xs);color:var(--ink-faint);margin:0 0 var(--sp-3);">Només s'hi admeten factors modificables, com activitat o medicació. Un símptoma mai es presenta com a protector.</p>
+      ${protectors.length ? `<div class="event-list">${protectors.slice(0,6).map(reportConclusionLine).join("")}</div>` : `<p class="ledger-empty">Encara no hi ha prou dades per identificar cap factor protector fiable.</p>`}
     </div>
 
     <div class="card" style="margin-top: var(--sp-5); background: var(--paper-alt);">
@@ -613,14 +563,14 @@ function medicalSummaryHtml(data, avgPeriod, avgPrev, start, end, dayCount) {
     ${scoreReferencesHtml({ compact: true })}
     <div class="medical-metrics">
       <div><span>Benestar</span><strong>${avgPeriod ?? "—"}/100</strong><small>${avgPrev!=null?`període anterior ${avgPrev}/100`:"sense comparació"}</small></div>
-      <div><span>Dolor</span><strong>${p.pain.average==null?"—":`${p.pain.average.toFixed(1)}/10`}</strong><small>${p.pain.count} registres</small></div>
-      <div><span>Son</span><strong>${p.sleep.quality==null?"—":`${p.sleep.quality.toFixed(1)}/10`}</strong><small>${p.sleep.awakenings==null?"—":`${p.sleep.awakenings.toFixed(1)} despertars`}</small></div>
+      <div><span>Dolor</span><strong>${p.pain.average==null?"—":`${p.pain.average.toFixed(1)}/10`}</strong><small>${p.pain.count} registres · 0=cap dolor · 10=molt intens</small></div>
+      <div><span>Son</span><strong>${p.sleep.quality==null?"—":`${p.sleep.quality.toFixed(1)}/10`}</strong><small>${p.sleep.awakenings==null?"—":`${p.sleep.awakenings.toFixed(1)} despertars`} · 0=descans reparador · 10=molt mal son</small></div>
       <div><span>Zona principal</span><strong>${escapeHtml(p.pain.mainZone||"—")}</strong><small>${escapeHtml(p.pain.mainType||"sense tipus dominant")}</small></div>
     </div>
     <div class="medical-summary-grid">
       <div class="medical-summary-block"><h2>Patrons detectats</h2>${keyPatterns.length?`<ul>${keyPatterns.map(x=>`<li>${escapeHtml(x)}</li>`).join("")}</ul>`:`<p>Encara no s'ha detectat cap patró amb prou evidència.</p>`}</div>
       <div class="medical-summary-block"><h2>Pròxims dies</h2>${predictionItems.length?`<ul>${predictionItems.map(x=>`<li>${escapeHtml(x.label)} · confiança ${escapeHtml(x.confidence)}</li>`).join("")}</ul>`:`<p>${escapeHtml(data.predictions.note)}</p>`}</div>
-      <div class="medical-summary-block"><h2>Digestiu i cicle</h2><ul><li>Diarrea en el ${(p.digestion.diarrheaRate*100).toFixed(0)}% dels dies amb dades.</li>${p.digestion.bloating!=null?`<li>Inflor mitjana ${p.digestion.bloating.toFixed(1)}/10.</li>`:""}${cycleItems.slice(0,3).map(x=>`<li>${escapeHtml(x)}</li>`).join("")}</ul></div>
+      <div class="medical-summary-block"><h2>Digestiu i cicle</h2><ul><li>Diarrea: ${(p.digestion.diarrheaRate*100).toFixed(0)}% (${p.digestion.diarrheaCount||0} de ${p.digestion.days||0} dies amb dades; 0%=cap, 100%=tots).</li>${p.digestion.bloating!=null?`<li>Inflor mitjana ${p.digestion.bloating.toFixed(1)}/10 (0=gens d’inflor; 10=inflor màxima/molt intensa).</li>`:""}${cycleItems.slice(0,3).map(x=>`<li>${escapeHtml(x)}</li>`).join("")}</ul></div>
       <div class="medical-summary-block"><h2>Nota clínica</h2><p>Aquest resum identifica associacions del registre personal. No demostra causalitat i no substitueix una valoració professional.</p></div>
     </div>
   </section>`;
@@ -690,13 +640,27 @@ function symptomFrequencyChart(periodMatrix) {
 
 /* ---------------- Línies de text dels patrons/tendències ---------------- */
 
+function numericScaleLegend(key) {
+  const legends = {
+    dolor_general: "0=cap dolor; 10=dolor màxim/molt intens", dolor_intensitat_max: "0=cap dolor; 10=dolor màxim/molt intens", dolor_esquena_intensitat: "0=cap dolor; 10=dolor màxim/molt intens", dolor_darrere_cap_intensitat: "0=cap dolor; 10=dolor màxim/molt intens", mal_de_cap_intensitat: "0=cap dolor; 10=mal de cap molt intens", vertigen_intensitat: "0=cap sensació; 10=sensació molt intensa", digestiu_general: "0=cap molèstia; 10=molèstia molt intensa", digestiu_inflor: "0=gens d’inflor; 10=inflor màxima/molt intensa", digestiu_dolorAbdominal: "0=cap dolor; 10=dolor molt intens", digestiu_retortijons: "0=cap molèstia; 10=molèstia molt intensa", digestiu_gasos: "0=cap molèstia; 10=molèstia molt intensa", son_qualitat: "0=descans reparador; 10=molt mal son", son_fatiga_mati: "0=cap fatiga; 10=fatiga extrema", energia_fisica: "0=molta energia; 10=esgotament", energia_mental: "0=cap boira mental; 10=boira mental molt intensa"
+  };
+  return legends[key] || "0=mínim/absència; 10=màxim/molt intens";
+}
+
 function patternLine(p) {
   const cond = p.predictorType === "boolean" ? p.predictorLabel.toLowerCase() : `${p.predictorLabel.toLowerCase()} alt (≥6/10)`;
+  const relation = p.lag === 0
+    ? `<strong>${escapeHtml(cond)}</strong> coincideix amb ${escapeHtml(p.outcomeLabel.toLowerCase())}`
+    : `<strong>${escapeHtml(cond)}</strong> precedeix ${escapeHtml(p.outcomeLabel.toLowerCase())} (${humanLagLabel(p.lag)})`;
+  let effectText = "";
+  if (p.outcomeType === "numeric") effectText = `mitjana amb factor ${p.effect.meanA.toFixed(1)}/10 (n=${p.nA}) vs sense factor ${p.effect.meanB.toFixed(1)}/10 (n=${p.nB}) · ${numericScaleLegend(p.outcomeKey)}`;
+  else {
+    const casesA=Math.round(p.effect.rateA*p.nA), casesB=Math.round(p.effect.rateB*p.nB);
+    effectText = `amb factor ${(p.effect.rateA*100).toFixed(0)}% (${casesA}/${p.nA}) vs sense factor ${(p.effect.rateB*100).toFixed(0)}% (${casesB}/${p.nB})`;
+  }
   return `
     <div class="event-row">
-      <div class="event-tags">
-        <strong>${escapeHtml(cond)}</strong> (${humanLagLabel(p.lag)}) → ${escapeHtml(p.outcomeLabel)} ${p.direction} · n=${p.nA}/${p.nB} · confiança ${p.confidence.label}
-      </div>
+      <div class="event-tags">${relation} · ${effectText} · n=${p.nA}/${p.nB} · confiança ${p.confidence.label}</div>
     </div>
   `;
 }
@@ -719,12 +683,19 @@ function trendLine(t) {
 
 function reportConclusionLine(p) {
   const cond = p.predictorType === "boolean" ? p.predictorLabel.toLowerCase() : `${p.predictorLabel.toLowerCase()} alt`;
+  let evidence="";
+  if(p.outcomeType==="boolean"){
+    const a=Math.round(p.effect.rateA*p.nA), b=Math.round(p.effect.rateB*p.nB);
+    evidence=` · amb factor ${(p.effect.rateA*100).toFixed(0)}% (${a}/${p.nA}) vs sense factor ${(p.effect.rateB*100).toFixed(0)}% (${b}/${p.nB})`;
+  } else if(p.outcomeType==="numeric"){
+    evidence=` · mitjana ${p.effect.meanA.toFixed(1)}/10 amb factor (n=${p.nA}) vs ${p.effect.meanB.toFixed(1)}/10 sense factor (n=${p.nB}) · ${numericScaleLegend(p.outcomeKey)}`;
+  }
   return `
     <div class="event-row">
       <div class="event-tags">
-        <strong>${escapeHtml(cond)}</strong> → ${escapeHtml(p.outcomeLabel)} ${p.direction} (${humanLagLabel(p.lag)}) · confiança ${p.confidence.label}
+        <strong>${escapeHtml(cond)}</strong> → ${escapeHtml(p.outcomeLabel.toLowerCase())} ${p.direction} ${p.lag === 1 ? "l'endemà" : `al cap de ${p.lag} dies`} · confiança ${p.confidence.label}${evidence}
       </div>
-      <div class="event-comment">💡 ${escapeHtml(p.recommendation)}</div>
+      <div class="event-comment">${escapeHtml(p.recommendation)}</div>
     </div>
   `;
 }
@@ -746,7 +717,7 @@ function buildSymptomSummary(periodMatrix) {
       const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
       const max = Math.max(...vals);
       if (avg < 0.5 && max < 3) continue;
-      rows.push({ label: meta.label, text: `mitjana ${avg.toFixed(1)}/10 · pic ${max}/10 (${vals.length} dies)` });
+      rows.push({ label: meta.label, text: `mitjana ${avg.toFixed(1)}/10 · pic ${max}/10 (${vals.length} dies) · ${numericScaleLegend(key)}` });
     }
   }
   if (rows.length === 0) return `<p class="ledger-empty">Sense símptomes destacables aquest període.</p>`;

@@ -20,6 +20,7 @@ export const VARIABLE_META = {
   dolor_general:            { label: "Dolor general", type: "numeric", category: "Dolor", valence: "negative" },
   dolor_intensitat_max:     { label: "Dolor corporal (pic del dia)", type: "numeric", category: "Dolor", valence: "negative" },
   dolor_esquena_intensitat: { label: "Mal d’esquena", type: "numeric", category: "Dolor", valence: "negative" },
+  dolor_darrere_cap_intensitat:{ label: "Dolor darrere del cap", type: "numeric", category: "Dolor", valence: "negative" },
   dolor_rigidesa:           { label: "Rigidesa corporal", type: "boolean", category: "Dolor", valence: "negative" },
   dolor_registrat:          { label: "Registre de dolor completat", type: "boolean", category: "Dolor" },
   mal_de_cap_ocorregut:     { label: "Mal de cap", type: "boolean", category: "Dolor", valence: "negative" },
@@ -35,6 +36,7 @@ export const VARIABLE_META = {
   digestiu_urgencia:        { label: "Urgència al lavabo", type: "boolean", category: "Digestiu", valence: "negative" },
   digestiu_bristol_anormal: { label: "Deposició anormal (Bristol 1-2 o 6-7)", type: "boolean", category: "Digestiu", valence: "negative" },
   digestiu_diarrea:         { label: "Diarrea (Bristol 6-7)", type: "boolean", category: "Digestiu", valence: "negative" },
+  digestiu_estrenyiment:     { label: "Femta dura / restrenyiment (Bristol 1-2)", type: "boolean", category: "Digestiu", valence: "negative" },
   digestiu_deposicio_registrada: { label: "Deposició registrada", type: "boolean", category: "Digestiu" },
   digestiu_llagues_boca:    { label: "Llagues a la boca", type: "boolean", category: "Digestiu", valence: "negative" },
 
@@ -130,6 +132,9 @@ export async function buildDailyMatrix() {
       ...entries.flatMap(entry => entry.tipus || []),
       ...(p.painDrawing || []).map(stroke => stroke.type),
     ].map(value => String(value).toLowerCase());
+    if (labels.some(label => /darrere.*cap|posterior.*cap|occipital|nuca/.test(label))) {
+      setMax(matrix, d, "dolor_darrere_cap_intensitat", p.intensitat);
+    }
     if (labels.some(label => /esquena|dorsal|lumbar|cervical|columna|omòplat/.test(label))) {
       setMax(matrix, d, "dolor_esquena_intensitat", p.intensitat);
     }
@@ -163,6 +168,7 @@ export async function buildDailyMatrix() {
     if (b.urgencia) setBool(matrix, d, "digestiu_urgencia");
     if (b.bristol <= 2 || b.bristol >= 6) setBool(matrix, d, "digestiu_bristol_anormal");
     if (Number(b.bristol) >= 6) setBool(matrix, d, "digestiu_diarrea");
+    if (Number(b.bristol) <= 2) setBool(matrix, d, "digestiu_estrenyiment");
   });
 
   sleeps.forEach(s => {
@@ -264,7 +270,7 @@ export async function buildDailyMatrix() {
   // sent desconegudes si no s’han registrat explícitament.
   Object.values(matrix).forEach(day => {
     const symptomDefaults = {
-      dolor_registrat: false, dolor_general: 0, dolor_intensitat_max: 0, dolor_esquena_intensitat: 0, dolor_rigidesa: false,
+      dolor_registrat: false, dolor_general: 0, dolor_intensitat_max: 0, dolor_esquena_intensitat: 0, dolor_darrere_cap_intensitat: 0, dolor_rigidesa: false,
       mal_de_cap_ocorregut: false, mal_de_cap_intensitat: 0,
       vertigen_ocorregut: false, vertigen_intensitat: 0,
       digestiu_general: 0, digestiu_inflor: 0, digestiu_dolorAbdominal: 0, digestiu_retortijons: 0, digestiu_gasos: 0,

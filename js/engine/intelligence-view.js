@@ -33,22 +33,36 @@ function flaresHtml(flares, compact) {
 
 function cycleHtml(cycle, compact) {
   if (!cycle) return "";
+  // Sense almenys dos inicis de menstruació reals no mostrem cap hipòtesi individual.
+  if (!cycle.analysisAvailable) {
+    return `
+      <h3 style="margin:var(--sp-4) 0 var(--sp-2);font-size:var(--fs-sm);">Cicle menstrual</h3>
+      <div class="event-row" style="background:var(--paper-alt);"><div class="event-tags">${escapeHtml(cycle.summary)}</div></div>`;
+  }
   const detected = (cycle.hypotheses || []).filter(item => item.status === "detected");
-  const visible = compact ? detected.slice(0, 2) : detected;
-
-  // Les hipòtesis personals només es mostren quan el motor detecta
-  // una associació amb prou dades i compleix els llindars estadístics.
-  if (!visible.length) return "";
-
+  const tracking = (cycle.hypotheses || []).filter(item => item.status === "tracking");
+  const visibleDetected = detected.slice(0, compact ? 2 : 5);
+  const visibleTracking = tracking.slice(0, compact ? 1 : 3);
+  if (!visibleDetected.length && !visibleTracking.length) {
+    return `
+      <h3 style="margin:var(--sp-4) 0 var(--sp-2);font-size:var(--fs-sm);">Cicle menstrual</h3>
+      <div class="event-row" style="background:var(--paper-alt);"><div class="event-tags">${escapeHtml(cycle.summary)}</div></div>`;
+  }
   return `
-    <h3 style="margin:var(--sp-4) 0 var(--sp-2);font-size:var(--fs-sm);">Patrons segons la fase del cicle</h3>
+    <h3 style="margin:var(--sp-4) 0 var(--sp-2);font-size:var(--fs-sm);">Patrons temporals respecte al cicle</h3>
     <div class="event-row" style="background:var(--paper-alt);margin-bottom:8px;"><div class="event-tags">${escapeHtml(cycle.summary)}</div></div>
-    <div class="event-list">${visible.map(item => `
-      <div class="event-row">
-        <div class="event-row-top"><strong>${escapeHtml(item.title)}</strong><span class="badge">${escapeHtml(item.confidence)}</span></div>
-        <div class="event-comment">${escapeHtml(item.text)}</div>
-      </div>`).join("")}</div>
-  `;
+    <div class="event-list">
+      ${visibleDetected.map(item => `
+        <div class="event-row">
+          <div class="event-row-top"><strong>${escapeHtml(item.title)}</strong><span class="badge">confiança ${escapeHtml(item.confidence)}</span></div>
+          <div class="event-comment">${escapeHtml(item.text)}</div>
+        </div>`).join("")}
+      ${visibleTracking.map(item => `
+        <div class="event-row">
+          <div class="event-row-top"><strong>${escapeHtml(item.title)}</strong><span class="badge">senyal repetit</span></div>
+          <div class="event-comment">${escapeHtml(item.text)}</div>
+        </div>`).join("")}
+    </div>`;
 }
 
 function medicationHtml(items, compact) {
@@ -75,7 +89,7 @@ export function intelligentSummaryHtml(intel,{compact=false,title="Resum intel·
       ${medicationHtml(intel.medication,compact)}
       ${cycleHtml(intel.cycle,compact)}
       ${patternItems.length?`<h3 style="margin:var(--sp-4) 0 var(--sp-2);font-size:var(--fs-sm);">Relacions destacades</h3><div class="event-list">${patternItems.map(p=>`<div class="event-row"><div class="event-tags">${escapeHtml(p.text)} · confiança ${escapeHtml(p.confidence.label)} · cobertura ${Math.round(p.coverage*100)}%</div></div>`).join("")}</div>`:""}
-      ${!compact&&conclusionItems.length?`<h3 style="margin:var(--sp-4) 0 var(--sp-2);font-size:var(--fs-sm);">Hipòtesis principals</h3><div class="event-list">${conclusionItems.map(c=>`<div class="event-row"><div class="event-tags"><strong>${c.kind==="trigger"?"Possible desencadenant":"Possible protector"}:</strong> ${escapeHtml(c.text)}</div></div>`).join("")}</div>`:""}
+      ${!compact&&conclusionItems.length?`<h3 style="margin:var(--sp-4) 0 var(--sp-2);font-size:var(--fs-sm);">Possibles factors previs i protectors</h3><div class="event-list">${conclusionItems.map(c=>`<div class="event-row"><div class="event-tags"><strong>${c.kind==="trigger"?"Possible factor previ":"Possible protector"}:</strong> ${escapeHtml(c.text)}</div></div>`).join("")}</div>`:""}
       <p style="margin:var(--sp-3) 0 0;font-size:var(--fs-xs);color:var(--ink-faint);font-style:italic;">Associacions observades a les teves dades; no demostren causalitat ni substitueixen una valoració mèdica.</p>
     </div>`;
 }

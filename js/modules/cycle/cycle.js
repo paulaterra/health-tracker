@@ -23,10 +23,7 @@ function findPeriodStarts(records) {
   const sorted = [...bleedingDates].sort();
   const starts = [];
   for (const d of sorted) {
-    const dateObj = new Date(d + "T00:00:00");
-    const prevDay = new Date(dateObj);
-    prevDay.setDate(prevDay.getDate() - 1);
-    const prevKey = prevDay.toISOString().slice(0, 10);
+    const prevKey = shiftDate(d, -1);
     if (!bleedingDates.has(prevKey)) starts.push(d);
   }
   return starts;
@@ -36,65 +33,112 @@ function findPeriodStarts(records) {
 function computeCycleLengths(starts) {
   const lengths = [];
   for (let i = 1; i < starts.length; i++) {
-    const a = new Date(starts[i - 1] + "T00:00:00");
-    const b = new Date(starts[i] + "T00:00:00");
-    lengths.push({ from: starts[i - 1], to: starts[i], length: Math.round((b - a) / 86400000) });
+    const a = isoDayNumber(starts[i - 1]);
+    const b = isoDayNumber(starts[i]);
+    lengths.push({ from: starts[i - 1], to: starts[i], length: b - a });
   }
   return lengths;
 }
 
+function mean(values) {
+  return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
+}
+
 function regularityInfo(lengths) {
-  if (lengths.length < 2) return null;
+  if (!lengths.length) return null;
   const vals = lengths.map(l => l.length);
-  const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+  const avg = mean(vals);
+  const min = Math.min(...vals);
+  const max = Math.max(...vals);
+  const range = max - min;
   const variance = vals.reduce((a, b) => a + (b - avg) ** 2, 0) / vals.length;
   const stdev = Math.sqrt(variance);
-  let label, color;
-  if (stdev <= 2) { label = "regular"; color = "var(--sage)"; }
-  else if (stdev <= 5) { label = "una mica irregular"; color = "var(--amber)"; }
-  else { label = "irregular"; color = "var(--clay)"; }
-  return { avg: Math.round(avg * 10) / 10, stdev: Math.round(stdev * 10) / 10, label, color };
+  let label = null;
+  if (lengths.length >= 2) {
+    if (range <= 4) label = "bastant estable";
+    else if (range <= 8) label = "variació moderada";
+    else label = "variació alta";
+  }
+  return {
+    avg: Math.round(avg * 10) / 10,
+    min, max, range,
+    stdev: Math.round(stdev * 10) / 10,
+    label,
+  };
 }
 
-function cycleLengthCard(lengths) {
-  const reg = regularityInfo(lengths);
-  if (lengths.length === 0) {
-    return `
-      <div class="card">
-        <h2 class="card-title">Regularitat del cicle</h2>
-        <p class="ledger-empty">Encara no s'ha detectat cap cicle complet (calen almenys dos inicis de regla).</p>
-      </div>
-    `;
+/** Agrupa els dies consecutius amb sagnat en menstruacions. */
+function computePeriodEpisodes(records) {
+  const bleedingDates = [...new Set(records.filter(r => r.sagnat).map(r => r.date))].sort();
+  if (!bleedingDates.length) return [];
+  const episodes = [];
+  let current = [bleedingDates[0]];
+  for (let i = 1; i < bleedingDates.length; i++) {
+    if (bleedingDates[i] === shiftDate(bleedingDates[i - 1], 1)) current.push(bleedingDates[i]);
+    else { episodes.push(current); current = [bleedingDates[i]]; }
   }
+  episodes.push(current);
+  return episodes.map(days => ({ start: days[0], end: days[days.length - 1], length: days.length }));
+}
+
+function menstrualStats(records, lengths) {
+  const reg = regularityInfo(lengths);
+  const episodes = computePeriodEpisodes(records);
+  const today = todayISO();
+  // No comptem com a menstruació completa un episodi que encara arriba fins avui.
+  const completed = episodes.filter(e => e.end < today);
+  const periodVals = completed.map(e => e.length);
+  return {
+    cycle: reg,
+    periodAvg: periodVals.length ? Math.round(mean(periodVals) * 10) / 10 : null,
+    periodCount: periodVals.length,
+    episodes,
+  };
+}
+
+function statBox(label, value, detail = "") {
+  return `<div style="background:var(--paper-alt); border-radius:var(--radius-md); padding:var(--sp-4); min-width:0;">
+    <div style="font-size:var(--fs-xs); color:var(--ink-faint); margin-bottom:var(--sp-1);">${label}</div>
+    <div style="font-family:var(--font-mono); font-size:var(--fs-lg); font-weight:600;">${value}</div>
+    ${detail ? `<div style="font-size:var(--fs-xs); color:var(--ink-faint); margin-top:var(--sp-1);">${detail}</div>` : ""}
+  </div>`;
+}
+
+function cycleStatsCard(records, lengths) {
+  const stats = menstrualStats(records, lengths);
+  const reg = stats.cycle;
+  const cycleAvg = reg ? `${reg.avg} dies` : "—";
+  const variation = lengths.length >= 2 ? `${reg.range} dies` : "—";
+  const variationDetail = lengths.length >= 2 ? `${reg.min}–${reg.max} dies${reg.label ? ` · ${reg.label}` : ""}` : "calen almenys 2 cicles complets";
+  const periodAvg = stats.periodAvg != null ? `${stats.periodAvg} dies` : "—";
+  const periodDetail = stats.periodCount ? `mitjana de ${stats.periodCount} menstruació${stats.periodCount === 1 ? "" : "ns"} completa${stats.periodCount === 1 ? "" : "s"}` : "cal almenys una menstruació finalitzada";
   const recent = lengths.slice(-6).reverse();
+
   return `
     <div class="card">
-      <h2 class="card-title">Regularitat del cicle</h2>
-      ${reg ? `
-        <p style="margin:0;">
-          Durada mitjana: <strong style="font-family: var(--font-mono);">${reg.avg} dies</strong>
-          · <span style="color:${reg.color}; font-weight:600;">${reg.label}</span>
-          <span style="color: var(--ink-faint); font-size: var(--fs-xs);"> (variació ±${reg.stdev} dies)</span>
-        </p>
-      ` : `<p class="ledger-empty">Amb un sol cicle registrat encara no es pot valorar la regularitat.</p>`}
-      <div class="event-list" style="margin-top: var(--sp-3);">
-        ${recent.map(l => `
-          <div class="event-row">
-            <div class="event-row-top">
-              <span class="event-when">${escapeHtml(formatDate(l.from))} → ${escapeHtml(formatDate(l.to))}</span>
-              <span class="badge">${l.length} dies</span>
-            </div>
-          </div>
-        `).join("")}
+      <h2 class="card-title">Resum del cicle</h2>
+      <div style="display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--sp-3);">
+        ${statBox("Durada mitjana del cicle", cycleAvg, lengths.length ? `calculada amb ${lengths.length} cicle${lengths.length === 1 ? "" : "s"} complet${lengths.length === 1 ? "" : "s"}` : "calen dos inicis de regla")}
+        ${statBox("Variació del cicle", variation, variationDetail)}
+        ${statBox("Durada mitjana de la menstruació", periodAvg, periodDetail)}
       </div>
-    </div>
-  `;
+      ${stats.episodes.length ? `<div class="event-list" style="margin-top:var(--sp-4);">
+        ${stats.episodes.slice(-6).reverse().map(e => `<div class="event-row"><div class="event-row-top"><span class="event-when">Menstruació · ${escapeHtml(formatDate(e.start))}${e.end !== e.start ? ` → ${escapeHtml(formatDate(e.end))}` : ""}</span><span class="badge">${e.length} ${e.length === 1 ? "dia" : "dies"}</span></div></div>`).join("")}
+      </div>` : `<p class="ledger-empty" style="margin-top:var(--sp-4);">Encara no hi ha cap menstruació registrada. Les estadístiques s'aniran calculant automàticament quan hi hagi prou dades.</p>`}
+    </div>`;
 }
 
+function isoDayNumber(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return Math.floor(Date.UTC(y, m - 1, d) / 86400000);
+}
+
+// Aritmètica de dates en UTC: evita que el fus horari converteixi, per exemple,
+// el 29/07 a les 00:00 en el 28/07 UTC i trenqui l'agrupació de dies consecutius.
 function shiftDate(dateStr, days) {
-  const d = new Date(dateStr + "T00:00:00");
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return dt.toISOString().slice(0, 10);
 }
 
 function dateNavHtml(date, isToday) {
@@ -177,7 +221,7 @@ export async function renderCycle(container, dateOverride) {
           <h2 class="card-title">Últims dies</h2>
           <div class="event-list" id="event-list"><p class="ledger-empty">Carregant…</p></div>
         </div>
-        ${cycleLengthCard(cycleLengths)}
+        ${cycleStatsCard(allRecords, cycleLengths)}
       </div>
     </div>
   `;
@@ -236,23 +280,18 @@ export async function renderCycle(container, dateOverride) {
  */
 function computeCycleDay(records, targetDate) {
   const bleedingDates = new Set(records.filter(r => r.sagnat).map(r => r.date));
-  const target = new Date(targetDate + "T00:00:00");
+  const targetDay = isoDayNumber(targetDate);
 
   let lastStart = null;
   const sortedBleedingDates = [...bleedingDates].sort();
   for (const d of sortedBleedingDates) {
-    const dateObj = new Date(d + "T00:00:00");
-    if (dateObj > target) break;
-    const prevDay = new Date(dateObj);
-    prevDay.setDate(prevDay.getDate() - 1);
-    const prevKey = prevDay.toISOString().slice(0, 10);
+    if (isoDayNumber(d) > targetDay) break;
+    const prevKey = shiftDate(d, -1);
     const isStart = !bleedingDates.has(prevKey);
-    if (isStart) lastStart = dateObj;
+    if (isStart) lastStart = d;
   }
-  // Si avui mateix té sagnat i és un inici, ja queda cobert pel bucle anterior.
   if (!lastStart) return null;
-  const diffDays = Math.round((target - lastStart) / (1000 * 60 * 60 * 24)) + 1;
-  return diffDays;
+  return targetDay - isoDayNumber(lastStart) + 1;
 }
 
 async function refreshList(container) {

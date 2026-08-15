@@ -9,7 +9,7 @@ export async function renderPatterns(container) {
     <div class="view-header">
       <span class="view-eyebrow">Anàlisi</span>
       <h1 class="view-title">Patrons detectats</h1>
-      <p class="view-sub">El motor busca relacions entre variables (diàries, setmanals fins a mensuals — de -30 a +30 dies), ritmes segons el dia de la setmana, i tendències generals al llarg del temps.</p>
+      <p class="view-sub">El motor actual només mostra relacions que es repeteixen i que es poden justificar amb les dades. Separa coincidències entre símptomes, possibles factors previs, brots multisimptomàtics i patrons del cicle. Si no hi ha prou evidència, no mostra cap patró.</p>
     </div>
     <div class="card" id="patterns-wrap">
       <p class="ledger-empty">Calculant…</p>
@@ -19,6 +19,8 @@ export async function renderPatterns(container) {
   const [matrix, intel] = await Promise.all([buildDailyMatrix(), generateIntelligence()]);
   const numDays = Object.keys(matrix).length;
   const correlations = computeCorrelations(matrix);
+  const coincidences = correlations.filter(p => p.relationType === "coincidencia");
+  const sequences = correlations.filter(p => p.relationType === "sequencia");
   const dowPatterns = computeDayOfWeekPatterns(matrix);
   const trends = computeTrends(matrix);
 
@@ -29,7 +31,7 @@ export async function renderPatterns(container) {
     return;
   }
 
-  const totalFound = correlations.length + dowPatterns.length + trends.length;
+  const totalFound = correlations.length + dowPatterns.length + trends.length + (intel.flares?.length || 0) + (intel.cycle?.hypotheses?.length || 0);
   if (totalFound === 0) {
     wrap.innerHTML = emptyState(`Amb ${numDays} dies de dades, encara no s'ha trobat cap relació prou consistent com per mostrar-la. Això és normal a l'inici — segueix registrant i torna-hi més endavant.`);
     return;
@@ -43,23 +45,29 @@ export async function renderPatterns(container) {
       <button class="btn btn-ghost" id="recalc-btn">Torna a calcular</button>
     </div>
 
-    ${section("Relacions entre variables (diàries a mensuals)",
-      "Compara dies amb i sense una variable, mirant des de 30 dies abans fins a 30 dies després.",
-      correlations.length
-        ? correlations.slice(0, 20).map(correlationCard).join("")
-        : `<p class="ledger-empty">Encara no n'hi ha prou per aquesta categoria.</p>`)}
+    ${section("Símptomes que tendeixen a aparèixer junts",
+      "Coincidències del mateix dia entre àmbits diferents. No són causes ni desencadenants.",
+      coincidences.length
+        ? coincidences.slice(0, 8).map(correlationCard).join("")
+        : `<p class="ledger-empty">Encara no hi ha coincidències prou repetides per mostrar.</p>`)}
+
+    ${section("Seqüències temporals",
+      "Canvis que apareixen 1–3 dies després d'una altra variable. Només es mostren quan la diferència és clara i repetida.",
+      sequences.length
+        ? sequences.slice(0, 8).map(correlationCard).join("")
+        : `<p class="ledger-empty">Encara no hi ha seqüències prou consistents per mostrar.</p>`)}
 
     ${section("Ritmes setmanals",
       "Dies de la setmana en què una variable sol ser sistemàticament més alta o més baixa que la mitjana.",
       dowPatterns.length
         ? dowPatterns.slice(0, 12).map(dowCard).join("")
-        : `<p class="ledger-empty">Encara no n'hi ha prou per aquesta categoria.</p>`)}
+        : `<p class="ledger-empty">Encara no s’ha detectat cap ritme setmanal prou consistent. S’omplirà automàticament quan un mateix dia de la setmana presenti una diferència repetida respecte de la teva mitjana.</p>`)}
 
     ${section("Tendències generals",
       "Compara la primera meitat del període registrat amb la segona, per veure si alguna cosa millora o empitjora amb el temps.",
       trends.length
         ? trends.slice(0, 12).map(trendCard).join("")
-        : `<p class="ledger-empty">Encara no n'hi ha prou per aquesta categoria.</p>`)}
+        : `<p class="ledger-empty">Encara no hi ha cap tendència temporal prou clara. S’omplirà quan la segona part de l’historial mostri una millora o empitjorament consistent respecte de la primera.</p>`)}
   `;
 
   container.querySelector("#recalc-btn")?.addEventListener("click", () => renderPatterns(container));
@@ -94,25 +102,31 @@ function disclaimer() {
 }
 
 function correlationCard(p) {
+  const thresholdText = p.predictorType === "boolean"
+    ? ""
+    : p.thresholds?.labelHigh
+      ? ` (${p.thresholds.labelHigh})`
+      : " alt";
   const condLower = p.predictorType === "boolean"
     ? p.predictorLabel.toLowerCase()
-    : `${p.predictorLabel.toLowerCase()} alt (≥6/10)`;
+    : `${p.predictorLabel.toLowerCase()}${thresholdText}`;
 
-  const headline = p.lag >= 0
-    ? `Quan hi ha <strong>${escapeHtml(condLower)}</strong> <span style="color: var(--ink-faint); font-weight: 400;">(${humanLagLabel(p.lag)})</span>`
-    : `<strong>${humanLagLabel(p.lag)}</strong> de tenir <strong>${escapeHtml(condLower)}</strong>`;
+  const headline = p.relationType === "coincidencia"
+    ? `<strong>${escapeHtml(p.predictorLabel)}</strong> i <strong>${escapeHtml(p.outcomeLabel)}</strong> coincideixen més del que esperaria el teu propi nivell habitual`
+    : `Després de <strong>${escapeHtml(condLower)}</strong> <span style="color: var(--ink-faint); font-weight: 400;">(${humanLagLabel(p.lag)})</span>`;
 
-  let outcomeSentence, barA, barB;
+  const rateA = Math.round((p.effect.rateA || 0) * 100);
+  const rateB = Math.round((p.effect.rateB || 0) * 100);
+  let outcomeSentence;
   if (p.outcomeType === "numeric") {
     const { meanA, meanB } = p.effect;
-    outcomeSentence = `${escapeHtml(p.outcomeLabel)} ${p.direction} de mitjana: de ${meanB.toFixed(1)} a ${meanA.toFixed(1)} (escala 0-10).`;
-    barA = Math.min(100, (meanA / 10) * 100);
-    barB = Math.min(100, (meanB / 10) * 100);
+    const casesA = Math.round((p.effect.rateA || 0) * p.nA);
+    const casesB = Math.round((p.effect.rateB || 0) * p.nB);
+    outcomeSentence = `${escapeHtml(p.outcomeLabel)}: mitjana ${meanA.toFixed(1)} vs ${meanB.toFixed(1)}; episodis alts ${rateA}% (${casesA}/${p.nA}) vs ${rateB}% (${casesB}/${p.nB}).`;
   } else {
-    const { rateA, rateB } = p.effect;
-    outcomeSentence = `${escapeHtml(p.outcomeLabel)} ${p.direction}: passa de ${(rateB * 100).toFixed(0)}% a ${(rateA * 100).toFixed(0)}% dels dies.`;
-    barA = rateA * 100;
-    barB = rateB * 100;
+    const casesA = Math.round((p.effect.rateA || 0) * p.nA);
+    const casesB = Math.round((p.effect.rateB || 0) * p.nB);
+    outcomeSentence = `${escapeHtml(p.outcomeLabel)}: present en ${rateA}% (${casesA} de ${p.nA} dies) amb el factor vs ${rateB}% (${casesB} de ${p.nB} dies) sense el factor.`;
   }
 
   return `
@@ -121,22 +135,9 @@ function correlationCard(p) {
         <div>
           <p style="margin:0; font-size: var(--fs-md); font-weight: 600;">${headline}</p>
           <p style="margin: var(--sp-1) 0 0; color: var(--ink-soft);">${outcomeSentence}</p>
+          <p style="margin: var(--sp-1) 0 0; font-size:var(--fs-xs); color:var(--ink-faint);">Comparació basada en ${p.nA} dies del grup A i ${p.nB} dies del grup B · cobertura ${Math.round(p.coverage*100)}%.</p>
         </div>
         ${confidenceBadge(p.confidence.label)}
-      </div>
-      <div style="margin-top: var(--sp-4); display:flex; flex-direction:column; gap: var(--sp-2);">
-        <div>
-          <div style="font-size: var(--fs-xs); color: var(--ink-faint);">Grup A (n=${p.nA})</div>
-          <div style="background: var(--paper-alt); border-radius: 4px; height: 10px; overflow: hidden;">
-            <div style="background: var(--clay); height: 100%; width: ${barA}%;"></div>
-          </div>
-        </div>
-        <div>
-          <div style="font-size: var(--fs-xs); color: var(--ink-faint);">Grup B (n=${p.nB})</div>
-          <div style="background: var(--paper-alt); border-radius: 4px; height: 10px; overflow: hidden;">
-            <div style="background: var(--sage); height: 100%; width: ${barB}%;"></div>
-          </div>
-        </div>
       </div>
       ${disclaimer()}
     </div>
