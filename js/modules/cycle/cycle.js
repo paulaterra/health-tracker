@@ -14,6 +14,14 @@ const SYMPTOMS = [
   "dolor", "còlics", "ovulació", "sensibilitat als pits", "mal de cap", "lumbars", "cama", "articulacions",
 ].map(v => ({ value: v, label: v }));
 
+const CYCLE_PHASES = [
+  { value: "follicular", label: "Fase fol·licular" },
+  { value: "ovulacio", label: "Ovulació" },
+  { value: "lutea", label: "Fase lútia" },
+];
+
+const PHASE_LABELS = Object.fromEntries(CYCLE_PHASES.map(x => [x.value, x.label]));
+
 /**
  * Retorna totes les dates d'inici de regla (no continuació d'un dia
  * anterior amb sagnat), ordenades cronològicament.
@@ -67,6 +75,88 @@ function regularityInfo(lengths) {
   };
 }
 
+
+function latestManualCycleData(records, targetDate) {
+  return records
+    .filter(r => r.date <= targetDate && (r.ovulacioEstimada || r.faseManual === "ovulacio"))
+    .sort((a,b) => b.date.localeCompare(a.date))[0] || null;
+}
+
+function estimateCurrentCycle(records, starts, lengths, targetDate) {
+  const currentStart=[...starts].reverse().find(d=>d<=targetDate);
+  if(!currentStart) return null;
+  const manual=latestManualCycleData(records,targetDate);
+  if(manual && manual.date>=currentStart) {
+    const ovulation = manual.ovulacioEstimada || (manual.faseManual === "ovulacio" ? manual.date : null);
+    return {
+      start:currentStart,
+      ovulation,
+      source:manual.fontOvulacio || "manual",
+      sourceLabel: manual.fontOvulacio === "clue" ? "Introduït des de Clue" : manual.fontOvulacio === "lh" ? "Test LH" : manual.fontOvulacio === "temperatura" ? "Temperatura basal" : "Introduït manualment",
+      estimated:false,
+    };
+  }
+  if(!lengths.length) return {start:currentStart,ovulation:null,source:"insufficient",sourceLabel:"Encara no hi ha prou cicles per estimar l’ovulació",estimated:true};
+  const avg=Math.round(mean(lengths.map(x=>x.length)));
+  const nextPeriod=shiftDate(currentStart,avg);
+  const ovulation=shiftDate(nextPeriod,-14);
+  return {start:currentStart,nextPeriod,ovulation,source:"health-track",sourceLabel:"Estimació de Health Track",estimated:true};
+}
+
+
+function cyclePhaseForDate(records, prediction, date) {
+  const record = records.find(r => r.date === date);
+  if (record?.faseManual) {
+    return {
+      label: PHASE_LABELS[record.faseManual] || "Fase registrada",
+      detail: "Fase marcada manualment per a aquest dia. Té prioritat sobre l’estimació automàtica."
+    };
+  }
+  if (!prediction?.start) return { label: "—", detail: "Es podrà situar quan hi hagi un inici de menstruació registrat o quan marquis la fase manualment." };
+  const bleeding = records.some(r => r.date === date && !!r.sagnat);
+  if (!prediction.ovulation) {
+    return bleeding
+      ? { label: "Menstruació · fase fol·licular", detail: "La menstruació forma part de l’inici de la fase fol·licular. Encara no hi ha prou dades per situar l’ovulació." }
+      : { label: "Fase fol·licular (orientativa)", detail: "Des de l’inici de la menstruació fins a l’ovulació. La pots corregir manualment." };
+  }
+  if (date === prediction.ovulation) {
+    return { label: "Ovulació", detail: prediction.estimated ? "Ovulació estimada per calendari. La pots marcar manualment si tens una dada millor." : "Ovulació situada amb una dada registrada." };
+  }
+  if (date < prediction.ovulation) {
+    return {
+      label: bleeding ? "Menstruació · fase fol·licular" : "Fase fol·licular",
+      detail: "Des de l’inici de la menstruació fins a l’ovulació. La pots corregir manualment."
+    };
+  }
+  return { label: "Fase lútia", detail: "Després de l’ovulació fins a l’inici de la menstruació següent. La pots corregir manualment." };
+}
+
+
+function cyclePhasesCard(prediction) {
+  if (!prediction?.start) return '';
+  return `<div class="card" style="background:var(--paper-alt);">
+    <h2 class="card-title">Fases del cicle</h2>
+    <div style="display:grid;gap:var(--sp-2);font-size:var(--fs-sm);">
+      <div><strong>Fase fol·licular</strong><div style="color:var(--ink-soft);margin-top:2px;">Des del primer dia de menstruació fins a l’ovulació${prediction.ovulation ? ` · aprox. fins al ${escapeHtml(formatDate(shiftDate(prediction.ovulation,-1)))}` : ''}.</div></div>
+      <div><strong>Ovulació / fase periovulatòria</strong><div style="color:var(--ink-soft);margin-top:2px;">${prediction.ovulation ? `${prediction.estimated?'Estimació':'Data situada'}: ${escapeHtml(formatDate(prediction.ovulation))}` : 'Encara no es pot situar.'}</div></div>
+      <div><strong>Fase lútia</strong><div style="color:var(--ink-soft);margin-top:2px;">Després de l’ovulació fins a la menstruació següent${prediction.nextPeriod ? ` · prevista cap al ${escapeHtml(formatDate(prediction.nextPeriod))}` : ''}.</div></div>
+    </div>
+    <p style="margin:var(--sp-3) 0 0;font-size:var(--fs-xs);color:var(--ink-faint);">Quan l’ovulació és estimada, també ho són els límits entre fases. Les fases serveixen per buscar patrons temporals, no per confirmar l’ovulació ni diagnosticar alteracions hormonals.</p>
+  </div>`;
+}
+
+function cyclePredictionCard(prediction) {
+  if(!prediction) return '';
+  if(!prediction.ovulation) return `<div class="card" style="background:var(--paper-alt);"><h2 class="card-title">Ovulació</h2><p style="margin:0;color:var(--ink-soft);">${escapeHtml(prediction.sourceLabel)}</p><p style="margin:var(--sp-2) 0 0;font-size:var(--fs-xs);color:var(--ink-faint);">Pots marcar manualment l’ovulació en el dia corresponent. Si no ho fas, Health Track la pot estimar quan tingui prou cicles.</p></div>`;
+  return `<div class="card" style="background:var(--paper-alt);">
+    <div style="display:flex;justify-content:space-between;gap:var(--sp-3);align-items:flex-start;">
+      <div><h2 class="card-title" style="margin-bottom:var(--sp-1);">Ovulació ${prediction.estimated?'estimada':'registrada'}</h2><p style="margin:0;color:var(--ink-soft);">${escapeHtml(formatDate(prediction.ovulation))}</p></div>
+      <span class="badge">${escapeHtml(prediction.sourceLabel)}</span>
+    </div>
+    ${prediction.nextPeriod?`<p style="margin:var(--sp-3) 0 0;color:var(--ink-soft);">Pròxima menstruació estimada: ${escapeHtml(formatDate(prediction.nextPeriod))}</p>`:''}
+    <p style="margin:var(--sp-3) 0 0;font-size:var(--fs-xs);color:var(--ink-faint);">${prediction.estimated?'És una estimació de calendari. Si marques manualment l’ovulació o les fases, les dades manuals tindran prioritat en l’anàlisi.':'Aquesta dada manual té prioritat sobre l’estimació automàtica.'}</p>
+  </div>`;
+}
 /** Agrupa els dies consecutius amb sagnat en menstruacions. */
 function computePeriodEpisodes(records) {
   const bleedingDates = [...new Set(records.filter(r => r.sagnat).map(r => r.date))].sort();
@@ -170,12 +260,14 @@ export async function renderCycle(container, dateOverride) {
   const cycleDay = computeCycleDay(allRecords, date);
   const periodStarts = findPeriodStarts(allRecords);
   const cycleLengths = computeCycleLengths(periodStarts);
+  const prediction = estimateCurrentCycle(allRecords, periodStarts, cycleLengths, date);
+  const cyclePhase = cyclePhaseForDate(allRecords, prediction, date);
 
   container.innerHTML = `
     <div class="view-header">
       <span class="view-eyebrow">Registre</span>
       <h1 class="view-title">Cicle menstrual</h1>
-      <p class="view-sub">Marca l'interruptor "Tinc la regla" (i tria la intensitat) — si et confons i el vols desmarcar, torna a clicar-lo. El dia del cicle es calcula sol a partir del primer dia de sagnat.</p>
+      <p class="view-sub">Registra la menstruació i marca, quan ho sàpigues, si aquell dia correspon a fase fol·licular, ovulació o fase lútia. Les fases manuals tenen prioritat sobre les estimacions de Health Track.</p>
     </div>
 
     ${dateNavHtml(date, isToday)}
@@ -190,6 +282,11 @@ export async function renderCycle(container, dateOverride) {
             ${cycleDay != null ? `Dia ${cycleDay}` : "—"}
           </p>
           ${cycleDay == null ? `<p style="font-size: var(--fs-xs); color: var(--ink-faint); margin-top: var(--sp-1);">Es calcularà automàticament quan marquis el primer dia de regla.</p>` : ""}
+          <div style="border-top:1px solid var(--line);margin-top:var(--sp-3);padding-top:var(--sp-3);">
+            <span class="field-label">Fase actual</span>
+            <p style="margin:var(--sp-1) 0 0;font-weight:600;">${escapeHtml(cyclePhase.label)}</p>
+            <p style="font-size:var(--fs-xs);color:var(--ink-faint);margin:var(--sp-1) 0 0;">${escapeHtml(cyclePhase.detail)}</p>
+          </div>
         </div>
 
         <div class="field">
@@ -204,6 +301,19 @@ export async function renderCycle(container, dateOverride) {
 
         ${chipGroup("simptomes", "Símptomes d'aquell dia", SYMPTOMS, s.simptomes || [])}
         ${switchField("anticonceptius", "Prenc anticonceptius", s.anticonceptius)}
+
+        <div class="card" style="background:var(--paper-alt);margin:var(--sp-4) 0;">
+          <h3 style="margin:0 0 var(--sp-2);font-size:var(--fs-sm);">Fase del cicle (opcional)</h3>
+          <p style="margin:0 0 var(--sp-3);font-size:var(--fs-xs);color:var(--ink-faint);">Marca la fase que correspon a aquest dia si la coneixes. Si no marques res, Health Track la calcularà de manera orientativa a partir de la menstruació i l’ovulació disponibles.</p>
+          <div class="chip-row" id="phase-row">
+            ${CYCLE_PHASES.map(p => `<button type="button" class="chip ${s.faseManual === p.value ? 'chip-active' : ''}" data-cycle-phase="${p.value}">${p.label}</button>`).join("")}
+          </div>
+          <input type="hidden" id="faseManual" value="${escapeHtml(s.faseManual || '')}">
+          <div class="field" id="ovulation-source-wrap" style="display:${s.faseManual === 'ovulacio' || s.ovulacioEstimada ? 'block' : 'none'};margin-top:var(--sp-3);">
+            <label class="field-label" for="fontOvulacio">Font de la dada d’ovulació</label>
+            <select id="fontOvulacio"><option value="manual" ${!s.fontOvulacio||s.fontOvulacio==='manual'?'selected':''}>Introduïda manualment</option><option value="clue" ${s.fontOvulacio==='clue'?'selected':''}>Clue</option><option value="lh" ${s.fontOvulacio==='lh'?'selected':''}>Test LH</option><option value="temperatura" ${s.fontOvulacio==='temperatura'?'selected':''}>Temperatura basal</option><option value="altres" ${s.fontOvulacio==='altres'?'selected':''}>Altres</option></select>
+          </div>
+        </div>
 
         <div class="field">
           <label class="field-label" for="comentari">Comentari (opcional)</label>
@@ -221,6 +331,8 @@ export async function renderCycle(container, dateOverride) {
           <h2 class="card-title">Últims dies</h2>
           <div class="event-list" id="event-list"><p class="ledger-empty">Carregant…</p></div>
         </div>
+        ${cyclePredictionCard(prediction)}
+        ${cyclePhasesCard(prediction)}
         ${cycleStatsCard(allRecords, cycleLengths)}
       </div>
     </div>
@@ -254,6 +366,17 @@ export async function renderCycle(container, dateOverride) {
     });
   });
 
+  const faseInput = container.querySelector("#faseManual");
+  const ovulationSourceWrap = container.querySelector("#ovulation-source-wrap");
+  container.querySelectorAll("[data-cycle-phase]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const same = faseInput.value === btn.dataset.cyclePhase;
+      faseInput.value = same ? "" : btn.dataset.cyclePhase;
+      container.querySelectorAll("[data-cycle-phase]").forEach(b => b.classList.toggle("chip-active", !same && b === btn));
+      ovulationSourceWrap.style.display = faseInput.value === "ovulacio" ? "block" : "none";
+    });
+  });
+
   await refreshList(container);
 
   container.querySelector("#cycle-form").addEventListener("submit", async (e) => {
@@ -265,6 +388,9 @@ export async function renderCycle(container, dateOverride) {
       sagnat: teReglaCheckbox.checked ? (sagnat || "moderat") : null,
       simptomes: getChipValues(container, "simptomes"),
       anticonceptius: form.querySelector("#anticonceptius").checked,
+      faseManual: form.querySelector("#faseManual").value || null,
+      ovulacioEstimada: form.querySelector("#faseManual").value === "ovulacio" ? date : null,
+      fontOvulacio: form.querySelector("#fontOvulacio").value || "manual",
       comentari: form.querySelector("#comentari").value.trim(),
     };
     await repo.put(payload);
@@ -319,6 +445,7 @@ function rowTemplate(e) {
       <div class="event-row-top">
         <span class="event-when">${formatDate(e.date)}</span>
         ${bleedingLabel ? `<span class="badge badge-high">regla · ${escapeHtml(bleedingLabel)}</span>` : ""}
+        ${e.faseManual ? `<span class="badge">${escapeHtml(PHASE_LABELS[e.faseManual] || e.faseManual)}</span>` : (e.ovulacioEstimada ? `<span class="badge">ovulació · ${escapeHtml(formatDate(e.ovulacioEstimada))}</span>` : "")}
         <span class="row-actions"><button type="button" data-edit-date="${e.date}">editar</button><button type="button" class="danger" data-delete="${e.id}">eliminar</button></span>
       </div>
       ${e.simptomes?.length ? `<div class="event-tags">${e.simptomes.map(escapeHtml).join(", ")}</div>` : ""}

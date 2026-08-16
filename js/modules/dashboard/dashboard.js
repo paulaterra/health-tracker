@@ -327,8 +327,13 @@ function detailedCalendarHtml(byDay, dailyRecordCounts, monthKey, activeDate, ma
     const selected = date === activeDate ? " is-selected" : "";
     const current = date === today ? " is-today" : "";
     const hasData = records > 0 ? " has-data" : "";
-    const icons = calendarIconsForDay(matrix[date] || {});
-    return `<button type="button" class="month-calendar-cell${selected}${current}${hasData}" data-date-cell="${date}" aria-label="${date}: ${records ? `${records} registres` : "sense dades"}">
+    const cycleDay = matrix[date] || {};
+    const follicular = cycleDay.cicle_fase_follicular ? " is-follicular-phase" : "";
+    const luteal = cycleDay.cicle_fase_lutea ? " is-luteal-phase" : "";
+    const ovulation = cycleDay.cicle_ovulacio_registrada ? " is-ovulation-day" : "";
+    const period = cycleDay.cicle_regla ? " is-period-day" : "";
+    const icons = calendarIconsForDay(cycleDay);
+    return `<button type="button" class="month-calendar-cell${selected}${current}${hasData}${follicular}${luteal}${ovulation}${period}" data-date-cell="${date}" aria-label="${date}: ${records ? `${records} registres` : "sense dades"}">
       <span class="month-calendar-day">${day}</span>
       <span class="month-calendar-score" style="--day-color:${color};">${score != null ? `${score}/100` : "—"}</span>
       <span class="month-calendar-icons">${icons.map(item=>`<i class="calendar-symptom-icon tone-${item.tone}" title="${escapeHtml(item.label)}">${item.icon}</i>`).join("")}</span>
@@ -354,6 +359,10 @@ function detailedCalendarHtml(byDay, dailyRecordCounts, monthKey, activeDate, ma
     <div class="month-calendar-legend">
       <span><i class="calendar-legend-dot has-records"></i> Amb registres</span>
       <span><i class="calendar-legend-dot selected"></i> Dia seleccionat</span>
+      <span><i style="display:inline-block;width:14px;height:5px;border-radius:4px;background:rgba(114,151,177,.34);margin-right:5px;"></i> Fase fol·licular</span>
+      <span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:rgba(78,122,156,.75);margin-right:5px;"></i> Ovulació registrada</span>
+      <span><i style="display:inline-block;width:14px;height:5px;border-radius:4px;background:rgba(171,129,166,.34);margin-right:5px;"></i> Fase lútia</span>
+      <span><i style="display:inline-block;width:14px;height:5px;border-radius:4px;background:rgba(200,78,114,.42);margin-right:5px;"></i> Menstruació</span>
       <span>La barra de color indica el benestar estimat del dia.</span>
     </div>`;
 }
@@ -1103,8 +1112,30 @@ export async function dayDetailHtml(date) {
   }
 
   const cycle = (await new Repository("cycle_log").getByIndex("date", date))[0];
-  if (cycle && (cycle.sagnat || cycle.simptomes?.length || cycle.ovulacio)) {
-    const chips = [cycle.sagnat && `Regla: ${cycle.sagnat}`, cycle.ovulacio && "Ovulació", cycle.anticonceptius && "Anticonceptius", ...(cycle.simptomes || [])].filter(Boolean);
+  if (cycle && (cycle.sagnat || cycle.faseManual || cycle.ovulacioEstimada || cycle.simptomes?.length || cycle.anticonceptius || cycle.comentari)) {
+    const phaseLabel = cycle.faseManual === "follicular"
+      ? "Fase fol·licular"
+      : cycle.faseManual === "ovulacio"
+        ? "Ovulació"
+        : cycle.faseManual === "lutea"
+          ? "Fase lútia"
+          : cycle.ovulacioEstimada === date
+            ? "Ovulació"
+            : null;
+    const sourceLabel = (cycle.faseManual === "ovulacio" || cycle.ovulacioEstimada === date)
+      ? (cycle.fontOvulacio === "clue" ? "Font: Clue"
+        : cycle.fontOvulacio === "lh" ? "Font: test LH"
+        : cycle.fontOvulacio === "temperatura" ? "Font: temperatura basal"
+        : cycle.fontOvulacio === "altres" ? "Font: altres"
+        : "Font: manual")
+      : null;
+    const chips = [
+      cycle.sagnat && `Menstruació: ${cycle.sagnat}`,
+      phaseLabel,
+      sourceLabel,
+      cycle.anticonceptius && "Anticonceptius",
+      ...(cycle.simptomes || [])
+    ].filter(Boolean);
     pushCard("cycle", `${listChips(chips)}${note(cycle.comentari)}`);
   }
 

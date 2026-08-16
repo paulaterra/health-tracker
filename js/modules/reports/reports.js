@@ -619,7 +619,7 @@ function temporalReportHtml(intel) {
   return `
     ${section("Episodis i brots", "Agrupa dies consecutius com un únic episodi i identifica períodes on diversos àmbits empitjoren alhora.", episodeLines, "Encara no hi ha prou continuïtat per identificar episodis o brots rellevants.")}
     ${section("Ritmes temporals · dies, setmanes i mesos", "Busca periodicitat entre episodis i canvis setmanals sense forçar patrons amb poques repeticions.", rhythmLines, "Encara no hi ha prou repeticions per identificar un ritme temporal consistent.")}
-    ${section("Patrons del cicle menstrual", "Només utilitza menstruacions reals i cicles complets comparables.", cycleLines, "Encara no hi ha prou cicles complets per detectar un patró menstrual repetit.")}
+    ${section("Patrons del cicle menstrual", "Utilitza menstruacions reals i, quan és possible, situa l’ovulació amb dades manuals; si no n’hi ha, l’estima per calendari i ho indica explícitament.", cycleLines, "Encara no hi ha prou cicles comparables per detectar un patró relacionat amb una fase del cicle.")}
     ${section("Símptomes que evolucionen junts", "Compara l'evolució entre setmanes; no és una simple coincidència d'un dia.", coLines, "Encara no hi ha prou setmanes comparables per detectar àmbits que evolucionin junts.")}
     ${section("Tendències a llarg termini", "Busca canvis sostinguts al llarg de diverses setmanes o mesos.", longLines, "Encara no hi ha prou historial per parlar de tendències a llarg termini.")}
   `;

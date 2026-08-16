@@ -39,8 +39,8 @@ function cycleHtml(cycle, compact) {
       <h3 style="margin:var(--sp-4) 0 var(--sp-2);font-size:var(--fs-sm);">Cicle menstrual</h3>
       <div class="event-row" style="background:var(--paper-alt);"><div class="event-tags">${escapeHtml(cycle.summary)}</div></div>`;
   }
-  const detected = (cycle.hypotheses || []).filter(item => item.status === "detected");
-  const tracking = (cycle.hypotheses || []).filter(item => item.status === "tracking");
+  const detected = (cycle.hypotheses || []).filter(item => item.status === "recurrent");
+  const tracking = (cycle.hypotheses || []).filter(item => item.status !== "recurrent");
   const visibleDetected = detected.slice(0, compact ? 2 : 5);
   const visibleTracking = tracking.slice(0, compact ? 1 : 3);
   if (!visibleDetected.length && !visibleTracking.length) {
@@ -59,7 +59,7 @@ function cycleHtml(cycle, compact) {
         </div>`).join("")}
       ${visibleTracking.map(item => `
         <div class="event-row">
-          <div class="event-row-top"><strong>${escapeHtml(item.title)}</strong><span class="badge">senyal repetit</span></div>
+          <div class="event-row-top"><strong>${escapeHtml(item.title)}</strong><span class="badge">${item.status === "emerging" ? "patró emergent" : "senyal inicial"}</span></div>
           <div class="event-comment">${escapeHtml(item.text)}</div>
         </div>`).join("")}
     </div>`;
@@ -107,7 +107,7 @@ const SECTIONAL_ANALYSIS = [
   { key:"digestive", icon:"≈", title:"Digestiu", tone:"amber", category:"Digestiu", vars:["digestiu_general","digestiu_inflor","digestiu_dolorAbdominal","digestiu_retortijons","digestiu_gasos","digestiu_urgencia","digestiu_diarrea"] },
   { key:"sleep", icon:"☾", title:"Son", tone:"teal", category:"Son", vars:["son_qualitat","son_despertars","son_fatiga_mati","son_parasomnia","son_llums_dormida"] },
   { key:"exercise", icon:"↗", title:"Exercici i activitat", tone:"blue", category:"Exercici", vars:["exercici_fet","exercici_gimnas","exercici_fisio","exercici_activacio_neuromuscular","exercici_caminar","exercici_passos"] },
-  { key:"cycle", icon:"○", title:"Cicle menstrual", tone:"pink", category:"Cicle", vars:["cicle_regla","cicle_premenstrual","cicle_postmenstrual","cicle_ovulacio_finestra"] },
+  { key:"cycle", icon:"○", title:"Cicle menstrual", tone:"pink", category:"Cicle", vars:["cicle_regla","cicle_fase_follicular","cicle_ovulacio_finestra","cicle_fase_lutea","cicle_premenstrual","cicle_postmenstrual"] },
   { key:"skin", icon:"✦", title:"Pell", tone:"orange", category:"Pell", vars:["pell_brot"] },
   { key:"medication", icon:"＋", title:"Medicació", tone:"navy", category:"Medicació", vars:["medicacio_presa"] },
 ];
@@ -183,7 +183,7 @@ function sectionObservations(section, matrix, intel) {
     const pre=valuesFor(matrix,"cicle_premenstrual").filter(Boolean).length;
     evidence=period;
     if (period) observations.push(`${period} dies de menstruació registrats.`);
-    const detected=(intel.cycle?.hypotheses||[]).filter(item=>item.status==="detected");
+    const detected=(intel.cycle?.hypotheses||[]).filter(item=>item.status==="recurrent");
     if (detected.length) observations.push(detected[0].text);
     else if (pre) observations.push(`${pre} dies classificats en fase premenstrual per comparar símptomes.`);
   } else if (section.key === "skin") {

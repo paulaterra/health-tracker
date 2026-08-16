@@ -168,13 +168,28 @@ function cyclePatternsHtml(cycle) {
   if (!cycle) return `<p class="ledger-empty">Encara no hi ha dades del cicle disponibles.</p>`;
   const hypotheses=cycle.hypotheses || [];
   if (!cycle.analysisAvailable || !hypotheses.length) return `<div class="card"><p style="margin:0;color:var(--ink-soft);">${escapeHtml(cycle.summary)}</p></div>`;
-  return `<div class="card"><p style="margin:0;color:var(--ink-soft);">${escapeHtml(cycle.summary)}</p></div>` + hypotheses.slice(0,6).map(item=>`
+  const top=hypotheses[0];
+  return `<div class="card"><p style="margin:0;color:var(--ink-soft);">${escapeHtml(cycle.summary)}</p></div>${cycleTimelineHtml(top)}` + hypotheses.slice(0,6).map(item=>`
     <div class="card">
       <div style="display:flex;justify-content:space-between;gap:var(--sp-3);align-items:flex-start;">
-        <div><p style="margin:0;font-size:var(--fs-md);font-weight:600;">${escapeHtml(item.title)}</p><p style="margin:var(--sp-1) 0 0;color:var(--ink-soft);">${escapeHtml(item.text)}</p></div>
-        <span class="badge">${item.status==="detected"?"patró":"senyal repetit"}</span>
+        <div><p style="margin:0;font-size:var(--fs-md);font-weight:600;">${escapeHtml(item.title)}</p><p style="margin:var(--sp-1) 0 0;color:var(--ink-soft);">${escapeHtml(item.text)}</p><p style="margin:var(--sp-2) 0 0;font-size:var(--fs-xs);color:var(--ink-faint);">${escapeHtml(item.sourceNote||'')} · confiança ${escapeHtml(item.confidence||'preliminar')}</p></div>
+        <span class="badge">${item.status==="recurrent"?"patró recurrent":item.status==="emerging"?"patró emergent":"senyal inicial"}</span>
       </div>
     </div>`).join("");
+}
+
+function cycleTimelineHtml(item){
+  if(!item) return '';
+  const isPeriod=item.window==='perimenstrual'||item.window==='menstrual';
+  const min=isPeriod?-7:-7, max=isPeriod?5:14;
+  const windowMap={periovulatory:[-2,3],early_luteal:[4,8],mid_luteal:[9,12],perimenstrual:[-5,2],menstrual:[0,4]};
+  const [a,b]=windowMap[item.window]||[0,0];
+  const cells=[];
+  for(let d=min;d<=max;d++){
+    const active=d>=a&&d<=b;
+    cells.push(`<div title="${d===0?(isPeriod?'Inici de regla':'Ovulació estimada'):`${d>0?'+':''}${d} dies`}" style="height:34px;border-radius:8px;background:${active?'var(--sage-bg)':'var(--paper-alt)'};border:${d===0?'2px solid var(--sage)':'1px solid var(--line)'};display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--ink-faint);">${d===0?'0':d}</div>`);
+  }
+  return `<div class="card"><p style="margin:0 0 var(--sp-2);font-size:var(--fs-sm);font-weight:600;">On es concentra el senyal principal</p><div style="display:grid;grid-template-columns:repeat(${max-min+1},minmax(16px,1fr));gap:3px;overflow:auto;">${cells.join('')}</div><p style="margin:var(--sp-2) 0 0;font-size:var(--fs-xs);color:var(--ink-faint);">La banda marcada correspon a ${escapeHtml(item.windowLabel)}. ${isPeriod?'Dia 0 = inici de menstruació.':'Dia 0 = ovulació situada o estimada.'} No és una predicció de risc clínic; resumeix on s’ha concentrat el patró registrat.</p></div>`;
 }
 
 function coEvolutionCard(item) {

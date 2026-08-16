@@ -64,6 +64,8 @@ export const VARIABLE_META = {
   cicle_postmenstrual:      { label: "Fase postmenstrual (1-5 dies després)", type: "boolean", category: "Cicle" },
   cicle_ovulacio_finestra:  { label: "Finestra d’ovulació (±3 dies)", type: "boolean", category: "Cicle" },
   cicle_ovulacio_registrada:{ label: "Ovulació registrada", type: "boolean", category: "Cicle" },
+  cicle_fase_follicular:     { label: "Fase fol·licular", type: "boolean", category: "Cicle" },
+  cicle_fase_lutea:          { label: "Fase lútia", type: "boolean", category: "Cicle" },
   medicacio_presa:          { label: "Medicació presa", type: "boolean", category: "Medicació" },
   pell_brot:                { label: "Brot de pell (èczema/picor/acne/urticària)", type: "boolean", category: "Pell", valence: "negative" },
 };
@@ -201,7 +203,7 @@ export async function buildDailyMatrix() {
     }
   });
 
-  // Cicle: regla, fase premenstrual, postmenstrual i finestra d'ovulació.
+  // Cicle: menstruació + fases manuals i fases orientatives derivades.
   const bleedingDates = new Set(cycles.filter(c => c.sagnat).map(c => c.date));
   const sortedBleeding = [...bleedingDates].sort();
   const periodStarts = sortedBleeding.filter(date => {
@@ -214,14 +216,21 @@ export async function buildDailyMatrix() {
     next.setDate(next.getDate() + 1);
     return !bleedingDates.has(next.toISOString().slice(0, 10));
   });
+
   const explicitOvulation = [];
   cycles.forEach(c => {
     if (c.sagnat) setBool(matrix, c.date, "cicle_regla");
-    if ((c.simptomes || []).some(x => String(x).toLowerCase().includes("ovul"))) {
-      explicitOvulation.push(c.date);
-      setBool(matrix, c.date, "cicle_ovulacio_registrada");
+    if (c.faseManual === "follicular") setBool(matrix, c.date, "cicle_fase_follicular");
+    if (c.faseManual === "lutea") setBool(matrix, c.date, "cicle_fase_lutea");
+
+    const legacyOvulation = (c.simptomes || []).some(x => String(x).toLowerCase().includes("ovul"));
+    if (c.ovulacioEstimada || c.faseManual === "ovulacio" || legacyOvulation) {
+      const date = c.ovulacioEstimada || c.date;
+      explicitOvulation.push(date);
+      setBool(matrix, date, "cicle_ovulacio_registrada");
     }
   });
+
   periodStarts.forEach(start => {
     for (let offset = 1; offset <= 5; offset++) {
       const d = new Date(start + "T00:00:00");
@@ -236,13 +245,57 @@ export async function buildDailyMatrix() {
       setBool(matrix, d.toISOString().slice(0, 10), "cicle_postmenstrual");
     }
   });
+
   const ovulationAnchors = new Set(explicitOvulation);
-  // Si no s'ha registrat l'ovulació, l'estima a 14 dies de l'inici de la regla següent.
+
+  // Cicles tancats: si no hi ha ovulació manual, l'estimem a 14 dies de la menstruació següent.
   for (let i = 1; i < periodStarts.length; i++) {
-    const estimated = new Date(periodStarts[i] + "T00:00:00");
-    estimated.setDate(estimated.getDate() - 14);
-    ovulationAnchors.add(estimated.toISOString().slice(0, 10));
+    const cycleStart = periodStarts[i-1];
+    const nextStart = periodStarts[i];
+    let anchor = explicitOvulation.find(d => d >= cycleStart && d < nextStart);
+    if (!anchor) {
+      const estimated = new Date(nextStart + "T00:00:00");
+      estimated.setDate(estimated.getDate() - 14);
+      anchor = estimated.toISOString().slice(0,10);
+      ovulationAnchors.add(anchor);
+    }
+
+    // Omplim fases orientatives només allà on no hi ha una marca manual incompatible.
+    for (let d = new Date(cycleStart + "T00:00:00"); d < new Date(anchor + "T00:00:00"); d.setDate(d.getDate()+1)) {
+      setBool(matrix, d.toISOString().slice(0,10), "cicle_fase_follicular");
+    }
+    for (let d = new Date(anchor + "T00:00:00"); d < new Date(nextStart + "T00:00:00"); d.setDate(d.getDate()+1)) {
+      d.setDate(d.getDate()+1);
+      if (d < new Date(nextStart + "T00:00:00")) setBool(matrix, d.toISOString().slice(0,10), "cicle_fase_lutea");
+      d.setDate(d.getDate()-1);
+    }
   }
+
+  // Cicle obert: utilitzem ovulació manual si existeix; si no, estimació segons la durada mitjana.
+  if (periodStarts.length) {
+    const currentStart = periodStarts.at(-1);
+    let currentOv = explicitOvulation.find(d => d >= currentStart) || null;
+    if (!currentOv && periodStarts.length >= 2) {
+      const lengths=[];
+      for(let i=1;i<periodStarts.length;i++) lengths.push(Math.round((new Date(periodStarts[i]+"T00:00:00")-new Date(periodStarts[i-1]+"T00:00:00"))/86400000));
+      const avg=Math.round(lengths.reduce((a,b)=>a+b,0)/lengths.length);
+      const nextEstimated=new Date(currentStart+"T00:00:00");
+      nextEstimated.setDate(nextEstimated.getDate()+avg);
+      const estimatedOv=new Date(nextEstimated); estimatedOv.setDate(estimatedOv.getDate()-14);
+      currentOv=estimatedOv.toISOString().slice(0,10);
+      ovulationAnchors.add(currentOv);
+    }
+    if (currentOv) {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const ovDate = new Date(currentOv+"T00:00:00");
+      for(let d=new Date(currentStart+"T00:00:00"); d < ovDate && d <= today; d.setDate(d.getDate()+1)) setBool(matrix,d.toISOString().slice(0,10),"cicle_fase_follicular");
+      for(let d=new Date(ovDate); d <= today; d.setDate(d.getDate()+1)) {
+        if (d.toISOString().slice(0,10) > currentOv) setBool(matrix,d.toISOString().slice(0,10),"cicle_fase_lutea");
+      }
+    }
+  }
+
+  // Finestra periovulatòria interna (±3 dies): serveix per detectar patrons, no es mostra com a finestra fèrtil.
   ovulationAnchors.forEach(anchor => {
     for (let offset = -3; offset <= 3; offset++) {
       const d = new Date(anchor + "T00:00:00");
@@ -276,7 +329,7 @@ export async function buildDailyMatrix() {
       digestiu_general: 0, digestiu_inflor: 0, digestiu_dolorAbdominal: 0, digestiu_retortijons: 0, digestiu_gasos: 0,
       digestiu_urgencia: false, digestiu_bristol_anormal: false, digestiu_diarrea: false, digestiu_llagues_boca: false,
       exercici_fet: false, exercici_gimnas: false, exercici_fisio: false, exercici_activacio_neuromuscular: false, exercici_caminar: false,
-      cicle_regla: false, cicle_premenstrual: false, cicle_postmenstrual: false, cicle_ovulacio_finestra: false, cicle_ovulacio_registrada: false,
+      cicle_regla: false, cicle_premenstrual: false, cicle_postmenstrual: false, cicle_ovulacio_finestra: false, cicle_ovulacio_registrada: false, cicle_fase_follicular: false, cicle_fase_lutea: false,
       medicacio_presa: false, pell_brot: false, energia_esgotament: false,
     };
     Object.entries(symptomDefaults).forEach(([key,value]) => { if (day[key] === undefined) day[key] = value; });
