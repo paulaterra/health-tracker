@@ -35,6 +35,39 @@ function scoreReferencesHtml({ compact = false } = {}) {
   </div>`;
 }
 
+
+const QR_PRINT_DATA_URL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAYAAAD0eNT6AAAABmJLR0QA/wD/AP+gvaeTAAAeRElEQVR4nO3de9Cmd1kf8G+Om+MmmEQgCSAsZ6JEKSwYDBYIKKxa3FFL7ClUptt6WFPH6Gijg3HUWWo1lmKq1pVW49hWHCFG6QpoEoSNFJaTEkMwgQ0SNyGwAZLNafvHE5yhJLt7X/u8v+d93uvzmfn9ec113fdzP8/7Te6ZvRIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABjqiMH9zkzygsE9+XI3JPlwoe45Sb6mUPeOJHcW6iqOT/KKQt1tSa4r1G1Icm6h7n1J/rZQV7UpybpBvfYkuaZQ98Qk3zDnWQ7k2iR/X6j71iQnzHmWR/KZJO8c1CtJzknytIH9+ErvTvKpRQ+xUjYn2e8s9Gw76Kf08LYX+20s9qs4uzjjjmK/rcV+W4r9qvYU56ycyh//ZHZPRn4PLijOuXvgjDuLM1Ztm+PsTu1sPuinNEdHjmwGAKwOAgAANCQAAEBDAgAANCQAAEBDAgAANCQAAEBDAgAANCQAAEBDAgAANCQAAEBDAgAANHT0ogc4RNcm+fNFD7HKPCXJ9yx6iEPwmiQvG9RrfbHuiUkuLdQ9v9hvGXwxyX8q1D2Y2r08MsnPFuqqXpDa53fyvAc5gDNTu5e7krx1zrMcyO8luXFgv2XwoiTftOghVpvqNsDLFjHsKrcptXs5ehug85VnGbYB7in2Or/Qa3+SK4r9qnYU51yGs714T6rbADcV+61ll6V2L20DBABWlgAAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQkAAAAA0tyzbAqu9Pct6ihziI25JcvOghDsEVmS1QGeU3khw/qNeHk/z8oF5Jcn2x7tIkzyjU/WiSeyfWHJvkykKvO5J8b6Hu8cV+b0rytkLdSHcn+b6B/W4a2Otw/FKSRy96iIN4V5L/sughVspaDwDnJXn1ooc4iI9nOQLAzofOKCO3w306tT8+o12Q2orRrZm+3e+M1LbKXZvkBwt1W1L7ru7M6g8A92c5nq/Rvj3JkxY9xCFYswHAKwAAaEgAAICGBAAAaEgAAICGBAAAaEgAAICGBAAAaEgAAICGBAAAaEgAAICGBAAAaEgAAICG1voyIObndUm+o1D3zzLbtjfVeUmOKtRVPCvJrkLd7yR5faHuJ5N8V6Hu55L8UKHu95Osn1izN8nXF3p9vlBzOH40yUWFug3zHmQFnJPktwt1f5jkp+c8C2uQAMChenySZxfqTiz2+1CxruKM1K7tz4v9Hlfs9+nUgsozkpw+seb2Yq/RznrorEUnpvacvH/eg7A2eQUAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQkGVAHKrXJtlSqLu32G9Ppm+wq3pHkuMKdVuS7CvUjf7enZXkiIk1p6V2bdcmeWmh7teSbC/U/WKS7y/UvTLJ2wt1FSendi/fm9pz+UChhoYEAA7V/Q+dUdYlOXZQr6NT+4FOxs14OCoh7L7Urq16Px5M7TOo/rG7r9ivovosH85zCQflFQAANCQAAEBDAgAANCQAAEBDAgAANCQAAEBDAgAANCQAAEBDAgAANCQAAEBDAgAANLTWdwHcluTjix7iIG5Z9AAr7KzUFprcnOTE+Y7yiO5MsqFQd1qx3+1J9hbq7i72q3ggte/OHandy6pTBvaqejC1e3l7avdyb2bLtFa7Zfjtu23RA6yktR4ALn7osDhvTvK8Qt0pqf2RrLggyccG9UqSS5NcMbBfxWdS++Nzfsbey2Xw+dTu5cbU7uVvJbmoUDfaixc9QHdeAQBAQwIAADQkAABAQwIAADQkAABAQwIAADQkAABAQwIAADQkAABAQwIAADQkAABAQwIAADS0LMuAnpJk06KHWGWeO7jfs5M8rlD34dQ2k70kyX0Ta+5O8vZCr6qbk3ykULc+tef5LzJb0jPVBUnWTazZl2RHoVfVJ5J8qFD3rCRfM99RDuglSY6fWHNfkretwCyrxejfomXwlEUPsBptTrLfWejZdtBP6eFtL/bbWOy3t9Brd7HXBYVe+5NcXux3RbHf+cV+ewq9qutkzy/02p/6dsTLi/0uKPbbXehV3Wq5sdBrf2bf1YptxX7O/M7mg35Kc+QVAAA0JAAAQEMCAAA0JAAAQEMCAAA0JAAAQEMCAAA0JAAAQEMCAAA0JAAAQEMCAAA0JAAAQEOjtwHekOT1g3vy5f5s0QOsQjen9lxeN+c5Vsp/TnLSxJoHk1xS6HV0avfy3YWaRXhjklMn1tyzEoOsgD9b9ADkhkUPAA9ne2rbrZZhG+Boo7cBVpxRnPGagTMm47cBjjR6GyDNeAUAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQ0OhtgM9J8gOFurck+YNC3b9J8vxCXdVrk9w/seaMJNtWYJZ5uyHJawp1FybZUqg7rlDzqNQWoXwkyX8s1C2Ly5Osn1izrtjrqRm7jOZjqT2X35rZsznVv09y58Sa45L8aqHX3tSu7cZCTZJ8V5JXFOp+OckHij2nOjrJrxfqPpHkpwt1G1P7/ap6Q5L/O7DfUJtT2251WbHflcV+1VP50dwweMbquahwbUmycxXMfrCzo3htVaO3Ae4p9luGs7V4T3YU+51d6LW+2Gtn6crqthXn3DRwxnXFGXcV+11Y7Fc9m4tzlngFAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0NDobYBVr0nyskLdhnkPsgJ2Z+zGwqoLU1tO8otJbpnzLPP2ucH9fiG1jXl/Vez38iTHFGunOjezZUejXJzaVr+nz3uQxn4xyaWFuu9McuucZ3kkT0nt9+u0eQ+ymixLADjzobMW7cv4rV8VW5I8r1B3S5bj+ka6+aEzyvsG9qquEa56wkOHxXlqsa6y8rvqhNR+v9Y0rwAAoCEBAAAaEgAAoCEBAAAaEgAAoCEBAAAaEgAAoCEBAAAaEgAAoCEBAAAaEgAAoCEBAAAaWpZlQFXfl+R/FequS/K1hbo9hZrRfjnJTw3s944kDxTqzkpy18SaM5N8tNCr6leT/Fih7peS/OtC3bck+YtC3ceTnF6oq3hPklMG9VqEqc8kj2xXkv2Den0oyQsLdd+V5DfmPMuqsdYDwN1J9hbqHiz2O7lYN9LIDVzJbAtXxRGFmiMz9jOo3svjU5uz+n09udiv4rjUvnP0c9LAXg+m9lzePe9BVhOvAACgIQEAABoSAACgIQEAABoSAACgIQEAABoSAACgIQEAABoSAACgIQEAABoSAACgoWXZBXBXav+O83FJzi7UfSbJrYW6iqOSPKZQd0+SOwp1ny3UHI49Se4t1D0myfpCTcW+JLcX6u5P7fk6sVCTJGcU+306s2sc4XOpzfj51J7NU1Lbc7An4+7Jg6n9nnw2tXv5hSR3FvtV5jwttb0Yn059Udhqtze1xVFfnPcgq8nmzLY/TT2XFftdWex3brFfxYbijFcNnDFJthfn3Fjst7fYr3J2FGfcOnDGwzlnFK+v4vzijFcU+11e7HdBsd9IG1O7tu2D57yqOOeGQq91xV67SleWXFjsd2mx31BeAQBAQwIAADQkAABAQwIAADQkAABAQwIAADQkAABAQwIAADQkAABAQwIAADQkAABAQwIAADQ0ehvgbUn+tFD3sWK/D6W2COVZxbqKU1O7J59MbaHJzUluLNR9JLU5P1eoWRafSO2ejFbZxrgsPpraZ/CE1L4/12T6FsGjkry40OvphZokOTO1a/ubJLcUe1acl+RJE2uOWYlBVsCG1D6DDyT5+znPwkS7Mm5T203FGTcV+20r9httGbYB8pVGbwOs2lGcs7Ked32x1+hzSeHakvo2wJFn9DbA6tlcnLPEKwAAaEgAAICGBAAAaEgAAICGBAAAaEgAAICGBAAAaEgAAICGBAAAaEgAAICGBAAAaEgAAICGRm8D3JDZEptR/iTJDYW630ny54W6789s89cUpyTZWuh1QpJfKdRdV6hhub02s+dlii8m+fUVmGW1eHOSvyrUfXeSBybWHJHad3W09w7u96aM2xa6e1CfL3lPkusLddXNt0thc8ZuVrpwzGX9g31znP1g56pB17QotgHOz55Mvyd7ir2WZRtg1e5Mv7a9C5l0nOo2wA2LGHai6jbASxcx7FReAQBAQwIAADQkAABAQwIAADQkAABAQwIAADQkAABAQwIAADQkAABAQwIAADQkAABAQwIAADQ0ehtg1dVJ3lqo+9qMXTLyw5ktgpji9CSXFXqNvrY3JXl3oe7HkjyxUPfjSR6cWHNqkp8v9Kr6x0m+p1D3O0muLdT9SJKnFOpOKtRU3Zjk3xbqPjLvQVbIj2f6/bx3JQZZAa9K8vJC3TWpLSerLpwa6frUnufKJsA1r7oNsPIHMkmuLParnnWFGTcMnrF6LipcW5LsLPZbX+h1drFXdRvg1mK/LcV+1xT7Vc4y/DgzX9tSe1ZGrnhnjrwCAICGBAAAaEgAAICGBAAAaEgAAICGBAAAaEgAAICGBAAAaEgAAICGBAAAaEgAAICGBAAAaGhZtgFW/UxqG/P+W5Inz3mWR3JrkhcN6nU4XpXZMpqpnlHs98dJHphYc2yx1z9K7drOLPar+oHMNh5O9ZYkp8x5lkfydUneMKgX81XZ2pkkv5DkkkLdP03yqYk1xyR5e6FX1Y7Ul9Gtems9AHz0oTPVF+Y9yAHck9ofn9EuSvJNA/t948Bep2bstVV9sFh331ynOLBluZfMz7OKdccXao7M2Odr98Bew3kFAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0NDoZUBvTfLVhbqRy3mWxQVJrhzY7ydT2/hV9fEkJ02s+bskz16BWebtrmLdW5K8oFB3XpI7J9Y8WOjDfL0vybcU6l6d5PI5z3Ig35vZ1ryp/iTJ4+c8CxOMDgD3JtkzuOdatS7J6QP73Zexn93+Qs2DWdvP16mpfeZ3Zm3fl7Xq/tQ+t2rArNqb2pzV55k58QoAABoSAACgIQEAABoSAACgIQEAABoSAACgIQEAABoSAACgIQEAABoSAACgIQEAABoavQtgtJOTHFeo25vk9kLdaZn9m/lTPJDkM4Ve+1Kb8fgkJxbqqk5Nckyh7oh5D7KKnJTZ5zBV5T5WHZHav9N+SrHfPUk+X6g7MbV7WfWZTF+UdERmvw1THZ3kjELdMan9Noy+lyM9kOkLsZLZ72zlM6j6XGY7c5iDKzNbKjP1nFvst6/Q66Zir6pLCjPuT3JRsd/OYr/K2V2ccbQrMu6e7E/tB+yMwTNeUZgxmW29Gznn2YUZ1w+ecXthxiTZVuy3qdjvpmK/ytlVnPHCgTPuT7K5OGeJVwAA0JAAAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0JAAAAANrfVtgH+d5NpC3VMzW+Ax1bsy/Z7ekeT8Qq+qJw7slSTvz2xJ0lTfmOSoOc8yb2cmeXKh7rHzHuQgnp/ZlrEpqlv9Ppfkg4W6G4v9Ppbad7zq3CRPmlizLmNnvKFY9/HU5nxsar9hlU2t+5NcV6j7u9RmfHqhJkluSfKJQt2eYj/maFdqm5zWFXptKPYafarbAKv2FmYcvQ1wa2HGtX6uOaw7uvrtzvR7snchk45zVcY9X5X/mEhmwW3k9+DS4pxDeQUAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQ0LJsA/yGJM8b2O+dSd5TqHtNZosgpjg2yX8t9Brto8W6VyV5dKHumELNiUm2FOo+meSPCnVV1yb5q4H9Rqpu9Xtmatva3pXkQ4W6VyZ5XKHuzZl9Z6d4ILXncrR3J/lAoe7q1BZxvTq1rasVt6f2O/vkJC8p1D03tc/8bUn+tlC3pl2asZuczi3Oua/Q66Zir2WxM2M/u8rZUby26jbAZfhjMNqW1O7l1mK/HcV+Zxd6rS/2Gn0uKVzb4bipMGN1G2DVhYUZD+dsHnNZM14BAEBDAgAANCQAAEBDAgAANCQAAEBDAgAANCQAAEBDAgAANCQAAEBDAgAANCQAAEBDAgAANDR6G+CzM9uYN9WdSX54zrMcSGWzVdVpSS4f2O/tSd4ysF/Vj2X64o9TkrxuBWZZLX4ws+1kU/1Eki/MeZZHsiHJDxXq9qb2Ha9+f96e5KpC3WcLNfekdm1PSHJxoe76JFcW6q4r1CTJa5OcU6h7Y5L7C3Ujfy+fVqy7Osn/KdTtKvZbCptT25B02SKGLahsAxx9tq3Y1T+86jbAyprQs4u9lmUb4DXFfmcU+1WcX5zximK/y4v9Lij2G2ljate2ffCcVxXn3FDota7Ya/S5tHBtw3kFAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0NDobYBV35vk+YW6n0vyzjnPciCvyPRQ9dgkbyr02pnawombCzWH4wcz29I3VWV73Z4kLyvUPSG1hUDvLfb760IND++NqW31++4klxTqXp3k9ok1JyT5w0KvT6X2fN1aqEmS70vyPYW6309tQ9+nCjX3pnZPRnthar8pr0t9K+OqV90GWD0Xjrmsw7IhtWur/Ojx8C5I7TMYuZY0sQ1wnnYU5zy70Gt9sdfO0pXVbSvOuWnwnMvgstTu5eaRQ3oFAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0NDobYBXJ3ncwH6vy2zBxWp2VLHuJUl2z3OQVebpST4/seYxmW3om+r61J7Luwo1h2NzknWFunckedScZ3kkxw7q08G5qX3Hfy/Jj8x5ltXi2CQfL9R9JMnLC3X/JMkbCnXrCzXDjQ4Ad2fsH63jk5w1sN9Ix2XtXltS+79TR6d2T07OcoSpPcW6xyQ5fZ6DMMSxqT3PXzXvQVaRI1K7J1NXOH/JCcV+S8ErAABoSAAAgIYEAABoSAAAgIYEAABoSAAAgIYEAABoSAAAgIYEAABoSAAAgIYEAABoaPQugKpjM/u376dahuvbn+lLbxbhuCTHFOq+mOSBQt1Jg2oOR/W5vDvJfXOeZd6qz+VRmf376VMdk9oClXuS3Fuo+0Jqy5xOyPQ5Tyr2Gn0vH0xtzmq/imNTm3H0b+y+1J7L1f67sBCXZvaDtBbPTXO8Tytpe2rXt7HYb2+xX+XsKM64tdhvS7Ff1Z7CjNXFQ+cXeh3O2Vqcs2p3Yca9xV4bC70O51xSnPOqgTPuK85YdWFxzksHz1niFQAANCQAAEBDAgAANCQAAEBDAgAANCQAAEBDAgAANCQAAEBDAgAANCQAAEBDAgAANCQAAEBDo7flPSrJUwt1RyS5fs6zHMg5qW3h+svMFkFMsbvQJ0lOTfK0Ym3F6QN7Jcl7k5w4qNenUltatC615/K2Qk2SPCO1rWsfzPRNiZ9P7Z6cnbHf1U8P7LXWPS61z/zUeQ+yBpyd2r38myR3znmWVWNzapuVLhs8567inOsGzripOOPoU90GONIFqV3b5YPnvKY45xmFXmcUe11TurLlsZa3AS7DWZZtgNWzecxlzXgFAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0NDobYA3J/mtQt375jvGQf1hkvcX6h6Y9yAH8MnU7mXVC5M8uVC3Kckz5zzLvK32+Q7Xq5PcNbHm5JUY5ACeluQbB/Z7W2ZbINeijyW5btFDHILNmf6cHZnkokKvO5K8pVB3U8b+zt48sBccsu1Z/Caw1XaWZRvgyFPdBrhl8JwXFOdchm2A24v9Rrsp4z7vXYOuaal4BQAADQkAANCQAAAADQkAANCQAAAADQkAANCQAAAADQkAANCQAAAADQkAANCQAAAADQkAANDQ6G2A5yT5F4N78uX+LMnVix5ijTgvybZC3ZuTvKdQ96tJrirU/VSSEyfWfCHJzxR6fbJQs9atS+05eey8BzmIVyT55kLdbyb56HxHeUQPJPmJQt1t8x6E6TZn8dvKup/KD1FiG+A8z5aJ9/5w7SnMuGfwjGt5G+Dos714bduK/TYV+1W2Ae4r9uJheAUAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQ0OhtgFW/l+S3Fz3EKvPczLa8rXY/kuRvCnX/M8nxE2vuSPKvCr1G++CiB1iFrk7ybQP7fWeSrYW60+Y9yCrym0muKdRdP+9BDuDo1DZijvY/Mvu7taotSwC4McvxofOV3pVkZ6Hu/kLNPfGcLKtPPHRG2ZrkpQP7LYOPZtxa36ojk7xy0UMcgspv3nBeAQBAQwIAADQkAABAQwIAADQkAABAQwIAADQkAABAQwIAADQkAABAQwIAADQkAABAQwIAADS0LMuAqn4pybcveoiDuCXJixc9xCG4JMnPFup+JcnTC3XnJfnixJrKAqEv9frvxdqK/5Dkdwt1v5vkeYW6lyf53MSaU5LcVOh1fZJXF+qqLk1tA+SPJ9ky31Ee0UlJdg3qlSSbk5w/sF/V4ws19yZ5ZqHuGUneWqiruji15/LfJXnbfEd5ZGs9ADw6yZMWPcQaseehM9XpqX0GtyTZW6irOCFjn5NTinVnpTbnJzP9szuj2OvWQs3hqD5fn00t4FSsH9TnS05+6KxVlc9t9P141ENnqpPmPciBeAUAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQkAAAAA2t9V0AzM/RSY4q1B1R7HdsknUTa/Zntixkrbo3tevbX6yp9Lo/0z+3w1F5JpfF/iT3LXqIQ3B0av8xWXm+9qX2fB1TqFnzBAAO1a+ntt2qqrJ46NYkZ897kFXkpQN73Z7aD+35Se6Z8yxd/WWSjYse4hBcleSVhbpnZvpin3XxfM2NVwAA0JAAAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0JAAAAANCQAA0JAAAAANWQbESrsxyRcLdV+bcQH1riQfKNSdnuSsOc+yWhyV2Wcw1ZPnPchB3JrZ4qKp7pr3IAfwQGrP1+4k5xbq7kjyyULdY5M8ulC3vlCzLD6b5JbB/YYRAFhp/zzJzkLd3iQnz3mWR/Ke1H5otyb55TnPslp8VZL3L3qIQ/D6JJcveoiD+EJqz9fG1D6D30pyUaHu4iQ/Wqhby/44yYWLHmKleAUAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQkAAAAA0JAADQ0FpfBvSuRQ9wCG5b9ACH6D1J1hXqnpNkQ6HuD5IcM7HmjkKfZfLSJF89qFd1EdOeJH9aqHtykucWe652Ryf57kJd5XtzON6f5HcLdS9Kcmah7tuS/P3EmiNTm7Gq+jfk65KcU6i7NrVNjkthc5L9hXPZIoZd5Taldi+3DZ5zZ3HOZVgxujW1a9tS7HdNsd/Ic03x2rYU+20t9htpfcZ+BtvHXNY/uGqOsx/s7Bt0TYfrstSub/PIIb0CAICGBAAAaEgAAICGBAAAaEgAAICGBAAAaEgAAICGBAAAaEgAAICGBAAAaEgAAICGBAAAaGhZtgG+KBYC/f+eMrjfq5J8Q6HujzJbFjLVPYWa0d6d5KcKdY9J7Xl+QqFmWVyf2r18d7Hfv8xsA+FUr0+yt9hzqt1Jfq1Qt6vY72VJvqlQd31mS7+mujjJoybWHJWxfws+kOR/F+r+NMm9hbqPFGqWRnUboDO/U90GuL3Yb2Ox31p2RRb/HKzUqW4DHG1Hatd3dqFXdRtg5Y/q4dhWnHNTsd9NxX4jz5XFa1sKXgEAQEMCAAA0JAAAQEMCAAA0JAAAQEMCAAA0JAAAQEMCAAA0JAAAQEMCAAA0JAAAQEMCAAA0dMTgfmcmecHgnny5G5J8uFD3nCRfU6h7R5I7C3Vr2dcnedKih1ghe7IcC4FemOTRhbqrk9w9seboJN9R6PWZJO8s1FWdk+Rphbp3Jfl0oe7lSU4q1I30iSR/ueghAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABgjfh/VbKbqwKefeoAAAAASUVORK5CYII=";
+
+const MEDICAL_REPORT_CATEGORIES = [
+  { key: "pain", label: "Dolor corporal" },
+  { key: "headache", label: "Mal de cap" },
+  { key: "vertigo", label: "Vertígens i boira mental" },
+  { key: "digestive", label: "Digestiu" },
+  { key: "sleep", label: "Son" },
+  { key: "exercise", label: "Activitat física" },
+  { key: "cycle", label: "Cicle menstrual" },
+  { key: "skin", label: "Pell" },
+  { key: "medication", label: "Medicació" },
+];
+
+function selectedMedicalCategories(container) {
+  return [...container.querySelectorAll('input[name="medical-category"]:checked')].map(input => input.value);
+}
+
+function filterMedicalDay(day, selected) {
+  const allowed = new Set(selected);
+  day.querySelectorAll('.day-module-card').forEach(card => {
+    if (!allowed.has(card.dataset.moduleType)) card.remove();
+  });
+  if (!allowed.has('pain')) day.querySelector('.day-pain-section')?.remove();
+
+  const hasPain = allowed.has('pain') && !!day.querySelector('.day-pain-record');
+  const hasSelectedModuleData = [...day.querySelectorAll('.day-module-card')].some(card => !card.querySelector('.day-ok-state'));
+  const modulesSection = day.querySelector('.day-modules-section');
+  if (modulesSection && !modulesSection.querySelector('.day-module-card')) modulesSection.remove();
+  return hasPain || hasSelectedModuleData;
+}
+
 const ALL_STORES = [
   "daily_checkin", "pain_events", "movement_limitations", "headache_events", "vertigo_events", "digestive_events",
   "bowel_movements", "sleep_log", "exercise_log", "cycle_log", "skin_episodes", "medications",
@@ -66,6 +99,15 @@ export async function renderReports(container) {
           <p style="margin:0;color:var(--ink-soft);max-width:760px;">Genera un document A4 amb els registres reals del període. Cada dia comença en una pàgina nova i conserva els mateixos mapes, colors, icones i targetes del Dashboard.</p>
         </div>
         <span class="badge">A4 · multipàgina</span>
+      </div>
+      <div class="medical-category-picker" style="margin-top:var(--sp-5);">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+          <div><span class="field-label">Què vols incloure?</span><div style="font-size:12px;color:var(--ink-faint);margin-top:3px;">Pots generar l’informe complet o només les categories que necessitis.</div></div>
+          <div style="display:flex;gap:8px;"><button class="btn btn-ghost" type="button" id="medical-select-all">Selecciona-ho tot</button><button class="btn btn-ghost" type="button" id="medical-clear-all">Neteja</button></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${MEDICAL_REPORT_CATEGORIES.map(category => `<label class="day-chip" style="cursor:pointer;display:inline-flex;align-items:center;gap:7px;padding:8px 11px;"><input type="checkbox" name="medical-category" value="${category.key}" checked> ${escapeHtml(category.label)}</label>`).join("")}
+        </div>
       </div>
       <div style="display:flex;align-items:flex-end;gap:var(--sp-4);flex-wrap:wrap;margin-top:var(--sp-5);">
         <div class="field" style="margin:0;">
@@ -115,6 +157,9 @@ export async function renderReports(container) {
     }
   });
 
+  container.querySelector("#medical-select-all").addEventListener("click", () => container.querySelectorAll('input[name="medical-category"]').forEach(input => input.checked = true));
+  container.querySelector("#medical-clear-all").addEventListener("click", () => container.querySelectorAll('input[name="medical-category"]').forEach(input => input.checked = false));
+
   container.querySelector("#medical-report-btn").addEventListener("click", async () => {
     const start = container.querySelector("#medicalStartDate").value;
     const end = container.querySelector("#medicalEndDate").value;
@@ -122,7 +167,12 @@ export async function renderReports(container) {
       alert("Comprova les dates: la data d’inici ha de ser abans que la de final.");
       return;
     }
-    await openMedicalPrintView(container, start, end);
+    const categories = selectedMedicalCategories(container);
+    if (!categories.length) {
+      alert("Selecciona com a mínim una categoria per generar l’informe.");
+      return;
+    }
+    await openMedicalPrintView(container, start, end, categories);
   });
 
   // Manté sincronitzats els dos selectors de dates de la pantalla d’Informes.
@@ -276,7 +326,7 @@ function optimizeMedicalPainLayout(day) {
 }
 
 
-async function openMedicalPrintView(container, start, end) {
+async function openMedicalPrintView(container, start, end, selectedCategories = MEDICAL_REPORT_CATEGORIES.map(category => category.key)) {
   const btn = container.querySelector("#medical-report-btn");
   const original = btn.textContent;
   btn.disabled = true;
@@ -306,6 +356,7 @@ async function openMedicalPrintView(container, start, end) {
     const cover = document.createElement("section");
     cover.className = "medical-print-cover";
     cover.innerHTML = `<div><span class="view-eyebrow">Paula Tracker · Informe mèdic</span><h1>Informe de seguiment de salut</h1><p style="font-size:18px;color:var(--ink-soft);">${escapeHtml(formatDate(start))} — ${escapeHtml(formatDate(end))}</p></div>
+      <div style="margin:10px 0 18px;"><span style="font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.06em;">Categories incloses</span><div style="margin-top:6px;font-weight:650;">${escapeHtml(MEDICAL_REPORT_CATEGORIES.filter(category => selectedCategories.includes(category.key)).map(category => category.label).join(" · "))}</div></div>
       <div class="medical-print-meta"><div><span>Dies amb registres</span><strong style="display:block;font-size:24px;">${dates.length}</strong></div><div><span>Generat el</span><strong style="display:block;font-size:24px;">${escapeHtml(formatDate(todayISO()))}</strong></div></div>
       <div class="medical-access-card">
         <div>
@@ -313,18 +364,26 @@ async function openMedicalPrintView(container, start, end) {
           <div class="medical-access-url">https://paulaterra.github.io/health-tracker/</div>
           <p class="medical-access-copy">Escaneja el codi QR o entra a l’adreça anterior.<br><strong>Contrasenya:</strong> paulatrackview</p>
         </div>
-        <img src="./assets/health-tracker-access-qr.svg" alt="Codi QR d’accés a Paula Tracker">
+        <img src="${QR_PRINT_DATA_URL}" alt="Codi QR d’accés a Paula Tracker">
       </div>
       <p style="font-size:11px;color:var(--ink-faint);">Document generat a partir dels registres personals de Paula Tracker. No substitueix una valoració mèdica.</p>`;
     pages.appendChild(cover);
 
+    let includedDays = 0;
     for (const date of dates) {
       const day = document.createElement("section");
       day.className = "medical-print-day-start";
       day.dataset.reportDate = date;
       day.innerHTML = await dayDetailHtml(date);
+      if (!filterMedicalDay(day, selectedCategories)) continue;
       optimizeMedicalPainLayout(day);
       pages.appendChild(day);
+      includedDays += 1;
+    }
+    if (!includedDays) {
+      shell.remove();
+      alert("No hi ha registres de les categories seleccionades dins del període.");
+      return;
     }
 
     const analysis = document.createElement("section");
@@ -420,7 +479,7 @@ async function downloadPdf(container, selector = "#report-output", filenamePrefi
           <div class="medical-access-url">https://paulaterra.github.io/health-tracker/</div>
           <p class="medical-access-copy">Escaneja el codi QR o entra a l’adreça anterior.<br><strong>Contrasenya:</strong> paulatrackview</p>
         </div>
-        <img src="./assets/health-tracker-access-qr.svg" alt="Codi QR d’accés a Paula Tracker">
+        <img src="${QR_PRINT_DATA_URL}" alt="Codi QR d’accés a Paula Tracker">
       </div>
       <p class="simple-pdf-cover-note">Document generat a partir dels registres personals de Paula Tracker. No substitueix una valoració mèdica.</p>`;
     printContent.appendChild(cover);
