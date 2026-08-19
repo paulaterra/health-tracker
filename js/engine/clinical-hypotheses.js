@@ -25,66 +25,150 @@ function domainsForDay(d={}){
   };
 }
 function sameDay(days, predicates){ return count(days,d=>predicates.every(fn=>fn(d))); }
-function possibility(id,title,why,limit){ return {id,title,why,limit}; }
+function possibility(id,title,why,limit,extra={}){
+  const compatibilityScore=Math.max(0,Math.min(100,n(extra.compatibilityScore)||50));
+  const compatibilityLevel=extra.compatibilityLevel || (compatibilityScore>=70?'alta':compatibilityScore>=45?'moderada':'baixa / inicial');
+  return {id,title,why,limit,...extra,compatibilityScore,compatibilityLevel};
+}
+function rankedPossibilities(items=[]){ return [...items].sort((a,b)=>(b.compatibilityScore||0)-(a.compatibilityScore||0)); }
+function compatibilityColor(p={}){ return (p.compatibilityScore||0)>=70?'#2f855a':(p.compatibilityScore||0)>=45?'#b7791f':'#c53030'; }
+function compatibilityScaleHtml(p={}){
+  const color=compatibilityColor(p);
+  const level=p.compatibilityLevel||'baixa / inicial';
+  return `<div style="display:flex;align-items:center;gap:8px;margin:0 0 8px;"><span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:${color};white-space:nowrap;"><span style="width:8px;height:8px;border-radius:50%;background:${color};display:inline-block;"></span>Compatibilitat ${level}</span><span style="display:grid;grid-template-columns:repeat(3,18px);gap:3px;"><i style="height:5px;border-radius:99px;background:#c53030;opacity:${(p.compatibilityScore||0)<45?1:.16};"></i><i style="height:5px;border-radius:99px;background:#b7791f;opacity:${(p.compatibilityScore||0)>=45&&(p.compatibilityScore||0)<70?1:.16};"></i><i style="height:5px;border-radius:99px;background:#2f855a;opacity:${(p.compatibilityScore||0)>=70?1:.16};"></i></span></div>`;
+}
+
+function painMechanismAssessment(days){
+  const painDays=days.filter(d=>n(d.dolor_general)>=3||n(d.dolor_intensitat_max)>=3||d.dolor_rigidesa);
+  const significant=days.filter(d=>n(d.dolor_general)>=5||n(d.dolor_intensitat_max)>=5);
+  const multiRegion=days.filter(d=>n(d.dolor_regions_count)>=2);
+  const regionKeys=['dolor_regio_cap_coll','dolor_regio_tronc_superior','dolor_regio_lumbar_pelvis','dolor_regio_membre_superior','dolor_regio_membre_inferior'];
+  const distinctRegions=regionKeys.filter(k=>days.some(d=>d[k]===true)).length;
+  const sleepOverlap=sameDay(days,[d=>n(d.dolor_general)>=5||n(d.dolor_intensitat_max)>=5,d=>n(d.son_qualitat)>=5||n(d.son_fatiga_mati)>=5||d.energia_esgotament===true]);
+  const fatigueDays=count(days,d=>n(d.son_fatiga_mati)>=5||n(d.energia_fisica)>=5||d.energia_esgotament===true);
+  const rigidDays=count(days,d=>d.dolor_rigidesa===true);
+  const neuroOverlap=sameDay(days,[d=>n(d.dolor_general)>=5||n(d.dolor_intensitat_max)>=5,d=>d.mal_de_cap_ocorregut===true||d.vertigen_ocorregut===true]);
+
+  // Puntuació de fenotip, no diagnòstica. Dona pes a recurrència, distribució i amplificadors,
+  // i no necessita que l'usuari hagi introduït prèviament el nom d'una malaltia.
+  let score=0;
+  if(significant.length>=5) score+=2; else if(significant.length>=3) score+=1;
+  if(painDays.length>=8) score+=1;
+  if(distinctRegions>=3) score+=2; else if(distinctRegions>=2) score+=1;
+  if(multiRegion.length>=3) score+=1;
+  if(sleepOverlap>=4) score+=2; else if(sleepOverlap>=2) score+=1;
+  if(fatigueDays>=4) score+=1;
+  if(rigidDays>=3) score+=1;
+  if(neuroOverlap>=3) score+=1;
+
+  const level=score>=8?'moderada-alta':score>=5?'moderada':score>=3?'inicial':null;
+  return {painDays,significant,multiRegion,distinctRegions,sleepOverlap,fatigueDays,rigidDays,neuroOverlap,score,level};
+}
+
+function painPhenotypePossibilities(days, assessment){
+  const a=assessment||painMechanismAssessment(days);
+  const out=[];
+  if(a.level){
+    const support=[];
+    if(a.significant.length) support.push(`${a.significant.length} dies amb dolor rellevant`);
+    if(a.distinctRegions>=2) support.push(`dolor registrat en ${a.distinctRegions} regions corporals àmplies`);
+    if(a.sleepOverlap>=2) support.push(`${a.sleepOverlap} dies en què dolor rellevant coincideix amb mal descans o fatiga`);
+    if(a.rigidDays>=3) support.push(`${a.rigidDays} dies amb rigidesa`);
+    out.push(possibility(
+      'central-sensitization-phenotype',
+      'Dolor nociplàstic / sensibilització central',
+      `El motor detecta una combinació de recurrència, distribució del dolor i possibles factors amplificadors${support.length?`: ${support.join('; ')}.`:'.'}`,
+      `Això descriu un fenotip compatible, no el mecanisme confirmat del dolor. L’app no coneix per si sola l’exploració física, les proves d’imatge, analítiques ni altres causes que un professional ha de valorar.`,
+      {clinicalSummary:'Possible fenotip de dolor nociplàstic/sensibilització central. Valorar fibromiàlgia segons evolució, distribució del dolor i criteris clínics.', compatibilityScore:Math.min(90,45+a.score*5)}
+    ));
+  }
+  if(a.score>=5){
+    out.push(possibility(
+      'fibromyalgia-context',
+      'Fibromiàlgia · possible, però no demostrada pels registres',
+      `La persistència del dolor, la distribució multiregional i la coincidència amb son/fatiga poden aparèixer en fibromiàlgia, però l’app només en pot detectar compatibilitat longitudinal.`,
+      `Per valorar fibromiàlgia cal durada suficient, distribució del dolor, càrrega simptomàtica, exploració clínica i exclusió raonable d’altres explicacions. Uns dies o setmanes de registre no permeten establir el diagnòstic.`,
+      {compatibilityScore:Math.min(72,35+a.score*4)}
+    ));
+  }
+  if(a.rigidDays>=3 || a.distinctRegions>=2){
+    out.push(possibility(
+      'myofascial-musculoskeletal-context',
+      'Component musculoesquelètic / miofascial concomitant · plausible',
+      `La recurrència en diverses zones i${a.rigidDays?` ${a.rigidDays} dies amb rigidesa`: ' el patró regional'} també és compatible amb un component muscular o miofascial que pot coexistir amb altres mecanismes de dolor.`,
+      `Un autoregistre no pot distingir dolor muscular, articular, neuropàtic o referit ni substituir l’exploració musculoesquelètica.`,
+      {compatibilityScore:Math.min(76,42+a.distinctRegions*7+a.rigidDays*2)}
+    ));
+  }
+  if(a.sleepOverlap>=2){
+    out.push(possibility(
+      'sleep-pain-amplifier',
+      'Alteració del son com a possible amplificador del dolor · rellevant',
+      `Dolor rellevant i mal descans/fatiga coincideixen en ${a.sleepOverlap} dies. El motor ho interpreta com una relació que convé seguir, inclosa la possibilitat que el son actuï com a amplificador o conseqüència del dolor.`,
+      `La coincidència no estableix direcció causal. Cal observar si el mal son precedeix, acompanya o segueix els dies de més dolor.`,
+      {compatibilityScore:Math.min(80,40+a.sleepOverlap*7)}
+    ));
+  }
+  return rankedPossibilities(out).slice(0,5);
+}
 function multisystemPossibilities(days, cycleAnalysis){
   const out=[];
   const vestibularHead=sameDay(days,[d=>d.vertigen_ocorregut||n(d.vertigen_intensitat)>=4,d=>d.mal_de_cap_ocorregut||n(d.mal_de_cap_intensitat)>=4]);
-  if(vestibularHead>=2) out.push(possibility('migraine-vestibular','Migranya vestibular / perfil migranyós',`Vertigen/boira mental i cefalea han coincidit en ${vestibularHead} dies.`,`Aquesta coincidència no permet diferenciar migranya vestibular d’altres causes neurològiques o vestibulars.`));
+  if(vestibularHead>=2) out.push(possibility('migraine-vestibular','Migranya vestibular / perfil migranyós',`Vertigen/boira mental i cefalea han coincidit en ${vestibularHead} dies.`,`Aquesta coincidència no permet diferenciar migranya vestibular d’altres causes neurològiques o vestibulars.`,{compatibilityScore:Math.min(82,42+vestibularHead*8)}));
 
   const cycleMulti=(cycleAnalysis?.hypotheses||[]).find(h=>h.key==='multisystem');
   if(cycleMulti) out.push(possibility('cycle-modulation','Trastorns relacionats amb el cicle hormonal / migranya relacionada amb el cicle',cycleMulti.text,`${cycleMulti.sourceNote} La coincidència temporal no demostra una causa hormonal.`));
 
   const inflammatory=sameDay(days,[d=>d.dolor_rigidesa===true,d=>d.pell_brot===true||d.digestiu_llagues_boca===true||d.digestiu_diarrea===true]);
-  if(inflammatory>=2) out.push(possibility('inflammatory-autoimmune','Malalties inflamatòries o autoimmunes (p. ex. lupus, Sjögren, artritis inflamatòria, celiaquia o MII)',`Rigidesa corporal ha coincidit amb pell, llagues a la boca o diarrea en ${inflammatory} dies.`,`Són signes molt inespecífics. Els noms indicats són exemples de diagnòstics diferencials que un professional podria valorar segons la resta de la clínica; l’app no pot suggerir-ne cap en concret ni aplicar-ne els criteris diagnòstics.`));
+  if(inflammatory>=2) out.push(possibility('inflammatory-autoimmune','Malalties inflamatòries o autoimmunes (p. ex. lupus, Sjögren, artritis inflamatòria, celiaquia o MII)',`Rigidesa corporal ha coincidit amb pell, llagues a la boca o diarrea en ${inflammatory} dies.`,`Són signes molt inespecífics. Els noms indicats són exemples de diagnòstics diferencials que un professional podria valorar segons la resta de la clínica; l’app no pot suggerir-ne cap en concret ni aplicar-ne els criteris diagnòstics.`,{compatibilityScore:Math.min(72,38+inflammatory*7)}));
 
   const thyroidLike=sameDay(days,[d=>n(d.son_fatiga_mati)>=6||d.energia_esgotament===true,d=>d.digestiu_estrenyiment===true||d.digestiu_diarrea===true,d=>d.pell_brot===true]);
-  if(thyroidLike>=3) out.push(possibility('endocrine-thyroid','Alteracions tiroïdals (hipotiroïdisme / hipertiroïdisme) i dèficits metabòlics',`Fatiga, alteració intestinal i símptomes de pell han coincidit en ${thyroidLike} dies.`,`Aquest perfil és inespecífic i només una valoració clínica i analítica pot orientar si té sentit estudiar tiroide, ferro, B12, vitamina D o altres causes metabòliques.`));
+  if(thyroidLike>=3) out.push(possibility('endocrine-thyroid','Alteracions tiroïdals (hipotiroïdisme / hipertiroïdisme) i dèficits metabòlics',`Fatiga, alteració intestinal i símptomes de pell han coincidit en ${thyroidLike} dies.`,`Aquest perfil és inespecífic i només una valoració clínica i analítica pot orientar si té sentit estudiar tiroide, ferro, B12, vitamina D o altres causes metabòliques.`,{compatibilityScore:Math.min(68,34+thyroidLike*6)}));
 
-  const centralSens=sameDay(days,[d=>n(d.dolor_general)>=5||n(d.dolor_intensitat_max)>=5,d=>n(d.son_qualitat)>=5||n(d.son_fatiga_mati)>=5]);
-  if(centralSens>=5) out.push(possibility('central-sensitization','Fibromiàlgia / sensibilització central',`Dolor rellevant i son no reparador o fatiga han coincidit en ${centralSens} dies.`,`La fibromiàlgia és només una de diverses possibilitats davant dolor generalitzat, fatiga i son no reparador. Aquest patró no permet suggerir-la ni diagnosticar-la sense valoració clínica.`));
+  // Els mecanismes de dolor es valoren en una hipòtesi pròpia, no només dins dels brots multisímptoma.
 
   const mastCell=sameDay(days,[d=>d.pell_brot===true,d=>d.digestiu_diarrea===true||d.digestiu_urgencia===true||n(d.digestiu_dolorAbdominal)>=4,d=>d.mal_de_cap_ocorregut===true||d.vertigen_ocorregut===true]);
-  if(mastCell>=2) out.push(possibility('mast-cell','Síndrome d’activació mastocitària (MCAS) / mecanismes mastocitaris',`Símptomes de pell, digestius i cefalea/vertigen han coincidit en ${mastCell} dies. Aquesta combinació pot justificar comentar si cal explorar causes al·lèrgiques o mastocitàries, inclosa MCAS només si la clínica global encaixa.`,`Tenir símptomes en diversos sistemes no equival a una síndrome d’activació mastocitària; el diagnòstic requereix criteris específics que l’app no pot aplicar.`));
+  if(mastCell>=2) out.push(possibility('mast-cell','Síndrome d’activació mastocitària (MCAS) / mecanismes mastocitaris',`Símptomes de pell, digestius i cefalea/vertigen han coincidit en ${mastCell} dies. Aquesta combinació pot justificar comentar si cal explorar causes al·lèrgiques o mastocitàries, inclosa MCAS només si la clínica global encaixa.`,`Tenir símptomes en diversos sistemes no equival a una síndrome d’activació mastocitària; el diagnòstic requereix criteris específics que l’app no pot aplicar.`,{compatibilityScore:Math.min(64,34+mastCell*6)}));
 
   const infectiousMedication=count(days,d=>d.medicacio_presa && Object.values(domainsForDay(d)).filter(Boolean).length>=3);
-  if(infectiousMedication>=2) out.push(possibility('medication-context','Medicació / canvis de tractament com a context',`Hi ha ${infectiousMedication} dies multisímptoma en què també consta medicació.`,`La coincidència no indica que la medicació sigui la causa; cal revisar dates d’inici, dosis i indicació amb el professional.`));
+  if(infectiousMedication>=2) out.push(possibility('medication-context','Medicació / canvis de tractament com a context',`Hi ha ${infectiousMedication} dies multisímptoma en què també consta medicació.`,`La coincidència no indica que la medicació sigui la causa; cal revisar dates d’inici, dosis i indicació amb el professional.`,{compatibilityScore:Math.min(65,35+infectiousMedication*6)}));
 
 
-  return out.slice(0,6);
+  return rankedPossibilities(out).slice(0,6);
 }
 
 
 function digestivePossibilities(days, ev, cycleAnalysis){
   const out=[];
   const total=days.length;
-  if(ev.dolor>=2 && ev.deposicions>=2) out.push(possibility('ibs','Síndrome de l’intestí irritable (SII)',`Dolor/malestar abdominal i canvis de deposició o urgència es repeteixen durant el període registrat.`,`El diagnòstic de SII requereix criteris clínics i valorar signes d’alarma; l’autoregistre no permet confirmar-lo.`));
-  if((ev.inflor>=3||ev.gasos>=3) && (ev.dolor>=2||ev.deposicions>=2)) out.push(possibility('sibo','Sobrecreixement bacterià de l’intestí prim (SIBO)',`Inflor o gasos recurrents coincideixen amb dolor o alteracions de deposició.`,`Aquests símptomes són molt inespecífics; el SIBO no es pot inferir només pel patró de símptomes i pot requerir proves específiques segons criteri mèdic.`));
+  if(ev.dolor>=2 && ev.deposicions>=2) out.push(possibility('ibs','Síndrome de l’intestí irritable (SII)',`Dolor/malestar abdominal i canvis de deposició o urgència es repeteixen durant el període registrat.`,`El diagnòstic de SII requereix criteris clínics i valorar signes d’alarma; l’autoregistre no permet confirmar-lo.`,{compatibilityScore:Math.min(82,44+Math.min(ev.dolor,ev.deposicions)*7)}));
+  if((ev.inflor>=3||ev.gasos>=3) && (ev.dolor>=2||ev.deposicions>=2)) out.push(possibility('sibo','Sobrecreixement bacterià de l’intestí prim (SIBO)',`Inflor o gasos recurrents coincideixen amb dolor o alteracions de deposició.`,`Aquests símptomes són molt inespecífics; el SIBO no es pot inferir només pel patró de símptomes i pot requerir proves específiques segons criteri mèdic.`,{compatibilityScore:Math.min(72,40+Math.max(ev.inflor,ev.gasos)*5)}));
   const inflammatoryGI=sameDay(days,[d=>d.digestiu_diarrea===true||d.digestiu_urgencia===true,d=>d.digestiu_llagues_boca===true||d.pell_brot===true||d.dolor_rigidesa===true]);
-  if(inflammatoryGI>=2) out.push(possibility('ibd-celiac','Celiaquia o malaltia inflamatòria intestinal (MII)',`Diarrea/urgència ha coincidit amb llagues a la boca, pell o rigidesa en ${inflammatoryGI} dies.`,`Aquesta combinació no diferencia celiaquia, Crohn, colitis ulcerosa ni altres causes; només justifica comentar si cal estudi addicional.`));
-  if(ev.diarrea>=3 && ev.urgencia>=2) out.push(possibility('malabsorption-intolerance','Malabsorció o intoleràncies alimentàries',`Diarrea i urgència s’han repetit en diversos dies (${ev.diarrea} amb diarrea; ${ev.urgencia} amb urgència).`,`La relació temporal amb aliments concrets i una valoració professional són necessàries abans d’atribuir-ho a una intolerància.`));
+  if(inflammatoryGI>=2) out.push(possibility('ibd-celiac','Celiaquia o malaltia inflamatòria intestinal (MII)',`Diarrea/urgència ha coincidit amb llagues a la boca, pell o rigidesa en ${inflammatoryGI} dies.`,`Aquesta combinació no diferencia celiaquia, Crohn, colitis ulcerosa ni altres causes; només justifica comentar si cal estudi addicional.`,{compatibilityScore:Math.min(62,34+inflammatoryGI*6)}));
+  if(ev.diarrea>=3 && ev.urgencia>=2) out.push(possibility('malabsorption-intolerance','Malabsorció o intoleràncies alimentàries',`Diarrea i urgència s’han repetit en diversos dies (${ev.diarrea} amb diarrea; ${ev.urgencia} amb urgència).`,`La relació temporal amb aliments concrets i una valoració professional són necessàries abans d’atribuir-ho a una intolerància.`,{compatibilityScore:Math.min(70,38+Math.min(ev.diarrea,ev.urgencia)*6)}));
   const cyc=(cycleAnalysis?.hypotheses||[]).find(h=>/digest/i.test(h.key||'')||/digest/i.test(h.title||''));
   if(cyc) out.push(possibility('cycle-digestive','Modulació digestiva relacionada amb el cicle',cyc.text,`${cyc.sourceNote} La coincidència amb una fase del cicle no demostra una causa hormonal.`));
-  return out.slice(0,5);
+  return rankedPossibilities(out).slice(0,5);
 }
 
 function vestibularPossibilities(days, cycleAnalysis){
   const out=[];
   const both=sameDay(days,[d=>d.vertigen_ocorregut||n(d.vertigen_intensitat)>=2,d=>d.mal_de_cap_ocorregut||n(d.mal_de_cap_intensitat)>=2]);
-  if(both>=2) out.push(possibility('vestibular-migraine','Migranya vestibular',`Vertigen/boira mental i cefalea han coincidit en ${both} dies.`,`Cal valorar durada dels episodis, antecedents i trets migranyosos i descartar altres causes vestibulars; l’app no pot aplicar els criteris diagnòstics.`));
+  if(both>=2) out.push(possibility('vestibular-migraine','Migranya vestibular',`Vertigen/boira mental i cefalea han coincidit en ${both} dies.`,`Cal valorar durada dels episodis, antecedents i trets migranyosos i descartar altres causes vestibulars; l’app no pot aplicar els criteris diagnòstics.`,{compatibilityScore:Math.min(82,42+both*8)}));
   const occ=sameDay(days,[d=>d.vertigen_ocorregut||n(d.vertigen_intensitat)>=2,d=>n(d.dolor_darrere_cap_intensitat)>=2||n(d.dolor_esquena_intensitat)>=2]);
-  if(occ>=2) out.push(possibility('cervicogenic-dizziness','Component cervicogènic / mareig associat al coll',`El vertigen o mareig ha coincidit amb dolor occipital/cervical en ${occ} dies.`,`La coincidència no demostra que el coll sigui la causa; cal exploració clínica i considerar causes vestibulars o neurològiques alternatives.`));
+  if(occ>=2) out.push(possibility('cervicogenic-dizziness','Component cervicogènic / mareig associat al coll',`El vertigen o mareig ha coincidit amb dolor occipital/cervical en ${occ} dies.`,`La coincidència no demostra que el coll sigui la causa; cal exploració clínica i considerar causes vestibulars o neurològiques alternatives.`,{compatibilityScore:Math.min(74,40+occ*7)}));
   const cyc=(cycleAnalysis?.hypotheses||[]).find(h=>/vert|cef|head|neuro|vest/i.test((h.key||'')+' '+(h.title||'')));
   if(cyc) out.push(possibility('cycle-migraine','Migranya o símptomes vestibulars relacionats amb el cicle',cyc.text,`${cyc.sourceNote} El patró temporal no confirma una causa hormonal.`));
-  return out.slice(0,4);
+  return rankedPossibilities(out).slice(0,4);
 }
 
 function occipitalPossibilities(days){
   const out=[];
   const occHead=sameDay(days,[d=>n(d.dolor_darrere_cap_intensitat)>=2,d=>d.mal_de_cap_ocorregut||n(d.mal_de_cap_intensitat)>=2]);
   const occBack=sameDay(days,[d=>n(d.dolor_darrere_cap_intensitat)>=2,d=>n(d.dolor_esquena_intensitat)>=2]);
-  if(occHead>=2) out.push(possibility('cervicogenic-headache','Cefalea cervicogènica',`Dolor posterior del cap i cefalea han coincidit en ${occHead} dies.`,`Aquest patró no demostra causalitat cervical; la cefalea cervicogènica requereix exploració clínica i pot solapar-se amb migranya o cefalea tensional.`));
-  if(occHead>=2||occBack>=2) out.push(possibility('tension-headache','Cefalea tensional / component muscular cervical',`Hi ha recurrència de dolor occipital juntament amb cefalea o dolor cervical.`,`La localització del dolor per si sola no permet distingir cefalea tensional, migranya ni altres causes.`));
-  return out.slice(0,3);
+  if(occHead>=2) out.push(possibility('cervicogenic-headache','Cefalea cervicogènica',`Dolor posterior del cap i cefalea han coincidit en ${occHead} dies.`,`Aquest patró no demostra causalitat cervical; la cefalea cervicogènica requereix exploració clínica i pot solapar-se amb migranya o cefalea tensional.`,{compatibilityScore:Math.min(78,42+occHead*7)}));
+  if(occHead>=2||occBack>=2) out.push(possibility('tension-headache','Cefalea tensional / component muscular cervical',`Hi ha recurrència de dolor occipital juntament amb cefalea o dolor cervical.`,`La localització del dolor per si sola no permet distingir cefalea tensional, migranya ni altres causes.`,{compatibilityScore:Math.min(72,40+Math.max(occHead,occBack)*6)}));
+  return rankedPossibilities(out).slice(0,3);
 }
 
 function sleepPossibilities(days){
@@ -93,10 +177,10 @@ function sleepPossibilities(days){
   const fragmented=count(sleep,d=>n(d.son_despertars)>=3||n(d.son_qualitat)>=5);
   const fatigue=count(sleep,d=>n(d.son_fatiga_mati)>=5);
   const paras=count(sleep,d=>d.son_parasomnia===true);
-  if(fragmented>=4 && fatigue>=3) out.push(possibility('insomnia-fragmented-sleep','Insomni de manteniment / son fragmentat',`S’han repetit despertares o mala qualitat del son i fatiga matinal.`,`Aquest patró no determina la causa del son fragmentat ni diferencia insomni, factors ambientals, dolor, respiració del son o altres trastorns.`));
-  if(paras>=2) out.push(possibility('parasomnia','Parasòmnies',`S’han registrat fenòmens compatibles amb parasòmnia en ${paras} nits.`,`Cal descriure bé els episodis i, segons el cas, valorar-los en una unitat del son; l’app no pot classificar el tipus de parasòmnia.`));
-  if(fragmented>=4 && fatigue>=4) out.push(possibility('sleep-disordered-breathing','Trastorns respiratoris del son (p. ex. apnea del son)',`El son fragmentat i la fatiga matinal són recurrents.`,`Són símptomes inespecífics. Roncs, pauses respiratòries, somnolència diürna i un estudi del son són dades molt més orientatives.`));
-  return out.slice(0,4);
+  if(fragmented>=4 && fatigue>=3) out.push(possibility('insomnia-fragmented-sleep','Insomni de manteniment / son fragmentat',`S’han repetit despertares o mala qualitat del son i fatiga matinal.`,`Aquest patró no determina la causa del son fragmentat ni diferencia insomni, factors ambientals, dolor, respiració del son o altres trastorns.`,{compatibilityScore:Math.min(82,44+Math.min(fragmented,fatigue)*6)}));
+  if(paras>=2) out.push(possibility('parasomnia','Parasòmnies',`S’han registrat fenòmens compatibles amb parasòmnia en ${paras} nits.`,`Cal descriure bé els episodis i, segons el cas, valorar-los en una unitat del son; l’app no pot classificar el tipus de parasòmnia.`,{compatibilityScore:Math.min(78,42+paras*8)}));
+  if(fragmented>=4 && fatigue>=4) out.push(possibility('sleep-disordered-breathing','Trastorns respiratoris del son (p. ex. apnea del son)',`El son fragmentat i la fatiga matinal són recurrents.`,`Són símptomes inespecífics. Roncs, pauses respiratòries, somnolència diürna i un estudi del son són dades molt més orientatives.`,{compatibilityScore:Math.min(62,36+Math.min(fragmented,fatigue)*4)}));
+  return rankedPossibilities(out).slice(0,4);
 }
 
 function cyclePossibilities(cycleHypothesis){
@@ -120,6 +204,31 @@ export function buildClinicalHypotheses(matrix={}) {
   if(totalDays<10) return [];
   const out=[];
   const cycleAnalysis=analyzeCyclePatterns(matrix);
+
+  // ---------- Fenotip/mecanisme de dolor: inferència transversal ----------
+  // Aquesta capa no busca primer un diagnòstic concret: puntua propietats del patró
+  // (recurrència, extensió anatòmica, son/fatiga, rigidesa i solapament neurològic)
+  // i només després proposa famílies clíniques a comentar.
+  const painAssessment=painMechanismAssessment(days);
+  if(painAssessment.level){
+    const evidence=[];
+    evidence.push(`Dolor rellevant: ${painAssessment.significant.length} de ${totalDays} dies (${pct(painAssessment.significant.length,totalDays)}%).`);
+    if(painAssessment.distinctRegions>=2) evidence.push(`Distribució: dolor registrat en ${painAssessment.distinctRegions} de 5 regions corporals àmplies durant el període.`);
+    if(painAssessment.multiRegion.length) evidence.push(`Dolor en 2 o més regions el mateix dia: ${painAssessment.multiRegion.length} dies.`);
+    if(painAssessment.sleepOverlap) evidence.push(`Dolor rellevant + mal descans/fatiga el mateix dia: ${painAssessment.sleepOverlap} dies.`);
+    if(painAssessment.rigidDays) evidence.push(`Rigidesa registrada: ${painAssessment.rigidDays} dies.`);
+    if(painAssessment.neuroOverlap) evidence.push(`Dolor rellevant + cefalea/vertigen: ${painAssessment.neuroOverlap} dies.`);
+    out.push(hypothesis({
+      id:'pain-phenotype-profile',
+      title:'Fenotip de dolor a explorar',
+      summary:'El motor ha detectat un patró de dolor recurrent i l’ha classificat pel seu comportament —distribució, recurrència i factors que l’acompanyen— abans de comparar-lo amb possibles explicacions clíniques.',
+      evidence,
+      denominator:`Període analitzat: ${totalDays} dies amb dades · puntuació interna de patró ${painAssessment.score}/10+ (compatibilitat ${painAssessment.level}).`,
+      limits:'Aquest patró no determina l’origen del dolor. L’app no pot veure exploracions, ressonàncies, analítiques ni aplicar criteris diagnòstics complets; tampoc pot concloure que no hi hagi una causa estructural, inflamatòria, neurològica o metabòlica.',
+      action:'Utilitza aquesta lectura com a resum per al professional i observa si la distribució, el son/fatiga i la recurrència es mantenen a mesura que s’acumulen setmanes i mesos de dades.',
+      possibilities:painPhenotypePossibilities(days,painAssessment)
+    }));
+  }
 
   // ---------- Digestiu: SII / SIBO / patrons funcionals ----------
   const digestive = d => n(d.digestiu_general)>=2 || n(d.digestiu_inflor)>=2 || n(d.digestiu_dolorAbdominal)>=2 || n(d.digestiu_gasos)>=2 || n(d.digestiu_retortijons)>=2 || d.digestiu_urgencia || d.digestiu_bristol_anormal || d.digestiu_diarrea || d.digestiu_estrenyiment;
@@ -268,7 +377,7 @@ export function clinicalHypothesesHtml(hypotheses=[], { compact=false }={}) {
     <p style="margin:var(--sp-1) 0 0;font-size:var(--fs-md);font-weight:600;">${h.title}</p>
     <p style="margin:var(--sp-1) 0 0;color:var(--ink-soft);">${h.summary}</p>
     <div style="margin-top:var(--sp-3);font-size:var(--fs-sm);"><strong>Per què apareix</strong><ul style="margin:6px 0 0 18px;">${h.evidence.map(x=>`<li>${x}</li>`).join('')}</ul><p style="margin:8px 0 0;color:var(--ink-faint);">${h.denominator}</p></div>
-    ${h.possibilities?.length?`<div style="margin-top:var(--sp-3);font-size:var(--fs-sm);"><strong>Possibilitats a valorar amb el professional</strong><div style="display:grid;gap:8px;margin-top:8px;">${h.possibilities.map(p=>`<div style="padding:10px 12px;background:var(--paper-alt);border-radius:var(--radius-md);"><strong>${p.title}</strong><div style="margin-top:3px;">${p.why}</div><div style="margin-top:3px;color:var(--ink-faint);font-size:var(--fs-xs);">${p.limit}</div></div>`).join('')}</div></div>`:''}
+    ${h.possibilities?.length?(()=>{const ps=rankedPossibilities(h.possibilities);const clinical=ps.find(p=>p.clinicalSummary)?.clinicalSummary;return `<div style="margin-top:var(--sp-3);font-size:var(--fs-sm);"><strong>Possibilitats a valorar amb el professional</strong>${clinical?`<div style="margin-top:8px;padding:10px 12px;border-left:3px solid var(--ink-soft);background:var(--paper-alt);border-radius:0 var(--radius-md) var(--radius-md) 0;font-weight:650;">${clinical}</div>`:''}<div style="display:grid;gap:8px;margin-top:8px;">${ps.map(p=>`<div style="padding:10px 12px;background:var(--paper-alt);border-radius:var(--radius-md);">${compatibilityScaleHtml(p)}<strong>${p.title}</strong><div style="margin-top:3px;">${p.why}</div><div style="margin-top:3px;color:var(--ink-faint);font-size:var(--fs-xs);">${p.limit}</div></div>`).join('')}</div><div style="margin-top:7px;color:var(--ink-faint);font-size:11px;">L’ordre indica compatibilitat amb els registres disponibles, no probabilitat diagnòstica. Verd = més compatible; groc = moderada; vermell = baixa/inicial.</div></div>`;})():''}
     <p style="margin:var(--sp-3) 0 0;font-size:var(--fs-sm);"><strong>Què no sabem:</strong> ${h.limits}</p>
     <p style="margin:var(--sp-3) 0 0;font-size:var(--fs-sm);">💡 ${h.action}</p>
   </div>`).join('');

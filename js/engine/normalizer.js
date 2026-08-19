@@ -23,6 +23,12 @@ export const VARIABLE_META = {
   dolor_darrere_cap_intensitat:{ label: "Dolor darrere del cap", type: "numeric", category: "Dolor", valence: "negative" },
   dolor_rigidesa:           { label: "Rigidesa corporal", type: "boolean", category: "Dolor", valence: "negative" },
   dolor_registrat:          { label: "Registre de dolor completat", type: "boolean", category: "Dolor" },
+  dolor_regions_count:      { label: "Regions corporals amb dolor (dia)", type: "numeric", category: "Dolor", valence: "negative" },
+  dolor_regio_cap_coll:     { label: "Dolor cap / coll / mandíbula", type: "boolean", category: "Dolor", valence: "negative" },
+  dolor_regio_tronc_superior:{ label: "Dolor dorsal / espatlles / tòrax", type: "boolean", category: "Dolor", valence: "negative" },
+  dolor_regio_lumbar_pelvis:{ label: "Dolor lumbar / pelvis / maluc", type: "boolean", category: "Dolor", valence: "negative" },
+  dolor_regio_membre_superior:{ label: "Dolor braços / mans", type: "boolean", category: "Dolor", valence: "negative" },
+  dolor_regio_membre_inferior:{ label: "Dolor cames / peus", type: "boolean", category: "Dolor", valence: "negative" },
   mal_de_cap_ocorregut:     { label: "Mal de cap", type: "boolean", category: "Dolor", valence: "negative" },
   mal_de_cap_intensitat:    { label: "Mal de cap (intensitat)", type: "numeric", category: "Dolor", valence: "negative" },
   vertigen_ocorregut:       { label: "Vertígens i boira mental", type: "boolean", category: "Vertígens i boira mental", valence: "negative" },
@@ -134,6 +140,23 @@ export async function buildDailyMatrix() {
       ...entries.flatMap(entry => entry.tipus || []),
       ...(p.painDrawing || []).map(stroke => stroke.type),
     ].map(value => String(value).toLowerCase());
+
+    // Agrupació anatòmica ampla per permetre que el motor detecti dolor multiregional
+    // sense dependre dels noms exactes de cada zona del dibuix corporal.
+    const regionFlags = {
+      dolor_regio_cap_coll: labels.some(label => /cap|occipital|nuca|coll|cervical|mand[ií]bula|cara|templa/.test(label)),
+      dolor_regio_tronc_superior: labels.some(label => /dorsal|esquena alta|om[oò]plat|esc[aà]pula|espatlla|t[oò]rax|pit|costella/.test(label)),
+      dolor_regio_lumbar_pelvis: labels.some(label => /lumbar|sacre|sacro|pelvis|maluc|gluti|gl[uú]ti|ci[aà]tica/.test(label)),
+      dolor_regio_membre_superior: labels.some(label => /bra[cç]|colze|avantbra[cç]|canell|(^|\s)(m[aà]|mans?)(\s|$)|dit.*m[aà]/.test(label)),
+      dolor_regio_membre_inferior: labels.some(label => /cuixa|genoll|cama|panxell|turmell|peu|dit.*peu/.test(label)),
+    };
+    Object.entries(regionFlags).forEach(([key, present]) => { if (present) setBool(matrix, d, key); });
+    // Recalcula sobre el dia complet perquè si hi ha diversos episodis de dolor el mateix dia
+    // compti la unió de regions de tots els episodis, no només les d'un sol registre.
+    const dayAfterRegions = ensureDay(matrix, d);
+    const regionCount = Object.keys(regionFlags).filter(key => dayAfterRegions[key] === true).length;
+    if (regionCount) setMax(matrix, d, "dolor_regions_count", regionCount);
+
     if (labels.some(label => /darrere.*cap|posterior.*cap|occipital|nuca/.test(label))) {
       setMax(matrix, d, "dolor_darrere_cap_intensitat", p.intensitat);
     }
