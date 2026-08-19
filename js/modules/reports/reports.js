@@ -11,6 +11,43 @@ import { dayDetailHtml } from "../dashboard/dashboard.js";
 import { buildClinicalHypotheses, clinicalHypothesesHtml } from "../../engine/clinical-hypotheses.js";
 
 
+
+
+const CLINICAL_AREAS = [
+  {label:"Dolor corporal", keys:["dolor_intensitat_max","dolor_general","dolor_esquena_intensitat","dolor_darrere_cap_intensitat"]},
+  {label:"Mal de cap", keys:["mal_de_cap_intensitat"], bool:"mal_de_cap_ocorregut"},
+  {label:"Vertígens / boira mental", keys:["vertigen_intensitat","energia_mental"], bool:"vertigen_ocorregut"},
+  {label:"Digestiu", keys:["digestiu_general","digestiu_inflor","digestiu_dolorAbdominal","digestiu_retortijons","digestiu_gasos"], bools:["digestiu_urgencia","digestiu_diarrea","digestiu_estrenyiment"]},
+  {label:"Son", keys:["son_qualitat","son_fatiga_mati"]},
+  {label:"Energia", keys:["energia_fisica"]},
+  {label:"Pell", keys:[], bool:"pell_brot"},
+];
+function clinicalAreaStats(matrix, area){
+  const dates=Object.keys(matrix).sort(); const vals=[]; let active=0;
+  dates.forEach(date=>{ const d=matrix[date]||{}; const nums=area.keys.map(k=>Number(d[k])).filter(Number.isFinite); const v=nums.length?Math.max(...nums):null; const b=(area.bool&&d[area.bool])||(area.bools||[]).some(k=>d[k]); if(v!=null) vals.push(v); if((v!=null&&v>0)||b) active++; });
+  return {active,total:dates.length,avg:vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null,max:vals.length?Math.max(...vals):null,series:dates.map(date=>{const d=matrix[date]||{};const nums=area.keys.map(k=>Number(d[k])).filter(Number.isFinite);return nums.length?Math.max(...nums):null;})};
+}
+function miniEvolutionSvg(series){
+  const vals=series.map((v,i)=>v==null?null:[i,v]); const pts=vals.filter(Boolean); if(pts.length<2) return `<span style="color:var(--ink-faint);font-size:11px;">Encara no hi ha prou punts per mostrar evolució.</span>`;
+  const w=250,h=48,p=5,n=Math.max(1,series.length-1); const path=pts.map(([i,v],j)=>`${j?'L':'M'}${(p+i/n*(w-2*p)).toFixed(1)},${(h-p-(Math.max(0,Math.min(10,v))/10)*(h-2*p)).toFixed(1)}`).join(' ');
+  return `<svg viewBox="0 0 ${w} ${h}" aria-label="Evolució temporal" style="width:100%;height:48px"><line x1="5" y1="43" x2="245" y2="43" stroke="var(--line)"/><path d="${path}" fill="none" stroke="var(--sage)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+function clinicalOverviewHtml(matrix,start,end){
+  const rows=CLINICAL_AREAS.map(a=>({a,s:clinicalAreaStats(matrix,a)})).filter(x=>x.s.active||x.s.avg!=null);
+  return `<section class="card clinical-overview" style="margin-top:var(--sp-5);"><span class="view-eyebrow">Lectura ràpida per al professional</span><h2 class="card-title" style="font-size:var(--fs-xl);margin-top:6px;">Resum clínic del període</h2><p style="color:var(--ink-soft);font-size:var(--fs-sm);">${escapeHtml(formatDate(start))} — ${escapeHtml(formatDate(end))}. Resum descriptiu dels registres; no interpreta causes ni estableix diagnòstics.</p><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">${rows.map(({a,s})=>`<div style="border:1px solid var(--line);border-radius:12px;padding:12px;"><strong>${escapeHtml(a.label)}</strong><div style="font-size:12px;color:var(--ink-soft);margin-top:4px;">${s.active} dies amb afectació${s.avg!=null?` · mitjana ${s.avg.toFixed(1)}/10 · màxim ${s.max}/10`:''}</div>${miniEvolutionSvg(s.series)}</div>`).join('')}</div></section>`;
+}
+function flareReviewHtml(intel,matrix){
+  const flares=(intel?.flares||[]).slice(0,8); if(!flares.length) return `<section class="card" style="margin-top:var(--sp-5);"><h2 class="card-title">Períodes d’empitjorament</h2><p class="ledger-empty">No s’ha detectat cap període multisimptomàtic prou clar en aquestes dates.</p></section>`;
+  const allDates=Object.keys(matrix).sort();
+  const lines=flares.map(f=>{ const sd=new Date(f.start+'T00:00:00'); const prior=[]; for(let i=3;i>=1;i--){const d=new Date(sd);d.setDate(d.getDate()-i);const iso=d.toISOString().slice(0,10);if(matrix[iso]) prior.push(iso)}; const observations=[]; const checks=[['son_qualitat','mal descans'],['son_fatiga_mati','fatiga matinal'],['energia_fisica','cansament físic'],['digestiu_general','molèsties digestives'],['dolor_intensitat_max','dolor corporal']]; checks.forEach(([k,l])=>{if(prior.some(d=>Number(matrix[d]?.[k])>=6)) observations.push(l)}); return `<div class="event-row"><div class="event-row-top"><strong>${escapeHtml(formatDate(f.start))}${f.end!==f.start?` — ${escapeHtml(formatDate(f.end))}`:''}</strong><span class="badge">${f.days} dies</span></div><div class="event-tags">Fins a ${f.maxDomains} àrees afectades alhora${f.categories?.length?` · ${f.categories.slice(0,5).map(c=>escapeHtml(c.label)).join(', ')}`:''}</div><div class="event-comment"><strong>1–3 dies previs:</strong> ${observations.length?`hi consten ${observations.join(', ')}.`:'no hi ha cap senyal destacable amb les dades registrades.'} <span style="color:var(--ink-faint)">Coincidència temporal; no implica causalitat.</span></div></div>`; });
+  return `<section class="card" style="margin-top:var(--sp-5);"><h2 class="card-title">Períodes d’empitjorament i dies previs</h2><p style="font-size:var(--fs-xs);color:var(--ink-faint);">Agrupa dies consecutius amb diverses àrees alterades i resumeix què constava als 1–3 dies anteriors.</p><div class="event-list">${lines.join('')}</div></section>`;
+}
+async function painZoneSummaryHtml(start,end){
+  const pains=(await new Repository("pain_events").getAll()).filter(p=>{const d=(p.timestamp||'').slice(0,10);return d>=start&&d<=end;}); const counts=new Map();
+  pains.forEach(p=>(p.entries||[]).forEach(e=>(e.zonaLabels||[e.zoneLabel,e.zone]).filter(Boolean).forEach(z=>counts.set(z,(counts.get(z)||0)+1)))); const zones=[...counts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,12); if(!zones.length) return '';
+  const max=zones[0][1]; return `<section class="card" style="margin-top:var(--sp-5);"><h2 class="card-title">Distribució del dolor corporal</h2><p style="font-size:var(--fs-xs);color:var(--ink-faint);">Zones que apareixen més vegades als registres del període. Serveix com a mapa resum de localització; no representa una diagnosi anatòmica.</p>${zones.map(([z,n])=>`<div style="display:grid;grid-template-columns:minmax(110px,1fr) 2fr 34px;gap:8px;align-items:center;margin:6px 0;font-size:12px;"><span>${escapeHtml(z)}</span><div style="height:9px;background:var(--paper-alt);border-radius:5px;overflow:hidden"><i style="display:block;height:100%;width:${n/max*100}%;background:var(--clay);"></i></div><strong>${n}×</strong></div>`).join('')}</section>`;
+}
+
 const REPORT_SCORE_SCALES = [
   ["Dolor corporal", "sense dolor", "molt dolor"],
   ["Mal de cap", "sense dolor", "molt intens"],
@@ -456,6 +493,11 @@ async function openMedicalPrintView(container, start, end, selectedCategories = 
       <p style="font-size:11px;color:var(--ink-faint);">Document generat a partir dels registres personals de Paula Tracker. No substitueix una valoració mèdica.</p>`;
     pages.appendChild(cover);
 
+    const overviewPage = document.createElement("section");
+    overviewPage.className = "medical-print-analysis";
+    overviewPage.innerHTML = `<span class="view-eyebrow">Lectura ràpida</span><h2 style="font-size:28px;margin:8px 0 10px;">Resum clínic i evolució</h2>${clinicalOverviewHtml(matrix, start, end)}${flareReviewHtml(intel, matrix)}${await painZoneSummaryHtml(start, end)}`;
+    pages.appendChild(overviewPage);
+
     const calendarPage = document.createElement("section");
     calendarPage.className = "medical-print-analysis medical-print-calendars";
     const byDay = computeWellbeingByDay(matrix);
@@ -661,6 +703,7 @@ async function generateReport(container, start, end) {
   setProgress(3);
 
   const symptomSummary = buildSymptomSummary(periodMatrix);
+  const painZoneSummary = await painZoneSummaryHtml(start, end);
   setProgress(4);
   const flags = await buildFlags(start, end);
   const chart = wellbeingLineChart(byDayFull, periodDates);
@@ -675,7 +718,10 @@ async function generateReport(container, start, end) {
       <p style="color: var(--ink-soft); margin: 0;">${escapeHtml(formatDate(start))} — ${escapeHtml(formatDate(end))} (${periodDates.length} dies amb dades) · generat el ${escapeHtml(formatDate(todayISO()))}</p>
     </div>
 
+    ${clinicalOverviewHtml(periodMatrix, start, end)}
     ${reportCalendarsHtml(periodMatrix, byDayFull, start, end)}
+    ${flareReviewHtml(intel, periodMatrix)}
+    ${painZoneSummary}
 
     ${intelligentSummaryHtml(intel, { title: "Resum intel·ligent del període" })}
     ${temporalReportHtml(intel)}
