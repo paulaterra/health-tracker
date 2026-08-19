@@ -50,6 +50,93 @@ const MEDICAL_REPORT_CATEGORIES = [
   { key: "medication", label: "Medicació" },
 ];
 
+const REPORT_CALENDAR_CATEGORIES = [
+  { key: "pain", label: "Dolor", matches: key => key.startsWith("dolor_") },
+  { key: "digestive", label: "Digestiu", matches: key => key.startsWith("digestiu_") },
+  { key: "headache", label: "Mal de cap", matches: key => key.startsWith("mal_de_cap_") },
+  { key: "vertigo", label: "Vertígens / boira mental", matches: key => key.startsWith("vertigen_") || key === "energia_mental" },
+  { key: "sleep", label: "Son", matches: key => key.startsWith("son_") },
+  { key: "energy", label: "Energia", matches: key => key.startsWith("energia_") && key !== "energia_mental" },
+  { key: "skin", label: "Pell", matches: key => key.startsWith("pell_") },
+];
+
+function normalizedCalendarValue(key, value) {
+  const meta = VARIABLE_META[key];
+  if (!meta?.valence) return null;
+  if (meta.type === "boolean") return value ? 0 : 100;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  const bounded = Math.max(0, Math.min(10, numeric));
+  return Math.round((meta.valence === "positive" ? bounded / 10 : 1 - bounded / 10) * 100);
+}
+
+function categoryScoreForDay(day, category) {
+  const values = Object.entries(day || {})
+    .filter(([key]) => category.matches(key))
+    .map(([key, value]) => normalizedCalendarValue(key, value))
+    .filter(value => value != null);
+  if (!values.length) return null;
+  return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+}
+
+function reportCalendarColor(score) {
+  if (score == null) return "var(--paper-alt)";
+  if (score >= 70) return "var(--sage)";
+  if (score >= 45) return "var(--amber)";
+  return "var(--clay)";
+}
+
+function calendarDatesBetween(start, end) {
+  const result = [];
+  const cursor = new Date(`${start}T00:00:00`);
+  const last = new Date(`${end}T00:00:00`);
+  while (cursor <= last) {
+    result.push(cursor.toISOString().slice(0, 10));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return result;
+}
+
+function singleReportCalendarHtml(title, start, end, scoreByDate) {
+  const dates = calendarDatesBetween(start, end);
+  const first = new Date(`${start}T00:00:00`);
+  const mondayOffset = (first.getDay() + 6) % 7;
+  const cells = [
+    ...Array(mondayOffset).fill(null),
+    ...dates,
+  ];
+  while (cells.length % 7) cells.push(null);
+  const dataDays = dates.filter(date => scoreByDate[date] != null).length;
+  return `<div class="report-calendar-card">
+    <div class="report-calendar-title"><strong>${escapeHtml(title)}</strong><span>${dataDays} dies amb dades</span></div>
+    <div class="report-calendar-weekdays"><span>Dl</span><span>Dt</span><span>Dc</span><span>Dj</span><span>Dv</span><span>Ds</span><span>Dg</span></div>
+    <div class="report-calendar-grid">${cells.map(date => {
+      if (!date) return `<span class="report-calendar-cell is-empty"></span>`;
+      const score = scoreByDate[date];
+      const day = Number(date.slice(-2));
+      return `<span class="report-calendar-cell ${score != null ? "has-score" : ""}" style="--calendar-color:${reportCalendarColor(score)}" title="${escapeHtml(formatDate(date))}${score != null ? ` · ${score}/100` : " · sense dades"}">${day}</span>`;
+    }).join("")}</div>
+  </div>`;
+}
+
+function reportCalendarsHtml(matrix, byDay, start, end, { categoryKeys = null } = {}) {
+  const dates = calendarDatesBetween(start, end);
+  const generalScores = Object.fromEntries(dates.map(date => [date, byDay[date] ?? null]));
+  const categories = REPORT_CALENDAR_CATEGORIES.filter(category => !categoryKeys || categoryKeys.includes(category.key));
+  const cards = [singleReportCalendarHtml("Benestar general", start, end, generalScores)];
+  for (const category of categories) {
+    const scores = {};
+    for (const date of dates) scores[date] = categoryScoreForDay(matrix[date], category);
+    cards.push(singleReportCalendarHtml(category.label, start, end, scores));
+  }
+  return `<section class="card report-calendar-section" style="margin-top:var(--sp-5);">
+    <h2 class="card-title">Calendaris de benestar</h2>
+    <p style="margin:0;color:var(--ink-soft);font-size:var(--fs-sm);">Vista general i per símptoma. Els colors resumeixen la intensitat registrada de cada dia dins de cada àrea.</p>
+    <div class="report-calendar-legend"><span class="good"><i></i>Verd · dia millor</span><span class="mid"><i></i>Groc · intermedi</span><span class="bad"><i></i>Vermell · dia pitjor</span><span class="nodata"><i></i>Gris · sense dades</span></div>
+    <div class="report-calendars-grid">${cards.join("")}</div>
+  </section>`;
+}
+
 function selectedMedicalCategories(container) {
   return [...container.querySelectorAll('input[name="medical-category"]:checked')].map(input => input.value);
 }
@@ -369,6 +456,13 @@ async function openMedicalPrintView(container, start, end, selectedCategories = 
       <p style="font-size:11px;color:var(--ink-faint);">Document generat a partir dels registres personals de Paula Tracker. No substitueix una valoració mèdica.</p>`;
     pages.appendChild(cover);
 
+    const calendarPage = document.createElement("section");
+    calendarPage.className = "medical-print-analysis medical-print-calendars";
+    const byDay = computeWellbeingByDay(matrix);
+    const selectedCalendarKeys = selectedCategories.filter(key => ["pain", "headache", "vertigo", "digestive", "sleep", "skin"].includes(key));
+    calendarPage.innerHTML = `<span class="view-eyebrow">Vista del període</span><h2 style="font-size:28px;margin:8px 0 10px;">Calendaris de benestar</h2>${reportCalendarsHtml(matrix, byDay, start, end, { categoryKeys: selectedCalendarKeys })}`;
+    pages.appendChild(calendarPage);
+
     let includedDays = 0;
     for (const date of dates) {
       const day = document.createElement("section");
@@ -484,6 +578,10 @@ async function downloadPdf(container, selector = "#report-output", filenamePrefi
       <p class="simple-pdf-cover-note">Document generat a partir dels registres personals de Paula Tracker. No substitueix una valoració mèdica.</p>`;
     printContent.appendChild(cover);
     printContent.appendChild(element.cloneNode(true));
+    if (selector === "#medical-summary") {
+      const calendarSection = container.querySelector("#full-medical-report .report-calendar-section");
+      if (calendarSection) printContent.appendChild(calendarSection.cloneNode(true));
+    }
     document.body.appendChild(shell);
 
     shell.querySelector("[data-close-simple-pdf]").addEventListener("click", () => shell.remove());
@@ -576,6 +674,8 @@ async function generateReport(container, start, end) {
       <h2 class="card-title" style="font-size: var(--fs-lg);">Informe del període</h2>
       <p style="color: var(--ink-soft); margin: 0;">${escapeHtml(formatDate(start))} — ${escapeHtml(formatDate(end))} (${periodDates.length} dies amb dades) · generat el ${escapeHtml(formatDate(todayISO()))}</p>
     </div>
+
+    ${reportCalendarsHtml(periodMatrix, byDayFull, start, end)}
 
     ${intelligentSummaryHtml(intel, { title: "Resum intel·ligent del període" })}
     ${temporalReportHtml(intel)}

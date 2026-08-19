@@ -1293,3 +1293,91 @@ textarea { min-height: 72px; resize: vertical; }
 .month-calendar-cell.is-luteal-phase.is-period-day {
   box-shadow: inset 0 -3px 0 rgba(114, 151, 177, .30), inset 0 -7px 0 rgba(200, 78, 114, .35);
 }
+
+/* Health Track: intensitat de dolor més explícita + calendaris d'informes */
+.pain-intensity-badge,
+.pain-intensity-inline {
+  font-weight: 800;
+  letter-spacing: .035em;
+  text-transform: uppercase;
+}
+.pain-intensity-badge {
+  color: var(--clay);
+  background: color-mix(in srgb, var(--clay) 12%, var(--paper));
+  border-color: color-mix(in srgb, var(--clay) 30%, var(--line));
+}
+.report-calendars-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--sp-4);
+  margin-top: var(--sp-4);
+}
+.report-calendar-card {
+  padding: var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--paper-alt);
+}
+.report-calendar-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+.report-calendar-title strong { font-size: var(--fs-sm); }
+.report-calendar-title span { color: var(--ink-faint); font-size: var(--fs-xs); }
+.report-calendar-weekdays,
+.report-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.report-calendar-weekdays { margin-bottom: 4px; }
+.report-calendar-weekdays span {
+  text-align: center;
+  color: var(--ink-faint);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.report-calendar-cell {
+  aspect-ratio: 1;
+  min-width: 0;
+  border-radius: 4px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.report-calendar-cell.has-score {
+  background: var(--calendar-color);
+  border-color: transparent;
+  color: #fff;
+}
+.report-calendar-cell.is-empty { visibility: hidden; }
+.report-calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: var(--sp-3);
+  color: var(--ink-faint);
+  font-size: var(--fs-xs);
+}
+.report-calendar-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.report-calendar-legend i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+.report-calendar-legend .good i { background: var(--sage); }
+.report-calendar-legend .mid i { background: var(--amber); }
+.report-calendar-legend .bad i { background: var(--clay); }
+.report-calendar-legend .nodata i { background: var(--paper-alt); border:1px solid var(--line); }
+@media (max-width: 620px) {
+  .report-calendars-grid { grid-template-columns: 1fr; }
+}
+@media print {
+  .report-calendars-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 4mm !important; }
+  .report-calendar-card { break-inside: avoid-page !important; page-break-inside: avoid !important; }
+  .report-calendar-cell { font-size: 7.5pt !important; }
+}

@@ -1,4 +1,4 @@
 export const APP_INFO = Object.freeze({
-  version: "1.6.4",
-  updatedAt: "2026-08-16 10:22",
+  version: "1.6.5",
+  updatedAt: "2026-08-20 00:05",
 });

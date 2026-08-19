@@ -509,8 +509,7 @@ function heatmapCard(byDay) {
     if (!d) return `<div style="width:12px;height:12px;"></div>`;
     const score = byDay[d];
     const color = score != null ? wellbeingColor(score) : "var(--paper-alt)";
-    const opacity = score != null ? 0.35 + (score / 100) * 0.65 : 1;
-    return `<button type="button" class="compact-calendar-cell ${d === selectedDate ? "is-selected" : ""}" data-date-cell="${d}" title="${d}${score != null ? `: ${score}/100` : ": sense dades"}" style="--cell-color:${color};--cell-opacity:${opacity};" aria-label="${d}${score != null ? `: ${score}/100` : ": sense dades"}"></button>`;
+    return `<button type="button" class="compact-calendar-cell ${d === selectedDate ? "is-selected" : ""}" data-date-cell="${d}" title="${d}${score != null ? `: ${score}/100` : ": sense dades"}" style="--cell-color:${color};--cell-opacity:1;" aria-label="${d}${score != null ? `: ${score}/100` : ": sense dades"}"></button>`;
   }).join("");
 
   return `
@@ -519,7 +518,7 @@ function heatmapCard(byDay) {
       <div style="display:grid; grid-template-columns: repeat(${Math.ceil(cells.length / 7)}, 12px); grid-template-rows: repeat(7, 12px); grid-auto-flow: column; gap: 3px;">
         ${cellsHtml}
       </div>
-      <p style="margin: var(--sp-3) 0 0; font-size: var(--fs-xs); color: var(--ink-faint);">Més verd = millor benestar. Gris = sense dades. Toca un dia per veure'n el detall.</p>
+      <p style="margin: var(--sp-3) 0 0; font-size: var(--fs-xs); color: var(--ink-faint);">Verd = dia millor · groc = dia intermedi · vermell = dia pitjor · gris = sense dades. Toca un dia per veure’n el detall.</p>
     </div>
   `;
 }
@@ -803,7 +802,7 @@ function painGroupedRecordsHtml(records, part, movementLimitations = []) {
     ${part === "body" ? movementLimitationsCompactHtml(movementLimitations) : ""}
     <div class="day-pain-records">
       ${filteredRecords.map(({ original, filtered }) => `<article class="day-pain-record">
-        <div class="day-pain-record-head"><strong>${escapeHtml(formatDateTime(original.timestamp))}</strong><span class="badge">${Number(original.intensitat) || 0}/10</span></div>
+        <div class="day-pain-record-head"><strong>${escapeHtml(formatDateTime(original.timestamp))}</strong><span class="badge pain-intensity-badge">DOLOR ${Number(original.intensitat) || 0}/10</span></div>
         ${painMapPairHtml(filtered, { compact: true, part })}
         ${painDrawingLegendHtml(filtered)}
         ${painRecordVisualSummary(filtered)}
@@ -987,7 +986,7 @@ export async function dayDetailHtml(date) {
       const zoneLabels = [...new Set((p.entries || []).flatMap(en => en.zonaLabels || []))];
       const types = [...new Set((p.entries || []).flatMap(en => en.tipus || []))];
       return `<div class="day-record-item">
-        <div class="day-record-title"><strong>Registre ${index + 1}</strong><span>${escapeHtml(formatDateTime(p.timestamp))}</span><b>${Number(p.intensitat) || 0}/10</b></div>
+        <div class="day-record-title"><strong>Registre ${index + 1}</strong><span>${escapeHtml(formatDateTime(p.timestamp))}</span><b class="pain-intensity-inline">DOLOR ${Number(p.intensitat) || 0}/10</b></div>
         ${listChips(zoneLabels)}
         ${listChips(types, "is-types")}
         <div class="day-detail-list">
