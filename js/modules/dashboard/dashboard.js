@@ -34,6 +34,7 @@ const METRICS = [
 let currentMetric = "wellbeing";
 let selectedDate = null;
 let calendarMonth = null;
+let wellbeingPage = 0;
 let currentAnalysisDays = 30;
 
 
@@ -133,6 +134,7 @@ export async function renderDashboard(container) {
   currentAnalysisDays = 30;
   selectedDate = new Date().toISOString().slice(0, 10);
   calendarMonth = selectedDate.slice(0, 7);
+  wellbeingPage = 0;
 
   container.innerHTML = `
     <div class="view-header">
@@ -181,9 +183,9 @@ export async function renderDashboard(container) {
 
     ${intelligentSummaryHtml(intel, { compact: true, title: "Què destaca ara" })}
 
-    <div class="grid-2" style="grid-template-columns: 1fr 1fr;">
+    <div class="grid-2 dashboard-wellbeing-grid" style="grid-template-columns: 1fr 1fr;">
       ${wellbeingCard(todayScore, avg7, avgPrev7, avg30)}
-      ${heatmapCard(byDay)}
+      <div id="wellbeing-calendar-wrap">${heatmapCard(byDay, wellbeingPage)}</div>
     </div>
 
     <div class="card dashboard-calendar-card" style="margin-top: var(--sp-6);">
@@ -213,6 +215,7 @@ export async function renderDashboard(container) {
   wireDateCells(container, container, byDay, dailyRecordCounts, matrix);
   wireDayNavigation(container, byDay, dailyRecordCounts, matrix);
   wireDetailedCalendar(container, byDay, dailyRecordCounts, matrix);
+  wireWellbeingCalendar(container, byDay, dailyRecordCounts, matrix);
   wireAnalysisPeriod(container, matrix);
   container.querySelectorAll("[data-smart-route]").forEach(button => button.addEventListener("click", () => {
     const route = button.dataset.smartRoute;
@@ -485,7 +488,7 @@ function wellbeingCard(todayScore, avg7, avgPrev7, avg30) {
   const display = todayScore ?? avg7 ?? avg30;
   const color = wellbeingColor(display);
   return `
-    <div class="card">
+    <div class="card dashboard-wellbeing-card">
       <h2 class="card-title">Índex de benestar</h2>
       <p style="font-family: var(--font-mono); font-size: var(--fs-xxl); margin: 0; color: ${color};">${display ?? "—"}<span style="font-size: var(--fs-md); color: var(--ink-faint);">/100</span></p>
       <p style="margin: var(--sp-2) 0 0; font-size: var(--fs-sm); color: var(--ink-soft);">
@@ -497,13 +500,19 @@ function wellbeingCard(todayScore, avg7, avgPrev7, avg30) {
   `;
 }
 
-function heatmapCard(byDay) {
+function heatmapCard(byDay, page = 0) {
   const weeks = 12;
   const totalDays = weeks * 7;
-  const dates = lastNDates(totalDays);
+  const endDate = new Date();
+  endDate.setDate(endDate.getDate() - (page * totalDays));
+  const dates = lastNDates(totalDays, endDate);
   const first = new Date(dates[0] + "T00:00:00");
   const pad = first.getDay();
   const cells = [...Array(pad).fill(null), ...dates];
+  const dataDates = Object.keys(byDay).sort();
+  const oldestData = dataDates[0] || null;
+  const hasOlder = oldestData ? oldestData < dates[0] : false;
+  const hasNewer = page > 0;
 
   const cellsHtml = cells.map(d => {
     if (!d) return `<div style="width:12px;height:12px;"></div>`;
@@ -513,14 +522,33 @@ function heatmapCard(byDay) {
   }).join("");
 
   return `
-    <div class="card">
-      <h2 class="card-title">Calendari (últimes 12 setmanes)</h2>
+    <div class="card dashboard-wellbeing-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);margin-bottom:var(--sp-2);">
+        <h2 class="card-title" style="margin:0;">Calendari (12 setmanes)</h2>
+        ${(hasOlder || hasNewer) ? `<div style="display:flex;gap:var(--sp-2);">
+          <button type="button" class="btn btn-ghost" data-wellbeing-page="1" aria-label="Període anterior" ${hasOlder ? "" : "disabled"}>←</button>
+          <button type="button" class="btn btn-ghost" data-wellbeing-page="-1" aria-label="Període següent" ${hasNewer ? "" : "disabled"}>→</button>
+        </div>` : ""}
+      </div>
       <div style="display:grid; grid-template-columns: repeat(${Math.ceil(cells.length / 7)}, 12px); grid-template-rows: repeat(7, 12px); grid-auto-flow: column; gap: 3px;">
         ${cellsHtml}
       </div>
       <p style="margin: var(--sp-3) 0 0; font-size: var(--fs-xs); color: var(--ink-faint);">Verd = dia millor · groc = dia intermedi · vermell = dia pitjor · gris = sense dades. Toca un dia per veure’n el detall.</p>
     </div>
   `;
+}
+
+function wireWellbeingCalendar(container, byDay, dailyRecordCounts, matrix) {
+  const wrap = container.querySelector("#wellbeing-calendar-wrap");
+  if (!wrap) return;
+  wrap.querySelectorAll("[data-wellbeing-page]").forEach(button => {
+    button.addEventListener("click", () => {
+      wellbeingPage = Math.max(0, wellbeingPage + Number(button.dataset.wellbeingPage));
+      wrap.innerHTML = heatmapCard(byDay, wellbeingPage);
+      wireDateCells(container, wrap, byDay, dailyRecordCounts, matrix);
+      wireWellbeingCalendar(container, byDay, dailyRecordCounts, matrix);
+    });
+  });
 }
 
 function seriesFor(matrix, byDay, metricKey) {

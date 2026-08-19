@@ -1381,3 +1381,38 @@ textarea { min-height: 72px; resize: vertical; }
   .report-calendar-card { break-inside: avoid-page !important; page-break-inside: avoid !important; }
   .report-calendar-cell { font-size: 7.5pt !important; }
 }
+
+/* v1.6.10 · Navegació sense canviar el disseny original dels calendaris */
+.report-calendar-month-panel{display:none;}
+.report-calendar-month-panel.is-active{display:block;}
+.report-calendar-nav{display:flex;gap:6px;margin-left:auto;}
+.report-calendar-nav .btn{padding:5px 9px;min-width:34px;}
+.report-calendar-title:has(.report-calendar-nav){align-items:center;}
+.report-calendar-month-meta{margin-top:8px;margin-bottom:6px;}
+@media print{
+  .report-calendar-month-panel{display:block!important;margin-top:5mm;break-inside:avoid;page-break-inside:avoid;}
+  .report-calendar-month-panel:first-of-type{margin-top:0;}
+  .report-calendar-nav{display:none!important;}
+}
+
+
+/* v1.6.11 · Ajust visual Dashboard: aire i alçades igualades */
+.dashboard-wellbeing-grid{
+  margin-top:var(--sp-6);
+  align-items:stretch;
+}
+.dashboard-wellbeing-grid > .dashboard-wellbeing-card,
+.dashboard-wellbeing-grid > #wellbeing-calendar-wrap{
+  min-width:0;
+  height:100%;
+}
+.dashboard-wellbeing-grid > #wellbeing-calendar-wrap > .dashboard-wellbeing-card{
+  height:100%;
+  box-sizing:border-box;
+}
+.dashboard-wellbeing-card{
+  box-sizing:border-box;
+}
+@media(max-width:820px){
+  .dashboard-wellbeing-grid{grid-template-columns:1fr!important;}
+}

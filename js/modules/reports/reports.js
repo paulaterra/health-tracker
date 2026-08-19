@@ -134,25 +134,67 @@ function calendarDatesBetween(start, end) {
   return result;
 }
 
-function singleReportCalendarHtml(title, start, end, scoreByDate) {
-  const dates = calendarDatesBetween(start, end);
-  const first = new Date(`${start}T00:00:00`);
-  const mondayOffset = (first.getDay() + 6) % 7;
-  const cells = [
-    ...Array(mondayOffset).fill(null),
-    ...dates,
-  ];
-  while (cells.length % 7) cells.push(null);
-  const dataDays = dates.filter(date => scoreByDate[date] != null).length;
-  return `<div class="report-calendar-card">
-    <div class="report-calendar-title"><strong>${escapeHtml(title)}</strong><span>${dataDays} dies amb dades</span></div>
-    <div class="report-calendar-weekdays"><span>Dl</span><span>Dt</span><span>Dc</span><span>Dj</span><span>Dv</span><span>Ds</span><span>Dg</span></div>
-    <div class="report-calendar-grid">${cells.map(date => {
-      if (!date) return `<span class="report-calendar-cell is-empty"></span>`;
-      const score = scoreByDate[date];
-      const day = Number(date.slice(-2));
-      return `<span class="report-calendar-cell ${score != null ? "has-score" : ""}" style="--calendar-color:${reportCalendarColor(score)}" title="${escapeHtml(formatDate(date))}${score != null ? ` · ${score}/100` : " · sense dades"}">${day}</span>`;
-    }).join("")}</div>
+function monthKeysBetween(start, end) {
+  const keys = [];
+  const seen = new Set();
+  const [startYear, startMonth] = start.slice(0, 7).split("-").map(Number);
+  const [endYear, endMonth] = end.slice(0, 7).split("-").map(Number);
+  let year = startYear;
+  let month = startMonth;
+  while (year < endYear || (year === endYear && month <= endMonth)) {
+    const key = `${year}-${String(month).padStart(2, "0")}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      keys.push(key);
+    }
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+  }
+  return keys;
+}
+
+function reportMonthLabel(monthKey) {
+  const [year, month] = monthKey.split("-").map(Number);
+  return new Intl.DateTimeFormat("ca-ES", { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1));
+}
+
+function singleReportCalendarHtml(title, start, end, scoreByDate, calendarId) {
+  const monthKeys = monthKeysBetween(start, end);
+  const panels = monthKeys.map((monthKey, index) => {
+    const [year, month] = monthKey.split("-").map(Number);
+    const monthStart = `${monthKey}-01`;
+    const monthEnd = `${monthKey}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
+    const visibleStart = monthStart < start ? start : monthStart;
+    const visibleEnd = monthEnd > end ? end : monthEnd;
+    const dates = calendarDatesBetween(visibleStart, visibleEnd);
+    const first = new Date(`${visibleStart}T00:00:00`);
+    const mondayOffset = (first.getDay() + 6) % 7;
+    const cells = [...Array(mondayOffset).fill(null), ...dates];
+    while (cells.length % 7) cells.push(null);
+    const dataDays = dates.filter(date => scoreByDate[date] != null).length;
+    return `<div class="report-calendar-month-panel${index === monthKeys.length - 1 ? " is-active" : ""}" data-report-month-index="${index}">
+      <div class="report-calendar-title report-calendar-month-meta"><strong style="text-transform:capitalize;">${escapeHtml(reportMonthLabel(monthKey))}</strong><span>${dataDays} dies amb dades</span></div>
+      <div class="report-calendar-weekdays"><span>Dl</span><span>Dt</span><span>Dc</span><span>Dj</span><span>Dv</span><span>Ds</span><span>Dg</span></div>
+      <div class="report-calendar-grid">${cells.map(date => {
+        if (!date) return `<span class="report-calendar-cell is-empty"></span>`;
+        const score = scoreByDate[date];
+        const day = Number(date.slice(-2));
+        return `<span class="report-calendar-cell ${score != null ? "has-score" : ""}" style="--calendar-color:${reportCalendarColor(score)}" title="${escapeHtml(formatDate(date))}${score != null ? ` · ${score}/100` : " · sense dades"}">${day}</span>`;
+      }).join("")}</div>
+    </div>`;
+  }).join("");
+
+  const nav = monthKeys.length > 1 ? `<div class="report-calendar-nav no-print" aria-label="Canviar de mes">
+    <button type="button" class="btn btn-ghost" data-report-calendar-nav="-1" aria-label="Mes anterior">←</button>
+    <button type="button" class="btn btn-ghost" data-report-calendar-nav="1" aria-label="Mes següent" disabled>→</button>
+  </div>` : "";
+
+  return `<div class="report-calendar-card" data-report-calendar="${escapeHtml(calendarId)}" data-report-active-index="${Math.max(0, monthKeys.length - 1)}">
+    <div class="report-calendar-title"><strong>${escapeHtml(title)}</strong>${nav}</div>
+    ${panels}
   </div>`;
 }
 
@@ -160,11 +202,11 @@ function reportCalendarsHtml(matrix, byDay, start, end, { categoryKeys = null } 
   const dates = calendarDatesBetween(start, end);
   const generalScores = Object.fromEntries(dates.map(date => [date, byDay[date] ?? null]));
   const categories = REPORT_CALENDAR_CATEGORIES.filter(category => !categoryKeys || categoryKeys.includes(category.key));
-  const cards = [singleReportCalendarHtml("Benestar general", start, end, generalScores)];
+  const cards = [singleReportCalendarHtml("Benestar general", start, end, generalScores, "general")];
   for (const category of categories) {
     const scores = {};
     for (const date of dates) scores[date] = categoryScoreForDay(matrix[date], category);
-    cards.push(singleReportCalendarHtml(category.label, start, end, scores));
+    cards.push(singleReportCalendarHtml(category.label, start, end, scores, category.key));
   }
   return `<section class="card report-calendar-section" style="margin-top:var(--sp-5);">
     <h2 class="card-title">Calendaris de benestar</h2>
@@ -172,6 +214,26 @@ function reportCalendarsHtml(matrix, byDay, start, end, { categoryKeys = null } 
     <div class="report-calendar-legend"><span class="good"><i></i>Verd · dia millor</span><span class="mid"><i></i>Groc · intermedi</span><span class="bad"><i></i>Vermell · dia pitjor</span><span class="nodata"><i></i>Gris · sense dades</span></div>
     <div class="report-calendars-grid">${cards.join("")}</div>
   </section>`;
+}
+
+function wireReportCalendarNavigation(root) {
+  root.querySelectorAll("[data-report-calendar]").forEach(card => {
+    const panels = [...card.querySelectorAll("[data-report-month-index]")];
+    if (panels.length < 2) return;
+    const update = nextIndex => {
+      const index = Math.max(0, Math.min(panels.length - 1, nextIndex));
+      card.dataset.reportActiveIndex = String(index);
+      panels.forEach((panel, i) => panel.classList.toggle("is-active", i === index));
+      const prev = card.querySelector('[data-report-calendar-nav="-1"]');
+      const next = card.querySelector('[data-report-calendar-nav="1"]');
+      if (prev) prev.disabled = index === 0;
+      if (next) next.disabled = index === panels.length - 1;
+    };
+    card.querySelectorAll("[data-report-calendar-nav]").forEach(button => {
+      button.addEventListener("click", () => update(Number(card.dataset.reportActiveIndex || panels.length - 1) + Number(button.dataset.reportCalendarNav)));
+    });
+    update(Number(card.dataset.reportActiveIndex || panels.length - 1));
+  });
 }
 
 function selectedMedicalCategories(container) {
@@ -784,6 +846,7 @@ async function generateReport(container, start, end) {
     </div>
     </div>
   `;
+  wireReportCalendarNavigation(output);
 }
 
 
