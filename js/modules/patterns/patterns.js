@@ -229,7 +229,7 @@ function correlationCard(p) {
     : `${p.predictorLabel.toLowerCase()}${thresholdText}`;
 
   const headline = p.relationType === "coincidencia"
-    ? `<strong>${escapeHtml(p.predictorLabel)}</strong> i <strong>${escapeHtml(p.outcomeLabel)}</strong> coincideixen més del que esperaria el teu propi nivell habitual`
+    ? `<strong>${escapeHtml(p.predictorLabel)}</strong> i <strong>${escapeHtml(p.outcomeLabel)}</strong> apareixen junts sovint`
     : `Després de <strong>${escapeHtml(condLower)}</strong> <span style="color: var(--ink-faint); font-weight: 400;">(${humanLagLabel(p.lag)})</span>`;
 
   const rateA = Math.round((p.effect.rateA || 0) * 100);
