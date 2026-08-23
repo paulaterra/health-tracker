@@ -125,10 +125,15 @@ function reportCalendarColor(score) {
 
 function calendarDatesBetween(start, end) {
   const result = [];
-  const cursor = new Date(`${start}T00:00:00`);
-  const last = new Date(`${end}T00:00:00`);
+  const [startYear, startMonth, startDay] = start.split("-").map(Number);
+  const [endYear, endMonth, endDay] = end.split("-").map(Number);
+  const cursor = new Date(startYear, startMonth - 1, startDay);
+  const last = new Date(endYear, endMonth - 1, endDay);
   while (cursor <= last) {
-    result.push(cursor.toISOString().slice(0, 10));
+    const year = cursor.getFullYear();
+    const month = String(cursor.getMonth() + 1).padStart(2, "0");
+    const day = String(cursor.getDate()).padStart(2, "0");
+    result.push(`${year}-${month}-${day}`);
     cursor.setDate(cursor.getDate() + 1);
   }
   return result;
@@ -167,10 +172,10 @@ function singleReportCalendarHtml(title, start, end, scoreByDate, calendarId) {
     const [year, month] = monthKey.split("-").map(Number);
     const monthStart = `${monthKey}-01`;
     const monthEnd = `${monthKey}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
-    const visibleStart = monthStart < start ? start : monthStart;
-    const visibleEnd = monthEnd > end ? end : monthEnd;
-    const dates = calendarDatesBetween(visibleStart, visibleEnd);
-    const first = new Date(`${visibleStart}T00:00:00`);
+    // El calendari visual mostra SEMPRE el mes complet. Els dies que queden
+    // fora del període seleccionat o no tenen registre es mostren en gris.
+    const dates = calendarDatesBetween(monthStart, monthEnd);
+    const first = new Date(year, month - 1, 1);
     const mondayOffset = (first.getDay() + 6) % 7;
     const cells = [...Array(mondayOffset).fill(null), ...dates];
     while (cells.length % 7) cells.push(null);
@@ -219,20 +224,29 @@ function reportCalendarsHtml(matrix, byDay, start, end, { categoryKeys = null } 
 function wireReportCalendarNavigation(root) {
   root.querySelectorAll("[data-report-calendar]").forEach(card => {
     const panels = [...card.querySelectorAll("[data-report-month-index]")];
-    if (panels.length < 2) return;
+    if (!panels.length) return;
+
+    let activeIndex = Number(card.dataset.reportActiveIndex);
+    if (!Number.isInteger(activeIndex)) activeIndex = panels.length - 1;
+
     const update = nextIndex => {
-      const index = Math.max(0, Math.min(panels.length - 1, nextIndex));
-      card.dataset.reportActiveIndex = String(index);
-      panels.forEach((panel, i) => panel.classList.toggle("is-active", i === index));
+      activeIndex = Math.max(0, Math.min(panels.length - 1, nextIndex));
+      card.dataset.reportActiveIndex = String(activeIndex);
+      panels.forEach((panel, i) => panel.classList.toggle("is-active", i === activeIndex));
       const prev = card.querySelector('[data-report-calendar-nav="-1"]');
       const next = card.querySelector('[data-report-calendar-nav="1"]');
-      if (prev) prev.disabled = index === 0;
-      if (next) next.disabled = index === panels.length - 1;
+      if (prev) prev.disabled = activeIndex === 0;
+      if (next) next.disabled = activeIndex === panels.length - 1;
     };
+
     card.querySelectorAll("[data-report-calendar-nav]").forEach(button => {
-      button.addEventListener("click", () => update(Number(card.dataset.reportActiveIndex || panels.length - 1) + Number(button.dataset.reportCalendarNav)));
+      button.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        update(activeIndex + Number(button.dataset.reportCalendarNav));
+      });
     });
-    update(Number(card.dataset.reportActiveIndex || panels.length - 1));
+    update(activeIndex);
   });
 }
 
@@ -259,11 +273,17 @@ const ALL_STORES = [
   "bowel_movements", "sleep_log", "exercise_log", "cycle_log", "skin_episodes", "medications",
 ];
 
-function todayISO() { return new Date().toISOString().slice(0, 10); }
+function localISODate(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+function todayISO() { return localISODate(); }
 function daysAgoISO(n) {
   const d = new Date();
   d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
+  return localISODate(d);
 }
 
 export async function renderReports(container) {
