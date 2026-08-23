@@ -1,6 +1,7 @@
-# Versió 1.6.15
+# Health Track 1.6.15
 
-- Calendaris d’Informes: cada panell mostra sempre el mes natural complet.
-- Els dies sense registre (incloent dies futurs del mes actual) es mostren en gris.
-- Les fletxes permeten navegar pels mesos inclosos en el període de l’informe.
-- Corregit el càlcul de dates perquè no depengui de la conversió UTC i no desplaci dies segons la zona horària.
+- Afegida l’etiqueta ràpida “Estel-Farma Multicelulosa Caolin” a Medicació.
+- Aquesta etiqueta es pot retirar amb × quan s’acaba el tractament, sense eliminar els registres ja guardats.
+- Afegit “crostes” als tipus de pell.
+- Pell passa a registrar-se exclusivament dia a dia: s’elimina la data final i cada registre afecta només la data seleccionada.
+- Dashboard i motor d’anàlisi deixen d’interpretar els registres de pell com intervals.

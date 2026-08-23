@@ -1,5 +1,6 @@
-# Versió 1.6.14
+# Health Track 1.6.14
 
-- Corregida la data local als Informes perquè el calendari inclogui el dia actual encara que la zona horària local vagi per davant d’UTC.
-- Corregida i reforçada la navegació amb fletxes entre mesos als calendaris de benestar d’Informes.
-- Mateix disseny i comportament del Dashboard sense canvis.
+- Els calendaris de benestar d’Informes mostren sempre el mes complet.
+- Els dies sense dades (inclosos els dies encara no registrats) es mostren en gris.
+- La navegació amb fletxes manté el canvi mes a mes dins del període seleccionat.
+- Les dates d’avui i de fa 30 dies es calculen en hora local, evitant salts d’un dia per UTC.

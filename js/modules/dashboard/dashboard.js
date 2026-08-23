@@ -1175,7 +1175,7 @@ export async function dayDetailHtml(date) {
   if (skins.length) {
     const body = skins.map(sk => {
       const entries = (sk.entries || []).flatMap(en => (en.tipus || []).map(type => `${en.zonaLabel}: ${type}`));
-      return `<div class="day-record-item compact"><div class="day-stat-grid">${stat("Intensitat", sk.intensitat !== undefined ? `${sk.intensitat}/10` : "", "", SCORE_SCALES.skin)}${stat("Període", [sk.dataInici, sk.dataFi].filter(Boolean).join(" → "))}</div>${listChips(entries.length ? entries : ["Brot actiu"])}${note(sk.comentari)}</div>`;
+      return `<div class="day-record-item compact"><div class="day-stat-grid">${stat("Intensitat", sk.intensitat !== undefined ? `${sk.intensitat}/10` : "", "", SCORE_SCALES.skin)}${stat("Data", sk.dataInici || "")}</div>${listChips(entries.length ? entries : ["Brot actiu"])}${note(sk.comentari)}</div>`;
     }).join("");
     pushCard("skin", body, { count: skins.length, scales: [{ scale: SCORE_SCALES.skin }] });
   }

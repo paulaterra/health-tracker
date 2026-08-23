@@ -4,6 +4,23 @@ import { escapeHtml, nowLocalInput, isoToLocalInput, localInputToISO, formatDate
 const repo = new Repository("medications");
 
 const PRESETS = ["Paracetamol", "Ibuprofè", "Berocca"];
+const OPTIONAL_PRESETS_KEY = "paula-tracker-medication-optional-presets";
+const DEFAULT_OPTIONAL_PRESETS = ["Estel-Farma Multicelulosa Caolin"];
+
+function getOptionalPresets() {
+  try {
+    const stored = localStorage.getItem(OPTIONAL_PRESETS_KEY);
+    if (stored === null) return [...DEFAULT_OPTIONAL_PRESETS];
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed.filter(Boolean) : [...DEFAULT_OPTIONAL_PRESETS];
+  } catch {
+    return [...DEFAULT_OPTIONAL_PRESETS];
+  }
+}
+
+function saveOptionalPresets(items) {
+  localStorage.setItem(OPTIONAL_PRESETS_KEY, JSON.stringify(items));
+}
 
 let editingId = null;
 
@@ -28,8 +45,9 @@ export async function renderMedication(container) {
 
         <div class="field">
           <label class="field-label">Ràpids</label>
-          <div class="chip-row">
+          <div class="chip-row" id="med-preset-row">
             ${PRESETS.map(p => `<button type="button" class="chip" data-preset="${escapeHtml(p)}">${escapeHtml(p)}</button>`).join("")}
+            ${getOptionalPresets().map(p => `<span class="removable-preset"><button type="button" class="chip" data-preset="${escapeHtml(p)}">${escapeHtml(p)}</button><button type="button" class="removable-preset-x" data-remove-preset="${escapeHtml(p)}" aria-label="Eliminar ${escapeHtml(p)}" title="Treure etiqueta">×</button></span>`).join("")}
           </div>
         </div>
 
@@ -67,6 +85,13 @@ export async function renderMedication(container) {
     btn.addEventListener("click", () => {
       container.querySelector("#nom").value = btn.dataset.preset;
       container.querySelector("#nom").focus();
+    });
+  });
+  container.querySelectorAll("[data-remove-preset]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const name = btn.dataset.removePreset;
+      saveOptionalPresets(getOptionalPresets().filter(item => item !== name));
+      btn.closest(".removable-preset")?.remove();
     });
   });
 

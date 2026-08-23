@@ -4,7 +4,7 @@ import { renderSkinBodyMapSvg, skinZoneLabel } from "./zones-skin.js";
 
 const repo = new Repository("skin_episodes");
 
-const TYPES = ["èczema", "picor", "acne", "urticària", "vermellor", "altres"].map(v => ({ value: v, label: v }));
+const TYPES = ["èczema", "picor", "acne", "urticària", "vermellor", "crostes", "altres"].map(v => ({ value: v, label: v }));
 const WHOLE_BODY_ID = "tot_el_cos";
 const WHOLE_BODY_LABEL = "Tot el cos";
 
@@ -23,12 +23,12 @@ export async function renderSkin(container) {
     <div class="view-header">
       <span class="view-eyebrow">Registre — pell</span>
       <h1 class="view-title">Pell</h1>
-      <p class="view-sub">Toca una zona (o "Tot el cos"), assigna-li el tipus de lesió, i afegeix-la a la llista. Pots combinar diverses zones amb tipus diferents en un mateix registre — p. ex. "mà: èczema" i "cap: picor".</p>
+      <p class="view-sub">Toca una zona (o "Tot el cos"), assigna-li el tipus de lesió i afegeix-la a la llista. Cada registre correspon a un sol dia, perquè puguis marcar l'estat de la pell dia a dia.</p>
     </div>
 
     <div class="grid-2">
       <form class="card" id="skin-form" novalidate>
-        <h2 class="card-title" id="form-title">Nou episodi</h2><div id="editing-banner"></div>
+        <h2 class="card-title" id="form-title">Nou registre</h2><div id="editing-banner"></div>
 
         <div class="bodymap-toggle">
           <button type="button" class="chip chip-active" data-view-toggle="front">Davant</button>
@@ -44,19 +44,15 @@ export async function renderSkin(container) {
         </div>
 
         <div class="field">
-          <label class="field-label">Zones registrades en aquest episodi</label>
+          <label class="field-label">Zones registrades avui</label>
           <div class="bodymap-selected-list" id="entries-list"><span class="ledger-empty" style="padding:0;">Cap zona afegida encara</span></div>
         </div>
 
         ${sliderField("intensitat", "Intensitat / picor (general)", 0, "lleu", "molt intens")}
 
         <div class="field">
-          <label class="field-label" for="dataInici">Data d'inici</label>
+          <label class="field-label" for="dataInici">Data</label>
           <input type="date" id="dataInici" value="${nowISO().slice(0, 10)}">
-        </div>
-        <div class="field">
-          <label class="field-label" for="dataFi">Data de final (deixa-ho buit si continua)</label>
-          <input type="date" id="dataFi">
         </div>
         <div class="field">
           <label class="field-label" for="foto">Fotografia (opcional)</label>
@@ -68,13 +64,13 @@ export async function renderSkin(container) {
         </div>
 
         <div style="display:flex; align-items:center; gap: var(--sp-4); margin-top: var(--sp-5);">
-          <button type="submit" class="btn btn-primary">Desar episodi</button>
+          <button type="submit" class="btn btn-primary">Desar registre</button>
           <span class="save-flash" id="save-flash"><span class="dot"></span> Desat</span>
         </div>
       </form>
 
       <div class="card">
-        <h2 class="card-title">Últims episodis</h2>
+        <h2 class="card-title">Últims registres</h2>
         <div class="event-list" id="event-list"><p class="ledger-empty">Carregant…</p></div>
       </div>
     </div>
@@ -103,14 +99,14 @@ export async function renderSkin(container) {
       entries: entries.map(en => ({ ...en })),
       intensitat: Number(form.querySelector('[name="intensitat"]').value),
       dataInici: form.querySelector("#dataInici").value,
-      dataFi: form.querySelector("#dataFi").value || null,
+      dataFi: null,
       comentari: form.querySelector("#comentari").value.trim(),
       foto: fotoBlob,
     };
     await repo.put(payload);
     flashSaved(container);
     editingId = null;
-    container.querySelector("#form-title").textContent = "Nou episodi";
+    container.querySelector("#form-title").textContent = "Nou registre";
     container.querySelector("#editing-banner").innerHTML = "";
     entries = [];
     pickedZoneId = null;
@@ -121,7 +117,6 @@ export async function renderSkin(container) {
     form.querySelector("#comentari").value = "";
     form.querySelector("#foto").value = "";
     form.querySelector("#dataInici").value = nowISO().slice(0, 10);
-    form.querySelector("#dataFi").value = "";
     await refreshList(container);
   });
 }
@@ -199,12 +194,12 @@ function renderEntriesList(container) {
   });
 }
 
-async function editSkinEntry(container,id){const e=await repo.get(id);if(!e)return;editingId=id;entries=(e.entries||[]).map(x=>({...x,tipus:[...(x.tipus||[])]}));container.querySelector('[name="intensitat"]').value=e.intensitat||0;container.querySelector('[name="intensitat"]').dispatchEvent(new Event('input'));container.querySelector('#dataInici').value=e.dataInici||'';container.querySelector('#dataFi').value=e.dataFi||'';container.querySelector('#comentari').value=e.comentari||'';renderEntriesList(container);renderMap(container);container.querySelector('#form-title').textContent='Editant episodi';container.querySelector('#editing-banner').innerHTML='<div class="editing-banner"><span>Estàs editant un episodi.</span><button type="button" class="btn btn-ghost" id="cancel-edit-btn">Cancel·la</button></div>';container.querySelector('#cancel-edit-btn').onclick=()=>renderSkin(container);container.querySelector('#skin-form').scrollIntoView({behavior:'smooth'});}
+async function editSkinEntry(container,id){const e=await repo.get(id);if(!e)return;editingId=id;entries=(e.entries||[]).map(x=>({...x,tipus:[...(x.tipus||[])]}));container.querySelector('[name="intensitat"]').value=e.intensitat||0;container.querySelector('[name="intensitat"]').dispatchEvent(new Event('input'));container.querySelector('#dataInici').value=e.dataInici||'';container.querySelector('#comentari').value=e.comentari||'';renderEntriesList(container);renderMap(container);container.querySelector('#form-title').textContent='Editant registre';container.querySelector('#editing-banner').innerHTML='<div class="editing-banner"><span>Estàs editant un registre.</span><button type="button" class="btn btn-ghost" id="cancel-edit-btn">Cancel·la</button></div>';container.querySelector('#cancel-edit-btn').onclick=()=>renderSkin(container);container.querySelector('#skin-form').scrollIntoView({behavior:'smooth'});}
 async function refreshList(container) {
   const recent = await repo.getRecent("dataInici", 10);
   const list = container.querySelector("#event-list");
   if (recent.length === 0) {
-    list.innerHTML = `<p class="ledger-empty">Encara no hi ha cap episodi registrat.</p>`;
+    list.innerHTML = `<p class="ledger-empty">Encara no hi ha cap registre de pell.</p>`;
     return;
   }
   list.innerHTML = recent.map(rowTemplate).join("");
@@ -216,7 +211,7 @@ async function refreshList(container) {
   list.querySelectorAll("[data-edit]").forEach(btn => btn.addEventListener("click", () => editSkinEntry(container, btn.dataset.edit)));
   list.querySelectorAll("[data-delete]").forEach(btn => {
     btn.addEventListener("click", async () => {
-      if (!confirm("Segur que vols eliminar aquest episodi?")) return;
+      if (!confirm("Segur que vols eliminar aquest registre?")) return;
       await repo.delete(btn.dataset.delete);
       await refreshList(container);
     });
@@ -228,7 +223,7 @@ function rowTemplate(e) {
   return `
     <div class="event-row">
       <div class="event-row-top">
-        <span class="event-when">${formatDate(e.dataInici)}${e.dataFi ? " – " + formatDate(e.dataFi) : " (obert)"}</span>
+        <span class="event-when">${formatDate(e.dataInici)}</span>
         <span class="badge">${e.intensitat}/10</span>
         <span class="row-actions"><button type="button" data-edit="${e.id}">editar</button><button type="button" class="danger" data-delete="${e.id}">eliminar</button></span>
       </div>

@@ -333,11 +333,8 @@ export async function buildDailyMatrix() {
 
   skins.forEach(sk => {
     if (!sk.dataInici) return;
-    const start = new Date(sk.dataInici + "T00:00:00");
-    const end = sk.dataFi ? new Date(sk.dataFi + "T00:00:00") : new Date();
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      setBool(matrix, d.toISOString().slice(0, 10), "pell_brot");
-    }
+    // Pell es registra dia a dia: un registre només afecta la data indicada.
+    setBool(matrix, sk.dataInici, "pell_brot");
   });
 
   // Filosofia de registre de Paula Tracker: en un dia amb alguna dada,

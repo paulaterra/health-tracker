@@ -1416,3 +1416,6 @@ textarea { min-height: 72px; resize: vertical; }
 @media(max-width:820px){
   .dashboard-wellbeing-grid{grid-template-columns:1fr!important;}
 }
+
+/* v1.6.15 — etiqueta ràpida de medicació eliminable */
+.removable-preset{display:inline-flex;align-items:stretch;position:relative}.removable-preset .chip{padding-right:30px}.removable-preset-x{position:absolute;right:7px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:currentColor;font:inherit;font-size:17px;line-height:1;cursor:pointer;opacity:.55;padding:0}.removable-preset-x:hover{opacity:1}
