@@ -8,7 +8,8 @@ import { intelligentSummaryHtml, recommendationsHtml } from "../../engine/intell
 import { escapeHtml, formatDate } from "../../utils/dom.js";
 import { medicalSummaryData } from "../../engine/personal-insights.js";
 import { dayDetailHtml } from "../dashboard/dashboard.js";
-import { buildClinicalHypotheses, clinicalHypothesesHtml } from "../../engine/clinical-hypotheses.js";
+import { buildClinicalHypotheses, clinicalHypothesesHtml, loadHypothesisFollowups } from "../../engine/clinical-hypotheses.js?v=1.6.26";
+import { bindHypothesisFollowups } from "../conclusions/conclusions.js?v=1.6.26";
 
 
 
@@ -558,6 +559,7 @@ async function openMedicalPrintView(container, start, end, selectedCategories = 
 
     const intel = await generateIntelligence({ start, end });
     const clinicalHypotheses = buildClinicalHypotheses(Object.fromEntries(dates.map(d => [d, matrix[d]])));
+    const hypothesisFollowups = await loadHypothesisFollowups();
     ensureMedicalPrintStyles();
     document.querySelector(".medical-print-shell")?.remove();
 
@@ -618,7 +620,7 @@ async function openMedicalPrintView(container, start, end, selectedCategories = 
 
     const analysis = document.createElement("section");
     analysis.className = "medical-print-analysis";
-    analysis.innerHTML = `<span class="view-eyebrow">Anàlisi del període</span><h2 style="font-size:28px;margin:8px 0 18px;">Patrons i conclusions</h2>${intelligentSummaryHtml(intel, { title: "Patrons detectats" })}${temporalReportHtml(intel)}${recommendationsHtml(intel, "Conclusions i recomanacions")}${clinicalHypotheses.length ? `<div style="margin-top:18px;"><h2 style="font-size:20px;margin-bottom:10px;">Hipòtesis a explorar</h2><p style="font-size:11px;color:var(--ink-faint);">Separades dels patrons estadístics · no són diagnòstics.</p>${clinicalHypothesesHtml(clinicalHypotheses,{compact:true})}</div>` : ""}`;
+    analysis.innerHTML = `<span class="view-eyebrow">Anàlisi del període</span><h2 style="font-size:28px;margin:8px 0 18px;">Patrons i conclusions</h2>${intelligentSummaryHtml(intel, { title: "Patrons detectats" })}${temporalReportHtml(intel)}${recommendationsHtml(intel, "Conclusions i recomanacions")}${clinicalHypotheses.length ? `<div style="margin-top:18px;"><h2 style="font-size:20px;margin-bottom:10px;">Hipòtesis a explorar</h2><p style="font-size:11px;color:var(--ink-faint);">Separades dels patrons estadístics · no són diagnòstics.</p>${clinicalHypothesesHtml(clinicalHypotheses,{compact:true,followups:hypothesisFollowups})}</div>` : ""}`;
     pages.appendChild(analysis);
 
     shell.querySelector("[data-close-medical-report]").addEventListener("click", () => shell.remove());
@@ -797,6 +799,7 @@ async function generateReport(container, start, end) {
   const trends = computeTrends(fullMatrix);
   const { triggers, protectors } = classifyConclusions(correlations);
   const clinicalHypotheses = buildClinicalHypotheses(periodMatrix);
+  const hypothesisFollowups = await loadHypothesisFollowups();
 
   // Un únic motor compartit alimenta Dashboard, Patrons, Conclusions i Informes.
   // Aquí el limitem al període seleccionat perquè el PDF sigui coherent amb les dates.
@@ -829,7 +832,7 @@ async function generateReport(container, start, end) {
     ${intelligentSummaryHtml(intel, { title: "Resum intel·ligent del període" })}
     ${temporalReportHtml(intel)}
     ${recommendationsHtml(intel, "Recomanacions i dades a seguir") }
-    ${clinicalHypotheses.length ? `<div style="margin-top:var(--sp-5);"><h2 class="card-title">Hipòtesis a explorar</h2><p style="font-size:var(--fs-xs);color:var(--ink-faint);">Aquesta secció interpreta combinacions de símptomes per orientar què comentar amb un professional. No són diagnòstics.</p>${clinicalHypothesesHtml(clinicalHypotheses)}</div>` : ""}
+    ${clinicalHypotheses.length ? `<div style="margin-top:var(--sp-5);"><h2 class="card-title">Hipòtesis a explorar</h2><p style="font-size:var(--fs-xs);color:var(--ink-faint);">Aquesta secció interpreta combinacions de símptomes per orientar què comentar amb un professional. No són diagnòstics.</p>${clinicalHypothesesHtml(clinicalHypotheses,{interactive:true,followups:hypothesisFollowups})}</div>` : ""}
 
     <div class="card" style="margin-top: var(--sp-5);">
       <h2 class="card-title">Índex de benestar del període</h2>
@@ -887,6 +890,7 @@ async function generateReport(container, start, end) {
     </div>
     </div>
   `;
+  bindHypothesisFollowups(output, hypothesisFollowups);
   wireReportCalendarNavigation(output);
 }
 

@@ -1,4 +1,7 @@
 import { analyzeCyclePatterns } from "./cycle-analysis.js";
+import { Repository } from "../db/repository.js";
+import { escapeHtml } from "../utils/dom.js";
+import { isViewerMode } from "../view-mode.js";
 
 function n(v){ const x=Number(v); return Number.isFinite(x)?x:0; }
 function pct(count,total){ return total ? Math.round(count/total*100) : 0; }
@@ -370,15 +373,134 @@ export function buildClinicalHypotheses(matrix={}) {
 
 function hypothesis(x){ return {badge:'Hipòtesi a explorar · no diagnòstica',...x}; }
 
-export function clinicalHypothesesHtml(hypotheses=[], { compact=false }={}) {
+
+export async function loadHypothesisFollowups() {
+  const repo = new Repository("hypotheses");
+  const rows = await repo.getAll();
+  return Object.fromEntries((rows || []).filter(r => r?.possibilityId).map(r => [r.possibilityId, r]));
+}
+
+function followupStatusLabel(status) {
+  return status === "confirmed" ? "Confirmat per un professional"
+    : status === "discarded" ? "Descartat per un professional"
+    : "Pendent de valorar";
+}
+
+function followupStatusColor(status) {
+  return status === "confirmed" ? "var(--sage)"
+    : status === "discarded" ? "var(--clay)"
+    : "var(--ink-faint)";
+}
+
+
+
+function followupReadonlyHtml(followup = {}) {
+  const status = followup.status || "pending";
+  const files = followup.attachments || [];
+  const states = [
+    ["pending","◷","Pendent de valorar","#f2eadb","#725a2c"],
+    ["confirmed","✓","Confirmat per un professional","#e4efe8","#315f45"],
+    ["discarded","×","Descartat per un professional","#f3e3e0","#7a433d"]
+  ];
+
+  return `<div style="margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:var(--radius-md);background:var(--paper);">
+    <div style="font-size:var(--fs-xs);font-weight:700;margin-bottom:8px;">Seguiment amb el professional</div>
+
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:${followup.date || followup.note || files.length ? "10px" : "0"};">
+      ${states.map(([value,icon,label,bg,fg]) => {
+        const active = status === value;
+        return `<div aria-current="${active ? "true" : "false"}"
+          style="flex:1;min-width:150px;border:1px solid ${active ? fg : "var(--line)"};border-radius:12px;padding:11px 12px;background:${active ? bg : "var(--paper-alt)"};color:${active ? fg : "var(--ink-faint)"};font-weight:${active ? "750" : "600"};">
+          <span style="display:inline-flex;width:22px;height:22px;align-items:center;justify-content:center;border-radius:50%;margin-right:6px;background:${active ? fg : "var(--paper)"};color:${active ? "white" : "var(--ink-faint)"};">${icon}</span>${label}
+        </div>`;
+      }).join("")}
+    </div>
+
+    ${followup.date ? `<div style="font-size:var(--fs-xs);margin-top:4px;"><strong>Data:</strong> ${escapeHtml(followup.date)}</div>` : ""}
+    ${followup.note ? `<div style="font-size:var(--fs-xs);margin-top:6px;"><strong>Nota del professional:</strong><div style="margin-top:3px;color:var(--ink-soft);">${escapeHtml(followup.note)}</div></div>` : ""}
+
+    ${files.length ? `<div style="margin-top:10px;">
+      <div style="font-size:var(--fs-xs);font-weight:700;margin-bottom:6px;">Documents adjunts</div>
+      <div style="display:grid;gap:6px;">
+        ${files.map((f,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 10px;background:var(--paper-alt);border-radius:var(--radius-sm);font-size:var(--fs-xs);">
+          <div style="min-width:0;">
+            <div style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📎 ${escapeHtml(f.label || f.name || `Document ${i+1}`)}</div>
+            ${f.label && f.name && f.label !== f.name ? `<div style="margin-top:2px;color:var(--ink-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(f.name)}</div>` : ""}
+          </div>
+          ${f.dataUrl ? `<a class="btn btn-ghost" href="${escapeHtml(f.dataUrl)}" download="${escapeHtml(f.name || "document")}" style="padding:4px 8px;flex-shrink:0;">Descarrega</a>` : `<span style="color:var(--ink-faint);font-size:11px;">No disponible</span>`}
+        </div>`).join("")}
+      </div>
+    </div>` : ""}
+  </div>`;
+}
+
+function followupEditorHtml(p, followup = {}) {
+  const status = followup.status || "pending";
+  const files = followup.attachments || [];
+  return `<div class="hypothesis-followup" data-hypothesis-followup="${escapeHtml(p.id)}" style="margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:var(--radius-md);background:var(--paper);">
+    <div style="font-size:var(--fs-xs);font-weight:700;margin-bottom:8px;">Seguiment amb el professional</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px;">
+      ${[
+        ["pending","◷","Pendent de valorar","#f2eadb","#725a2c"],
+        ["confirmed","✓","Confirmat","#e4efe8","#315f45"],
+        ["discarded","×","Descartat","#f3e3e0","#7a433d"]
+      ].map(([value,icon,label,bg,fg]) => {
+        const active = status === value;
+        return `<button type="button" class="hypothesis-status-btn" data-status="${value}" aria-pressed="${active}"
+          style="flex:1;min-width:150px;border:1px solid ${active ? fg : "var(--line)"};border-radius:12px;padding:11px 12px;background:${active ? bg : "var(--paper)"};color:${active ? fg : "var(--ink-soft)"};font-weight:${active ? "750" : "600"};cursor:pointer;transition:.15s;box-shadow:${active ? `inset 0 0 0 1px ${fg}` : "none"};">
+          <span style="display:inline-flex;width:22px;height:22px;align-items:center;justify-content:center;border-radius:50%;margin-right:6px;background:${active ? fg : "var(--paper-alt)"};color:${active ? "white" : "var(--ink-faint)"};">${icon}</span>${label}
+        </button>`;
+      }).join("")}
+    </div>
+    <label style="display:block;font-size:var(--fs-xs);color:var(--ink-soft);margin-bottom:8px;">
+      Data de la valoració
+      <input type="date" class="input hypothesis-date" value="${escapeHtml(followup.date || "")}" style="margin-top:4px;width:100%;">
+    </label>
+    <label style="display:block;font-size:var(--fs-xs);color:var(--ink-soft);margin-bottom:8px;">
+      Nota
+      <textarea class="input hypothesis-note" rows="3" placeholder="" style="margin-top:4px;width:100%;resize:vertical;">${escapeHtml(followup.note || "")}</textarea>
+    </label>
+    <div style="display:grid;gap:8px;">
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end;">
+        <label style="display:block;font-size:var(--fs-xs);color:var(--ink-soft);">
+          Nom del document
+          <input type="text" class="input hypothesis-file-label" placeholder="" style="margin-top:4px;width:100%;">
+        </label>
+        <label class="btn btn-ghost" style="cursor:pointer;white-space:nowrap;">
+          Selecciona fitxer
+          <input type="file" class="hypothesis-file-input" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.txt" style="display:none;">
+        </label>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button type="button" class="btn btn-primary hypothesis-save-btn">Desa seguiment</button>
+        <span class="hypothesis-save-state" style="font-size:var(--fs-xs);color:var(--ink-faint);"></span>
+      </div>
+    </div>
+    <div class="hypothesis-files" style="display:grid;gap:6px;margin-top:9px;">
+      ${files.map((f, i) => `<div class="hypothesis-file-row" data-file-index="${i}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 10px;background:var(--paper-alt);border-radius:var(--radius-sm);font-size:var(--fs-xs);">
+        <div style="min-width:0;">
+          <div style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📎 ${escapeHtml(f.label || f.name || `Document ${i+1}`)}</div>
+          ${f.label && f.name && f.label !== f.name ? `<div style="margin-top:2px;color:var(--ink-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(f.name)}</div>` : ""}
+        </div>
+        <span style="display:flex;gap:6px;flex-shrink:0;">
+          <a class="btn btn-ghost hypothesis-download-file" href="${escapeHtml(f.dataUrl || "#")}" download="${escapeHtml(f.name || "document")}" style="padding:4px 8px;">Descarrega</a>
+          <button type="button" class="btn btn-ghost hypothesis-remove-file" data-file-index="${i}" style="padding:4px 8px;">Elimina</button>
+        </span>
+      </div>`).join("")}
+    </div>
+  </div>`;
+}
+
+export function clinicalHypothesesHtml(hypotheses=[], { compact=false, interactive=false, followups={} }={}) {
   if(!hypotheses.length) return compact ? '' : `<p class="ledger-empty">Encara no hi ha prou combinacions repetides per proposar cap hipòtesi clínica amb evidència explícita.</p>`;
   return hypotheses.map(h=>`<div class="card" style="border-left:3px solid var(--ink-soft);${compact?'padding:12px;':''}">
     <span class="badge" style="background:transparent;color:var(--ink-soft);padding-left:0;">${h.badge}</span>
     <p style="margin:var(--sp-1) 0 0;font-size:var(--fs-md);font-weight:600;">${h.title}</p>
     <p style="margin:var(--sp-1) 0 0;color:var(--ink-soft);">${h.summary}</p>
     <div style="margin-top:var(--sp-3);font-size:var(--fs-sm);"><strong>Per què apareix</strong><ul style="margin:6px 0 0 18px;">${h.evidence.map(x=>`<li>${x}</li>`).join('')}</ul><p style="margin:8px 0 0;color:var(--ink-faint);">${h.denominator}</p></div>
-    ${h.possibilities?.length?(()=>{const ps=rankedPossibilities(h.possibilities);const clinical=ps.find(p=>p.clinicalSummary)?.clinicalSummary;return `<div style="margin-top:var(--sp-3);font-size:var(--fs-sm);"><strong>Possibilitats a valorar amb el professional</strong>${clinical?`<div style="margin-top:8px;padding:10px 12px;border-left:3px solid var(--ink-soft);background:var(--paper-alt);border-radius:0 var(--radius-md) var(--radius-md) 0;font-weight:650;">${clinical}</div>`:''}<div style="display:grid;gap:8px;margin-top:8px;">${ps.map(p=>`<div style="padding:10px 12px;background:var(--paper-alt);border-radius:var(--radius-md);">${compatibilityScaleHtml(p)}<strong>${p.title}</strong><div style="margin-top:3px;">${p.why}</div><div style="margin-top:3px;color:var(--ink-faint);font-size:var(--fs-xs);">${p.limit}</div></div>`).join('')}</div><div style="margin-top:7px;color:var(--ink-faint);font-size:11px;">L’ordre indica compatibilitat amb els registres disponibles, no probabilitat diagnòstica. Verd = més compatible; groc = moderada; vermell = baixa/inicial.</div></div>`;})():''}
+    ${h.possibilities?.length?(()=>{const ps=rankedPossibilities(h.possibilities);const clinical=ps.find(p=>p.clinicalSummary)?.clinicalSummary;return `<div style="margin-top:var(--sp-3);font-size:var(--fs-sm);"><strong>Possibilitats a valorar amb el professional</strong>${clinical?`<div style="margin-top:8px;padding:10px 12px;border-left:3px solid var(--ink-soft);background:var(--paper-alt);border-radius:0 var(--radius-md) var(--radius-md) 0;font-weight:650;">${clinical}</div>`:''}<div style="display:grid;gap:8px;margin-top:8px;">${ps.map(p=>`<div style="padding:10px 12px;background:var(--paper-alt);border-radius:var(--radius-md);">${compatibilityScaleHtml(p)}<strong>${p.title}</strong><div style="margin-top:3px;">${p.why}</div><div style="margin-top:3px;color:var(--ink-faint);font-size:var(--fs-xs);">${p.limit}</div>${interactive && !isViewerMode() ? followupEditorHtml(p, followups[p.id] || {}) : (isViewerMode() ? followupReadonlyHtml(followups[p.id] || { status:"pending" }) : followupReadonlyHtml(followups[p.id]))}</div>`).join('')}</div><div style="margin-top:7px;color:var(--ink-faint);font-size:11px;">L’ordre indica compatibilitat amb els registres disponibles, no probabilitat diagnòstica. Verd = més compatible; groc = moderada; vermell = baixa/inicial.</div></div>`;})():''}
     <p style="margin:var(--sp-3) 0 0;font-size:var(--fs-sm);"><strong>Què no sabem:</strong> ${h.limits}</p>
     <p style="margin:var(--sp-3) 0 0;font-size:var(--fs-sm);">💡 ${h.action}</p>
   </div>`).join('');
 }
+

@@ -10,7 +10,7 @@ import { renderCycle } from "./modules/cycle/cycle.js";
 import { renderSkin } from "./modules/skin/skin.js";
 import { renderMedication } from "./modules/medication/medication.js";
 import { renderPatterns } from "./modules/patterns/patterns.js";
-import { renderConclusions } from "./modules/conclusions/conclusions.js";
+import { renderConclusions } from "./modules/conclusions/conclusions.js?v=1.6.19";
 import { renderDashboard } from "./modules/dashboard/dashboard.js";
 import { renderReports } from "./modules/reports/reports.js";
 import { renderAbout } from "./modules/about/about.js";

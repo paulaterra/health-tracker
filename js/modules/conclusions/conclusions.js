@@ -4,7 +4,9 @@ import { classifyConclusions } from "../../engine/conclusions.js";
 import { escapeHtml } from "../../utils/dom.js";
 import { generateIntelligence } from "../../engine/intelligence.js";
 import { intelligentSummaryHtml, recommendationsHtml } from "../../engine/intelligence-view.js";
-import { buildClinicalHypotheses, clinicalHypothesesHtml } from "../../engine/clinical-hypotheses.js";
+import { buildClinicalHypotheses, clinicalHypothesesHtml, loadHypothesisFollowups } from "../../engine/clinical-hypotheses.js?v=1.6.26";
+import { Repository } from "../../db/repository.js";
+import { isViewerMode } from "../../view-mode.js";
 
 export async function renderConclusions(container) {
   container.innerHTML = `
@@ -29,6 +31,7 @@ export async function renderConclusions(container) {
   }
 
   const clinicalHypotheses = buildClinicalHypotheses(matrix);
+  const hypothesisFollowups = await loadHypothesisFollowups();
 
   if (triggers.length === 0 && protectors.length === 0 && clinicalHypotheses.length === 0) {
     wrap.innerHTML = emptyState(`Amb ${numDays} dies de dades, encara no hi ha prou relacions consistents com per treure conclusions. Segueix registrant i torna-hi més endavant.`);
@@ -41,7 +44,7 @@ export async function renderConclusions(container) {
 
     ${section("Hipòtesis a explorar", "var(--ink-soft)",
       "Perfils de símptomes que poden orientar què comentar amb un professional. No són diagnòstics i es mantenen separats dels patrons estadístics.",
-      clinicalHypothesesHtml(clinicalHypotheses))}
+      clinicalHypothesesHtml(clinicalHypotheses, { interactive:true, followups:hypothesisFollowups }))}
 
     <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: var(--sp-4);">
       <p style="font-size: var(--fs-sm); color: var(--ink-soft);">${numDays} dies amb dades · ${triggers.length} possibles desencadenants · ${protectors.length} possibles factors protectors.</p>
@@ -60,6 +63,183 @@ export async function renderConclusions(container) {
   `;
 
   container.querySelector("#recalc-btn")?.addEventListener("click", () => renderConclusions(container));
+  bindHypothesisFollowups(container, hypothesisFollowups);
+}
+
+
+const hypothesisRepo = new Repository("hypotheses");
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error("No s'ha pogut llegir el fitxer."));
+    reader.readAsDataURL(file);
+  });
+}
+
+export function bindHypothesisFollowups(container, initialFollowups = {}) {
+  if (isViewerMode()) return;
+  container.querySelectorAll("[data-hypothesis-followup]").forEach(editor => {
+    const possibilityId = editor.dataset.hypothesisFollowup;
+    let status = initialFollowups[possibilityId]?.status || "pending";
+    let attachments = [...(initialFollowups[possibilityId]?.attachments || [])];
+
+    const persistFollowup = async () => {
+      const date = editor.querySelector(".hypothesis-date")?.value || "";
+      const note = editor.querySelector(".hypothesis-note")?.value?.trim() || "";
+      const existing = initialFollowups[possibilityId] || {};
+      const saved = await hypothesisRepo.put({
+        ...existing,
+        id: existing.id || `clinical-${possibilityId}`,
+        possibilityId,
+        status,
+        date,
+        note,
+        attachments
+      });
+      initialFollowups[possibilityId] = saved;
+      return saved;
+    };
+
+    const refreshButtons = () => {
+      const styles = {
+        pending:   { bg: "#f2eadb", fg: "#725a2c" },
+        confirmed: { bg: "#e4efe8", fg: "#315f45" },
+        discarded: { bg: "#f3e3e0", fg: "#7a433d" }
+      };
+
+      editor.querySelectorAll(".hypothesis-status-btn").forEach(btn => {
+        const active = btn.dataset.status === status;
+        const visual = styles[btn.dataset.status] || styles.pending;
+        btn.setAttribute("aria-pressed", String(active));
+        btn.style.background = active ? visual.bg : "var(--paper)";
+        btn.style.color = active ? visual.fg : "var(--ink-soft)";
+        btn.style.borderColor = active ? visual.fg : "var(--line)";
+        btn.style.fontWeight = active ? "750" : "600";
+        btn.style.boxShadow = active ? `inset 0 0 0 1px ${visual.fg}` : "none";
+
+        const icon = btn.querySelector("span");
+        if (icon) {
+          icon.style.background = active ? visual.fg : "var(--paper-alt)";
+          icon.style.color = active ? "white" : "var(--ink-faint)";
+        }
+      });
+    };
+
+    editor.querySelectorAll(".hypothesis-status-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        status = btn.dataset.status;
+        refreshButtons();
+      });
+    });
+
+    refreshButtons();
+
+    editor.querySelector(".hypothesis-file-input")?.addEventListener("change", async event => {
+      const state = editor.querySelector(".hypothesis-save-state");
+      const labelInput = editor.querySelector(".hypothesis-file-label");
+      const customLabel = labelInput?.value?.trim() || "";
+      const files = [...(event.target.files || [])];
+      if (!files.length) return;
+      if (attachments.length + files.length > 10) {
+        alert("Pots adjuntar un màxim de 10 fitxers per hipòtesi.");
+        event.target.value = "";
+        return;
+      }
+      state.textContent = "Preparant fitxer…";
+      try {
+        for (const file of files) {
+          if (file.size > 10 * 1024 * 1024) throw new Error(`"${file.name}" supera els 10 MB.`);
+          attachments.push({
+            label: files.length === 1 ? (customLabel || file.name) : (customLabel ? `${customLabel} ${attachments.length + 1}` : file.name),
+            name: file.name,
+            type: file.type || "application/octet-stream",
+            size: file.size,
+            dataUrl: await fileToDataUrl(file),
+            addedAt: new Date().toISOString()
+          });
+        }
+        if (labelInput) labelInput.value = "";
+        renderAttachmentList();
+        state.textContent = "Desant fitxer…";
+        await persistFollowup();
+        state.textContent = "Fitxer desat ✓";
+      } catch (error) {
+        alert(error.message || "No s'ha pogut afegir el fitxer.");
+        state.textContent = "";
+      } finally {
+        event.target.value = "";
+      }
+    });
+
+    const renderAttachmentList = () => {
+      const list = editor.querySelector(".hypothesis-files");
+      if (!list) return;
+      list.innerHTML = attachments.map((f, i) => `<div class="hypothesis-file-row" data-file-index="${i}" style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end;padding:9px 10px;background:var(--paper-alt);border-radius:var(--radius-sm);font-size:var(--fs-xs);">
+        <div style="min-width:0;">
+          <label style="display:block;color:var(--ink-soft);font-size:11px;margin-bottom:3px;">Nom del document</label>
+          <input type="text" class="input hypothesis-file-name-edit" data-file-index="${i}" value="${(f.label || f.name || `Document ${i+1}`).replace(/"/g,'&quot;')}" style="width:100%;padding:7px 8px;font-size:var(--fs-xs);">
+          ${f.name ? `<div style="margin-top:3px;color:var(--ink-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Fitxer: ${f.name}</div>` : ""}
+        </div>
+        <span style="display:flex;gap:6px;flex-shrink:0;">
+          <a class="btn btn-ghost hypothesis-download-file" href="${f.dataUrl || "#"}" download="${f.name || "document"}" style="padding:6px 8px;">Descarrega</a>
+          <button type="button" class="btn btn-ghost hypothesis-remove-file" data-file-index="${i}" style="padding:6px 8px;">Elimina</button>
+        </span>
+      </div>`).join("");
+      list.querySelectorAll(".hypothesis-file-name-edit").forEach(input => {
+        const saveName = async () => {
+          const idx = Number(input.dataset.fileIndex);
+          if (!Number.isInteger(idx) || !attachments[idx]) return;
+          const next = input.value.trim() || attachments[idx].name || `Document ${idx + 1}`;
+          attachments[idx].label = next;
+          input.value = next;
+          try {
+            await persistFollowup();
+            const state = editor.querySelector(".hypothesis-save-state");
+            if (state) {
+              state.textContent = "Nom desat ✓";
+              setTimeout(() => { if (state.textContent === "Nom desat ✓") state.textContent = ""; }, 1400);
+            }
+          } catch (error) {
+            console.error(error);
+            alert(error.message || "No s'ha pogut desar el nom del document.");
+          }
+        };
+        input.addEventListener("change", saveName);
+        input.addEventListener("blur", saveName);
+      });
+
+      list.querySelectorAll(".hypothesis-remove-file").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = Number(btn.dataset.fileIndex);
+          if (Number.isInteger(idx)) {
+            attachments.splice(idx, 1);
+            renderAttachmentList();
+            persistFollowup().catch(error => {
+              console.error(error);
+              alert(error.message || "No s'ha pogut actualitzar els documents.");
+            });
+          }
+        });
+      });
+    };
+    renderAttachmentList();
+
+    editor.querySelector(".hypothesis-save-btn")?.addEventListener("click", async () => {
+      const state = editor.querySelector(".hypothesis-save-state");
+      state.textContent = "Desant…";
+      try {
+        await persistFollowup();
+        state.textContent = "Desat ✓";
+        setTimeout(() => { if (state.textContent === "Desat ✓") state.textContent = ""; }, 1800);
+      } catch (error) {
+        console.error(error);
+        state.textContent = "";
+        alert(error.message || "No s'ha pogut desar el seguiment.");
+      }
+    });
+  });
 }
 
 function section(title, color, sub, bodyHtml) {
