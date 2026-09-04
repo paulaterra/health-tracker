@@ -37,8 +37,8 @@ function filesReadonly(files=[]) {
 }
 
 
-function readonlyCard(r) {
-  return `<article class="card" style="margin-bottom:12px;overflow:hidden;padding:0;">
+function readonlyCard(r, editable=false) {
+  return `<article class="card medical-doc-card" data-document-id="${escapeHtml(r.id||"")}" style="margin-bottom:12px;overflow:hidden;padding:0;${editable?"cursor:pointer;":""}">
     <div style="height:5px;background:linear-gradient(90deg,#56758A,#8EA6B5);"></div>
     <div style="padding:16px;">
       <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
@@ -49,7 +49,10 @@ function readonlyCard(r) {
           </div>
           <h2 class="card-title" style="margin:0;font-size:20px;">${escapeHtml(r.title||"Informe o resultat")}</h2>
         </div>
-        <div style="padding:7px 10px;border:1px solid var(--line);border-radius:999px;font-size:var(--fs-xs);color:var(--ink-soft);font-weight:700;background:var(--paper-alt);">${escapeHtml(formatDate(r.date))}</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+          <div style="padding:7px 10px;border:1px solid var(--line);border-radius:999px;font-size:var(--fs-xs);color:var(--ink-soft);font-weight:700;background:var(--paper-alt);">${escapeHtml(formatDate(r.date))}</div>
+          ${editable?`<button class="btn btn-ghost md-edit" type="button">Edita</button>`:""}
+        </div>
       </div>
 
       ${(r.reason||r.center||r.result||r.notes)?`<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px;">
@@ -67,7 +70,7 @@ function readonlyCard(r) {
         ${filesReadonly(r.attachments||[])}
       </div>
     </div>
-  </div></article>`;
+  </article>`;
 }
 
 function editorCard(r={}) {
@@ -106,9 +109,9 @@ function editorCard(r={}) {
     </div>
     <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap;">
       <span class="md-state" style="font-size:var(--fs-xs);color:var(--ink-faint);"></span>
-      <div style="display:flex;gap:8px;"><button class="btn btn-ghost md-delete" type="button">Elimina registre</button><button class="btn btn-primary md-save" type="button">Desa</button></div>
+      <div style="display:flex;gap:8px;"><button class="btn btn-ghost md-cancel" type="button">Cancel·la</button><button class="btn btn-ghost md-delete" type="button">Elimina registre</button><button class="btn btn-primary md-save" type="button">Desa</button></div>
     </div>
-  </article>`;
+  </div></article>`;
 }
 
 export async function renderMedicalDocuments(container) {
@@ -148,14 +151,14 @@ export async function renderMedicalDocuments(container) {
         <select class="input" id="md-filter"><option value="">Tots els tipus</option>${typeOptions("")}</select>
       </div>
     </div>
-    <div id="md-list">${rows.length?rows.map(r=>readonlyCard(r)).join(""):`<div class="card"><p class="ledger-empty">Encara no hi ha informes o resultats desats.</p></div>`}</div>`;
+    <div id="md-list">${rows.length?rows.map(r=>readonlyCard(r,!viewer)).join(""):`<div class="card"><p class="ledger-empty">Encara no hi ha informes o resultats desats.</p></div>`}</div>`;
 
   const list=container.querySelector("#md-list");
   const applyFilter=()=>{
     const q=(container.querySelector("#md-search")?.value||"").toLowerCase().trim();
     const type=container.querySelector("#md-filter")?.value||"";
     const filtered=rows.filter(r=>(!type||r.type===type)&&(!q||[r.title,r.type,r.area,r.reason,r.center,r.result,r.notes].join(" ").toLowerCase().includes(q)));
-    list.innerHTML=filtered.length?filtered.map(r=>readonlyCard(r)).join(""):`<div class="card"><p class="ledger-empty">No hi ha resultats amb aquests filtres.</p></div>`;
+    list.innerHTML=filtered.length?filtered.map(r=>readonlyCard(r,!viewer)).join(""):`<div class="card"><p class="ledger-empty">No hi ha resultats amb aquests filtres.</p></div>`;
   };
   container.querySelector("#md-search")?.addEventListener("input",applyFilter);
   container.querySelector("#md-filter")?.addEventListener("change",applyFilter);
@@ -164,36 +167,37 @@ export async function renderMedicalDocuments(container) {
 
   container.querySelector("#md-add")?.addEventListener("click",()=>{
     list.innerHTML=editorCard({id:"",attachments:[]})+list.innerHTML;
-    bindEditor(list.querySelector(".medical-doc-editor"));
+    bindEditor(list.querySelector(".medical-doc-editor"),[]);
   });
 
-  // Clicking a saved card opens editor in owner mode
-  [...list.children].forEach((card,i)=>{
-    if(rows[i]) {
-      card.style.cursor="pointer";
-      card.addEventListener("click",e=>{
-        if(e.target.closest("a,button,input,textarea,select")) return;
-        card.outerHTML=editorCard(rows[i]);
-        const ed=list.querySelector(`[data-id="${CSS.escape(rows[i].id)}"]`);
-        if(ed) bindEditor(ed);
-      });
-    }
+  // Delegació d'esdeveniments: continua funcionant després de cercar o filtrar.
+  list.addEventListener("click",async event=>{
+    const card=event.target.closest(".medical-doc-card[data-document-id]");
+    if(!card||!list.contains(card)) return;
+    const editButton=event.target.closest(".md-edit");
+    if(!editButton&&event.target.closest("a,button,input,textarea,select,label")) return;
+
+    const record=await repo.get(card.dataset.documentId);
+    if(!record){alert("No s'ha pogut trobar aquest informe o resultat.");return;}
+
+    const template=document.createElement("template");
+    template.innerHTML=editorCard(record).trim();
+    const editor=template.content.firstElementChild;
+    card.replaceWith(editor);
+    bindEditor(editor,record.attachments||[]);
+    editor.scrollIntoView({behavior:"smooth",block:"start"});
   });
 }
 
-function bindEditor(editor) {
-  let attachments=[];
-  const id=editor.dataset.id;
-  const currentLoad=async()=>{
-    if(id) {
-      const r=await repo.get(id);
-      attachments=[...(r?.attachments||[])];
-    }
-  };
-  currentLoad();
+function bindEditor(editor,initialAttachments=[]) {
+  if(!editor) return;
+  let attachments=initialAttachments.map(file=>({...file}));
+  let persisted=Boolean(editor.dataset.id);
+  const id=editor.dataset.id||makeId();
+  editor.dataset.id=id;
 
   const data=()=>({
-    id:id||makeId(),
+    id,
     title:editor.querySelector(".md-title").value.trim(),
     date:editor.querySelector(".md-date").value,
     type:editor.querySelector(".md-type").value,
@@ -215,6 +219,7 @@ function bindEditor(editor) {
         attachments.push({name:file.name,label:file.name,type:file.type,size:file.size,dataUrl:await fileToDataUrl(file),addedAt:new Date().toISOString()});
       }
       await repo.put(data());
+      persisted=true;
       state.textContent="Fitxers desats ✓";
       await renderMedicalDocuments(editor.closest("#view-content")||editor.parentElement.parentElement);
     }catch(err){console.error(err);alert(err.message||"No s'han pogut afegir els fitxers.");state.textContent="";}
@@ -222,13 +227,17 @@ function bindEditor(editor) {
 
   editor.querySelector(".md-save")?.addEventListener("click",async()=>{
     const state=editor.querySelector(".md-state"); state.textContent="Desant…";
-    try{await repo.put(data()); state.textContent="Desat ✓"; setTimeout(()=>renderMedicalDocuments(editor.closest("#view-content")||editor.parentElement.parentElement),400);}
+    try{await repo.put(data()); persisted=true; state.textContent="Desat ✓"; setTimeout(()=>renderMedicalDocuments(editor.closest("#view-content")||editor.parentElement.parentElement),400);}
     catch(err){console.error(err);alert(err.message||"No s'ha pogut desar.");state.textContent="";}
   });
 
   editor.querySelector(".md-delete")?.addEventListener("click",async()=>{
-    if(!id){editor.remove();return;}
+    if(!persisted){editor.remove();return;}
     if(confirm("Vols eliminar aquest informe o resultat?")){await repo.delete(id);renderMedicalDocuments(editor.closest("#view-content")||editor.parentElement.parentElement);}
+  });
+
+  editor.querySelector(".md-cancel")?.addEventListener("click",()=>{
+    renderMedicalDocuments(editor.closest("#view-content")||editor.parentElement.parentElement);
   });
 
   editor.querySelectorAll(".md-file-label").forEach(inp=>{
@@ -236,11 +245,12 @@ function bindEditor(editor) {
       const i=Number(inp.dataset.index);
       if(attachments[i]) attachments[i].label=inp.value.trim()||attachments[i].name;
       await repo.put(data());
+      persisted=true;
     };
     inp.addEventListener("change",saveLabel);
     inp.addEventListener("blur",saveLabel);
   });
   editor.querySelectorAll(".md-remove-file").forEach(btn=>btn.addEventListener("click",async()=>{
-    attachments.splice(Number(btn.dataset.index),1); await repo.put(data()); renderMedicalDocuments(editor.closest("#view-content")||editor.parentElement.parentElement);
+    attachments.splice(Number(btn.dataset.index),1); await repo.put(data()); persisted=true; renderMedicalDocuments(editor.closest("#view-content")||editor.parentElement.parentElement);
   }));
 }
