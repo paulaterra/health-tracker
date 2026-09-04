@@ -1174,7 +1174,7 @@ export async function dayDetailHtml(date) {
   );
   if (skins.length) {
     const body = skins.map(sk => {
-      const entries = (sk.entries || []).flatMap(en => (en.tipus || []).map(type => `${en.zonaLabel}: ${type}`));
+      const entries = (sk.entries || []).flatMap(en => { const labels = Array.isArray(en.zonaLabels) && en.zonaLabels.length ? en.zonaLabels.join(" + ") : (en.zonaLabel || "Zona"); return (en.tipus || []).map(type => `${labels}: ${type}`); });
       return `<div class="day-record-item compact"><div class="day-stat-grid">${stat("Intensitat", sk.intensitat !== undefined ? `${sk.intensitat}/10` : "", "", SCORE_SCALES.skin)}${stat("Data", sk.dataInici || "")}</div>${listChips(entries.length ? entries : ["Brot actiu"])}${note(sk.comentari)}</div>`;
     }).join("");
     pushCard("skin", body, { count: skins.length, scales: [{ scale: SCORE_SCALES.skin }] });

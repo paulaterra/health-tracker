@@ -9,13 +9,13 @@ const WHOLE_BODY_ID = "tot_el_cos";
 const WHOLE_BODY_LABEL = "Tot el cos";
 
 let currentView = "front";
-let pickedZoneId = null; // zona seleccionada ara mateix, pendent d'assignar-li tipus
-let entries = []; // [{ zonaId, zonaLabel, tipus: [] }]
+let pickingZones = []; // zones tocades ara mateix, pendents d'assignar com a grup
+let entries = []; // grups confirmats: [{ zonaIds, zonaLabels, tipus: [] }]
 let editingId = null;
 
 export async function renderSkin(container) {
   currentView = "front";
-  pickedZoneId = null;
+  pickingZones = [];
   entries = [];
   editingId = null;
 
@@ -23,7 +23,7 @@ export async function renderSkin(container) {
     <div class="view-header">
       <span class="view-eyebrow">Registre — pell</span>
       <h1 class="view-title">Pell</h1>
-      <p class="view-sub">Toca una zona (o "Tot el cos"), assigna-li el tipus de lesió i afegeix-la a la llista. Cada registre correspon a un sol dia, perquè puguis marcar l'estat de la pell dia a dia.</p>
+      <p class="view-sub">Toca totes les zones on tens el mateix tipus de lesió, assigna'ls el tipus juntes i afegeix-les com a grup. Pots repetir-ho amb altres zones si tenen un tipus diferent. Cada registre correspon a un sol dia.</p>
     </div>
 
     <div class="grid-2">
@@ -35,17 +35,23 @@ export async function renderSkin(container) {
           <button type="button" class="chip" data-view-toggle="back">Darrere</button>
           <button type="button" class="chip" id="whole-body-btn">Tot el cos</button>
         </div>
-        <div class="bodymap-svg-wrap" id="bodymap-wrap">${renderSkinBodyMapSvg(currentView, [])}</div>
+        <div class="bodymap-svg-wrap" id="bodymap-wrap">${renderSkinBodyMapSvg(currentView, [], [])}</div>
+
+        <div class="field">
+          <label class="field-label">Zones tocades ara (pendents d'assignar)</label>
+          <div class="bodymap-selected-list" id="picking-list"><span class="ledger-empty" style="padding:0;">Cap zona tocada</span></div>
+          <button type="button" class="btn btn-ghost" id="assign-group-btn" style="margin-top: var(--sp-2);" disabled>Assigna tipus a aquestes zones</button>
+        </div>
 
         <div class="card" id="assign-panel" style="display:none; background: var(--paper-alt); margin-top: var(--sp-3);">
           <h3 class="card-title" id="assign-panel-title" style="font-size: var(--fs-sm);"></h3>
-          ${chipGroup("tipusZona", "Tipus per a aquesta zona", TYPES)}
-          <button type="button" class="btn btn-ghost" id="add-entry-btn">Afegeix a la llista</button>
+          ${chipGroup("tipusZona", "Tipus per a aquest grup de zones", TYPES)}
+          <button type="button" class="btn btn-primary" id="add-entry-btn">Afegeix aquest grup a la llista</button>
         </div>
 
         <div class="field">
-          <label class="field-label">Zones registrades avui</label>
-          <div class="bodymap-selected-list" id="entries-list"><span class="ledger-empty" style="padding:0;">Cap zona afegida encara</span></div>
+          <label class="field-label">Grups registrats avui</label>
+          <div class="bodymap-selected-list" id="entries-list"><span class="ledger-empty" style="padding:0;">Cap grup afegit encara</span></div>
         </div>
 
         ${sliderField("intensitat", "Intensitat / picor (general)", 0, "lleu", "molt intens")}
@@ -81,7 +87,13 @@ export async function renderSkin(container) {
   wireBodyMap(container);
   await refreshList(container);
 
-  container.querySelector("#whole-body-btn").addEventListener("click", () => openAssignPanel(container, WHOLE_BODY_ID, WHOLE_BODY_LABEL));
+  container.querySelector("#whole-body-btn").addEventListener("click", () => {
+    if (committedZoneIds().length > 0) return;
+    pickingZones = pickingZones.includes(WHOLE_BODY_ID) ? [] : [WHOLE_BODY_ID];
+    renderMap(container);
+    renderPickingList(container);
+  });
+  container.querySelector("#assign-group-btn").addEventListener("click", () => openAssignPanel(container));
   container.querySelector("#add-entry-btn").addEventListener("click", () => addEntry(container));
 
   container.querySelector("#skin-form").addEventListener("submit", async (e) => {
@@ -109,10 +121,11 @@ export async function renderSkin(container) {
     container.querySelector("#form-title").textContent = "Nou registre";
     container.querySelector("#editing-banner").innerHTML = "";
     entries = [];
-    pickedZoneId = null;
+    pickingZones = [];
     renderEntriesList(container);
     closeAssignPanel(container);
     renderMap(container);
+    renderPickingList(container);
     form.querySelectorAll('input[type="range"]').forEach(i => { i.value = 0; i.dispatchEvent(new Event("input")); });
     form.querySelector("#comentari").value = "";
     form.querySelector("#foto").value = "";
@@ -132,48 +145,89 @@ function wireBodyMap(container) {
   renderMap(container);
 }
 
+function committedZoneIds() {
+  return entries.flatMap(en => Array.isArray(en.zonaIds) ? en.zonaIds : (en.zonaId ? [en.zonaId] : []));
+}
+
+function labelsForEntry(en) {
+  if (Array.isArray(en.zonaLabels) && en.zonaLabels.length) return en.zonaLabels;
+  if (en.zonaLabel) return [en.zonaLabel];
+  if (Array.isArray(en.zonaIds)) return en.zonaIds.map(id => id === WHOLE_BODY_ID ? WHOLE_BODY_LABEL : skinZoneLabel(id));
+  if (en.zonaId) return [en.zonaId === WHOLE_BODY_ID ? WHOLE_BODY_LABEL : skinZoneLabel(en.zonaId)];
+  return [];
+}
+
 function renderMap(container) {
   const wrap = container.querySelector("#bodymap-wrap");
-  wrap.innerHTML = renderSkinBodyMapSvg(currentView, entries.map(en => en.zonaId));
+  const committed = committedZoneIds();
+  wrap.innerHTML = renderSkinBodyMapSvg(currentView, committed, pickingZones);
+  const wholeBodyBtn = container.querySelector("#whole-body-btn");
+  wholeBodyBtn?.classList.toggle("chip-active", committed.includes(WHOLE_BODY_ID) || pickingZones.includes(WHOLE_BODY_ID));
   wrap.querySelectorAll("[data-zone-id]").forEach((shape) => {
     shape.addEventListener("click", () => {
       const id = shape.dataset.zoneId;
-      openAssignPanel(container, id, skinZoneLabel(id));
+      if (committed.includes(id) || committed.includes(WHOLE_BODY_ID)) return;
+      if (pickingZones.includes(WHOLE_BODY_ID)) pickingZones = [];
+      pickingZones = pickingZones.includes(id) ? pickingZones.filter(z => z !== id) : [...pickingZones, id];
+      renderMap(container);
+      renderPickingList(container);
     });
   });
 }
 
-function openAssignPanel(container, zonaId, zonaLabel) {
-  pickedZoneId = zonaId;
+function renderPickingList(container) {
+  const list = container.querySelector("#picking-list");
+  const btn = container.querySelector("#assign-group-btn");
+  if (!list || !btn) return;
+  if (pickingZones.length === 0) {
+    list.innerHTML = `<span class="ledger-empty" style="padding:0;">Cap zona tocada</span>`;
+    btn.disabled = true;
+    return;
+  }
+  list.innerHTML = pickingZones.map(id => `<span class="badge">${escapeHtml(id === WHOLE_BODY_ID ? WHOLE_BODY_LABEL : skinZoneLabel(id))}</span>`).join("");
+  btn.disabled = false;
+}
+
+function openAssignPanel(container) {
+  if (pickingZones.length === 0) return;
   const panel = container.querySelector("#assign-panel");
   panel.style.display = "block";
-  container.querySelector("#assign-panel-title").textContent = `Tipus per a: ${zonaLabel}`;
+  const labels = pickingZones.map(id => id === WHOLE_BODY_ID ? WHOLE_BODY_LABEL : skinZoneLabel(id));
+  container.querySelector("#assign-panel-title").textContent = `Tipus per a: ${labels.join(", ")}`;
   container.querySelectorAll('.chip[data-chip-group="tipusZona"]').forEach(c => c.classList.remove("chip-active"));
   panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 function closeAssignPanel(container) {
-  pickedZoneId = null;
   container.querySelector("#assign-panel").style.display = "none";
 }
 
 function addEntry(container) {
-  if (!pickedZoneId) return;
+  if (pickingZones.length === 0) return;
   const tipus = getChipValues(container, "tipusZona");
   if (tipus.length === 0) {
-    alert("Selecciona almenys un tipus per a aquesta zona.");
+    alert("Selecciona almenys un tipus per a aquest grup de zones.");
     return;
   }
-  const zonaLabel = pickedZoneId === WHOLE_BODY_ID ? WHOLE_BODY_LABEL : skinZoneLabel(pickedZoneId);
-  entries = entries.filter(en => en.zonaId !== pickedZoneId);
-  entries.push({ zonaId: pickedZoneId, zonaLabel, tipus });
+  const zonaIds = [...pickingZones];
+  const zonaLabels = zonaIds.map(id => id === WHOLE_BODY_ID ? WHOLE_BODY_LABEL : skinZoneLabel(id));
+  entries.push({
+    zonaIds,
+    zonaLabels,
+    // Camps legacy per mantenir compatibilitat amb resums antics.
+    zonaId: zonaIds.length === 1 ? zonaIds[0] : null,
+    zonaLabel: zonaLabels.join(" + "),
+    tipus,
+  });
+  pickingZones = [];
   closeAssignPanel(container);
   renderMap(container);
+  renderPickingList(container);
   renderEntriesList(container);
 }
 
-function removeEntry(container, zonaId) {
-  entries = entries.filter(en => en.zonaId !== zonaId);
+function removeEntry(container, index) {
+  entries.splice(index, 1);
   renderMap(container);
   renderEntriesList(container);
 }
@@ -181,20 +235,38 @@ function removeEntry(container, zonaId) {
 function renderEntriesList(container) {
   const list = container.querySelector("#entries-list");
   if (entries.length === 0) {
-    list.innerHTML = `<span class="ledger-empty" style="padding:0;">Cap zona afegida encara</span>`;
+    list.innerHTML = `<span class="ledger-empty" style="padding:0;">Cap grup afegit encara</span>`;
     return;
   }
-  list.innerHTML = entries.map(en => `
-    <span class="badge">${escapeHtml(en.zonaLabel)}: ${en.tipus.map(escapeHtml).join(", ")}
-      <span data-remove-entry="${en.zonaId}" style="cursor:pointer; margin-left:4px;">×</span>
+  list.innerHTML = entries.map((en, idx) => `
+    <span class="badge">${escapeHtml(labelsForEntry(en).join(" + "))}: ${(en.tipus || []).map(escapeHtml).join(", ")}
+      <span data-remove-entry="${idx}" style="cursor:pointer; margin-left:4px;">×</span>
     </span>
   `).join("");
   list.querySelectorAll("[data-remove-entry]").forEach(el => {
-    el.addEventListener("click", () => removeEntry(container, el.dataset.removeEntry));
+    el.addEventListener("click", () => removeEntry(container, Number(el.dataset.removeEntry)));
   });
 }
 
-async function editSkinEntry(container,id){const e=await repo.get(id);if(!e)return;editingId=id;entries=(e.entries||[]).map(x=>({...x,tipus:[...(x.tipus||[])]}));container.querySelector('[name="intensitat"]').value=e.intensitat||0;container.querySelector('[name="intensitat"]').dispatchEvent(new Event('input'));container.querySelector('#dataInici').value=e.dataInici||'';container.querySelector('#comentari').value=e.comentari||'';renderEntriesList(container);renderMap(container);container.querySelector('#form-title').textContent='Editant registre';container.querySelector('#editing-banner').innerHTML='<div class="editing-banner"><span>Estàs editant un registre.</span><button type="button" class="btn btn-ghost" id="cancel-edit-btn">Cancel·la</button></div>';container.querySelector('#cancel-edit-btn').onclick=()=>renderSkin(container);container.querySelector('#skin-form').scrollIntoView({behavior:'smooth'});}
+async function editSkinEntry(container,id){
+  const e=await repo.get(id);if(!e)return;
+  editingId=id;
+  entries=(e.entries||[]).map(x=>{
+    const zonaIds=Array.isArray(x.zonaIds)?[...x.zonaIds]:(x.zonaId?[x.zonaId]:[]);
+    const zonaLabels=Array.isArray(x.zonaLabels)?[...x.zonaLabels]:(x.zonaLabel?[x.zonaLabel]:zonaIds.map(id=>id===WHOLE_BODY_ID?WHOLE_BODY_LABEL:skinZoneLabel(id)));
+    return {...x,zonaIds,zonaLabels,zonaLabel:x.zonaLabel||zonaLabels.join(" + "),tipus:[...(x.tipus||[])]};
+  });
+  pickingZones=[];
+  container.querySelector('[name="intensitat"]').value=e.intensitat||0;
+  container.querySelector('[name="intensitat"]').dispatchEvent(new Event('input'));
+  container.querySelector('#dataInici').value=e.dataInici||'';
+  container.querySelector('#comentari').value=e.comentari||'';
+  renderEntriesList(container);renderPickingList(container);renderMap(container);
+  container.querySelector('#form-title').textContent='Editant registre';
+  container.querySelector('#editing-banner').innerHTML='<div class="editing-banner"><span>Estàs editant un registre.</span><button type="button" class="btn btn-ghost" id="cancel-edit-btn">Cancel·la</button></div>';
+  container.querySelector('#cancel-edit-btn').onclick=()=>renderSkin(container);
+  container.querySelector('#skin-form').scrollIntoView({behavior:'smooth'});
+}
 async function refreshList(container) {
   const recent = await repo.getRecent("dataInici", 10);
   const list = container.querySelector("#event-list");
@@ -219,7 +291,7 @@ async function refreshList(container) {
 }
 
 function rowTemplate(e) {
-  const entriesLabel = (e.entries || []).map(en => `${en.zonaLabel}: ${en.tipus.join(", ")}`).join(" · ");
+  const entriesLabel = (e.entries || []).map(en => `${labelsForEntry(en).join(" + ")}: ${(en.tipus || []).join(", ")}`).join(" · ");
   return `
     <div class="event-row">
       <div class="event-row-top">

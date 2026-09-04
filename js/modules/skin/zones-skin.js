@@ -18,10 +18,10 @@ function outlineSvg() {
   return `<rect class="bodymap-outline" x="70" y="66" width="100" height="140" rx="10" />`;
 }
 
-export function renderSkinBodyMapSvg(view, selectedZones = []) {
+export function renderSkinBodyMapSvg(view, selectedZones = [], pickingZones = []) {
   const zones = view === "back" ? SKIN_ZONES_BACK : SKIN_ZONES_FRONT;
   const shapes = zones.map(z => `
-    <rect class="zone-shape ${selectedZones.includes(z.id) ? "zone-active" : ""}"
+    <rect class="zone-shape ${pickingZones.includes(z.id) ? "zone-picking" : (selectedZones.includes(z.id) ? "zone-active" : "")}"
           data-zone-id="${z.id}"
           x="${z.x}" y="${z.y}" width="${z.w}" height="${z.h}" rx="${z.id === "cap_cara" ? 22 : 6}">
       <title>${z.label}</title>
