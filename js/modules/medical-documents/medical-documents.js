@@ -24,6 +24,47 @@ function typeOptions(selected="") {
     .map(x=>`<option value="${escapeHtml(x)}" ${selected===x?"selected":""}>${escapeHtml(x)}</option>`).join("");
 }
 
+function previewKind(file={}) {
+  const type=String(file.type||"").toLowerCase();
+  const name=String(file.name||"").toLowerCase();
+  if(type==="application/pdf"||name.endsWith(".pdf")) return "pdf";
+  if(type.startsWith("image/")||/\.(png|jpe?g|webp)$/.test(name)) return "image";
+  if(type==="text/plain"||name.endsWith(".txt")) return "text";
+  return "";
+}
+
+function openFilePreview(file={}) {
+  const kind=previewKind(file);
+  if(!kind||!file.dataUrl) return;
+
+  document.getElementById("md-preview-dialog")?.remove();
+  const title=file.label||file.name||"Document";
+  const dialog=document.createElement("dialog");
+  dialog.id="md-preview-dialog";
+  dialog.className="md-preview-dialog";
+  dialog.setAttribute("aria-label",`Vista prèvia de ${title}`);
+  const content=kind==="image"
+    ? `<img class="md-preview-image" src="${escapeHtml(file.dataUrl)}" alt="${escapeHtml(title)}">`
+    : `<iframe class="md-preview-frame" src="${escapeHtml(file.dataUrl)}" title="${escapeHtml(title)}" ${kind==="text"?'sandbox=""':""}></iframe>`;
+
+  dialog.innerHTML=`<div class="md-preview-shell">
+    <div class="md-preview-header">
+      <div style="min-width:0;"><div class="md-preview-kicker">Vista prèvia</div><strong>${escapeHtml(title)}</strong></div>
+      <div class="md-preview-actions">
+        <a class="btn btn-ghost" href="${escapeHtml(file.dataUrl)}" download="${escapeHtml(file.name||"document")}">Descarrega</a>
+        <button class="btn btn-primary md-preview-close" type="button">Tanca</button>
+      </div>
+    </div>
+    <div class="md-preview-body">${content}</div>
+  </div>`;
+  document.body.appendChild(dialog);
+  dialog.querySelector(".md-preview-close")?.addEventListener("click",()=>dialog.close());
+  dialog.addEventListener("click",event=>{if(event.target===dialog) dialog.close();});
+  dialog.addEventListener("close",()=>dialog.remove(),{once:true});
+  if(typeof dialog.showModal==="function") dialog.showModal();
+  else dialog.setAttribute("open","");
+}
+
 function filesReadonly(files=[]) {
   if (!files.length) return `<p style="margin:6px 0 0;color:var(--ink-faint);font-size:var(--fs-xs);">Sense documents adjunts.</p>`;
   return `<div style="display:grid;gap:7px;margin-top:7px;">${files.map((f,i)=>`
@@ -32,7 +73,7 @@ function filesReadonly(files=[]) {
         <div style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📎 ${escapeHtml(f.label||f.name||`Document ${i+1}`)}</div>
         ${f.label&&f.name&&f.label!==f.name?`<div style="font-size:11px;color:var(--ink-faint);margin-top:2px;">${escapeHtml(f.name)}</div>`:""}
       </div>
-      ${f.dataUrl?`<a class="btn btn-ghost" href="${escapeHtml(f.dataUrl)}" download="${escapeHtml(f.name||"document")}" style="padding:5px 9px;flex-shrink:0;">Descarrega</a>`:""}
+      ${f.dataUrl?`<span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0;">${previewKind(f)?`<button class="btn btn-ghost md-preview-file" type="button" data-file-index="${i}" style="padding:5px 9px;">Vista prèvia</button>`:""}<a class="btn btn-ghost" href="${escapeHtml(f.dataUrl)}" download="${escapeHtml(f.name||"document")}" style="padding:5px 9px;">Descarrega</a></span>`:""}
     </div>`).join("")}</div>`;
 }
 
@@ -162,6 +203,16 @@ export async function renderMedicalDocuments(container) {
   };
   container.querySelector("#md-search")?.addEventListener("input",applyFilter);
   container.querySelector("#md-filter")?.addEventListener("change",applyFilter);
+
+  // Disponible tant per a Paula com per al professional, també després de filtrar.
+  list.addEventListener("click",event=>{
+    const button=event.target.closest(".md-preview-file[data-file-index]");
+    if(!button) return;
+    const card=button.closest(".medical-doc-card[data-document-id]");
+    const record=rows.find(row=>String(row.id)===String(card?.dataset.documentId));
+    const file=record?.attachments?.[Number(button.dataset.fileIndex)];
+    if(file) openFilePreview(file);
+  });
 
   if(viewer) return;
 

@@ -15,7 +15,7 @@ import { renderDashboard } from "./modules/dashboard/dashboard.js";
 import { renderReports } from "./modules/reports/reports.js";
 import { renderAbout } from "./modules/about/about.js";
 import { renderProfile } from "./modules/profile/profile.js";
-import { renderMedicalDocuments } from "./modules/medical-documents/medical-documents.js?v=1.6.33";
+import { renderMedicalDocuments } from "./modules/medical-documents/medical-documents.js?v=1.6.34";
 import { renderAssistant } from "./modules/assistant/assistant.js";
 import { APP_INFO } from "./app-info.js";
 import { migrateUnifiedScoreDirection } from "./engine/score-scale-migration.js";
