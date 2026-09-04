@@ -220,6 +220,24 @@ function reportCalendarsHtml(matrix, byDay, start, end, { categoryKeys = null } 
   </section>`;
 }
 
+function expandAllReportCalendarsForPrint(root) {
+  if (!root) return;
+  root.querySelectorAll("[data-report-calendar]").forEach(card => {
+    const panels = [...card.querySelectorAll("[data-report-month-index]")];
+    panels.forEach(panel => {
+      panel.classList.add("is-active");
+      panel.style.setProperty("display", "block", "important");
+      panel.style.setProperty("visibility", "visible", "important");
+      panel.style.setProperty("height", "auto", "important");
+      panel.style.setProperty("max-height", "none", "important");
+      panel.style.setProperty("overflow", "visible", "important");
+    });
+    card.style.setProperty("overflow", "visible", "important");
+    card.style.setProperty("height", "auto", "important");
+    card.style.setProperty("max-height", "none", "important");
+  });
+}
+
 function wireReportCalendarNavigation(root) {
   root.querySelectorAll("[data-report-calendar]").forEach(card => {
     const panels = [...card.querySelectorAll("[data-report-month-index]")];
@@ -483,6 +501,9 @@ function ensureMedicalPrintStyles() {
       .medical-print-day-start .day-score-guide-scale span:last-child{text-align:right!important;justify-self:stretch!important;}
       .medical-print-day-start .day-score-guide-scale b{font-size:9.5px!important;}
       .medical-print-day-start .day-score-guide-row{break-inside:avoid!important;}
+      .medical-print-calendars .report-calendar-month-panel{display:block!important;visibility:visible!important;height:auto!important;max-height:none!important;overflow:visible!important;margin-top:5mm!important;}
+      .medical-print-calendars .report-calendar-month-panel:first-of-type{margin-top:0!important;}
+      .medical-print-calendars .report-calendar-card{height:auto!important;max-height:none!important;overflow:visible!important;}
       *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
     }
   `;
@@ -575,6 +596,7 @@ async function openMedicalPrintView(container, start, end, selectedCategories = 
     const byDay = computeWellbeingByDay(matrix);
     const selectedCalendarKeys = selectedCategories.filter(key => ["pain", "headache", "vertigo", "digestive", "sleep", "skin"].includes(key));
     calendarPage.innerHTML = `<span class="view-eyebrow">Vista del període</span><h2 style="font-size:28px;margin:8px 0 10px;">Calendaris de benestar</h2>${reportCalendarsHtml(matrix, byDay, start, end, { categoryKeys: selectedCalendarKeys })}`;
+    expandAllReportCalendarsForPrint(calendarPage);
     pages.appendChild(calendarPage);
 
     let includedDays = 0;
@@ -654,6 +676,9 @@ async function downloadPdf(container, selector = "#report-output", filenamePrefi
           .simple-pdf-print-toolbar{display:none!important;}
           .simple-pdf-print-content{width:auto!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;}
           .simple-pdf-print-content .card,.simple-pdf-print-content section,.simple-pdf-print-content article{break-inside:avoid-page;page-break-inside:avoid;}
+          .simple-pdf-print-content .report-calendar-month-panel{display:block!important;visibility:visible!important;height:auto!important;max-height:none!important;overflow:visible!important;margin-top:5mm!important;}
+          .simple-pdf-print-content .report-calendar-month-panel:first-of-type{margin-top:0!important;}
+          .simple-pdf-print-content .report-calendar-card{height:auto!important;max-height:none!important;overflow:visible!important;}
           *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
         }
       `;
@@ -691,10 +716,16 @@ async function downloadPdf(container, selector = "#report-output", filenamePrefi
       </div>
       <p class="simple-pdf-cover-note">Document generat a partir dels registres personals de Paula Tracker. No substitueix una valoració mèdica.</p>`;
     printContent.appendChild(cover);
-    printContent.appendChild(element.cloneNode(true));
+    const reportClone = element.cloneNode(true);
+    expandAllReportCalendarsForPrint(reportClone);
+    printContent.appendChild(reportClone);
     if (selector === "#medical-summary") {
       const calendarSection = container.querySelector("#full-medical-report .report-calendar-section");
-      if (calendarSection) printContent.appendChild(calendarSection.cloneNode(true));
+      if (calendarSection) {
+        const calendarClone = calendarSection.cloneNode(true);
+        expandAllReportCalendarsForPrint(calendarClone);
+        printContent.appendChild(calendarClone);
+      }
     }
     document.body.appendChild(shell);
 
