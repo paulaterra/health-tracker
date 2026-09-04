@@ -8,8 +8,8 @@ import { intelligentSummaryHtml, recommendationsHtml } from "../../engine/intell
 import { escapeHtml, formatDate } from "../../utils/dom.js";
 import { medicalSummaryData } from "../../engine/personal-insights.js";
 import { dayDetailHtml } from "../dashboard/dashboard.js";
-import { buildClinicalHypotheses, clinicalHypothesesHtml, loadHypothesisFollowups } from "../../engine/clinical-hypotheses.js?v=1.6.31";
-import { bindHypothesisFollowups } from "../conclusions/conclusions.js?v=1.6.31";
+import { buildClinicalHypotheses, clinicalHypothesesHtml, loadHypothesisFollowups } from "../../engine/clinical-hypotheses.js?v=1.6.32";
+import { bindHypothesisFollowups } from "../conclusions/conclusions.js?v=1.6.32";
 
 
 

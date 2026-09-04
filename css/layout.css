@@ -24,6 +24,12 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--sp-6);
+  min-height: 100vh;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .brand {
