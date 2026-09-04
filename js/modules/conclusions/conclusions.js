@@ -4,7 +4,7 @@ import { classifyConclusions } from "../../engine/conclusions.js";
 import { escapeHtml } from "../../utils/dom.js";
 import { generateIntelligence } from "../../engine/intelligence.js";
 import { intelligentSummaryHtml, recommendationsHtml } from "../../engine/intelligence-view.js";
-import { buildClinicalHypotheses, clinicalHypothesesHtml, loadHypothesisFollowups } from "../../engine/clinical-hypotheses.js?v=1.6.26";
+import { buildClinicalHypotheses, clinicalHypothesesHtml, loadHypothesisFollowups } from "../../engine/clinical-hypotheses.js?v=1.6.31";
 import { Repository } from "../../db/repository.js";
 import { isViewerMode } from "../../view-mode.js";
 

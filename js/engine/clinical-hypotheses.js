@@ -383,7 +383,7 @@ export async function loadHypothesisFollowups() {
 function followupStatusLabel(status) {
   return status === "confirmed" ? "Confirmat per un professional"
     : status === "discarded" ? "Descartat per un professional"
-    : "Pendent de valorar";
+    : "Sense valorar";
 }
 
 function followupStatusColor(status) {
@@ -398,7 +398,7 @@ function followupReadonlyHtml(followup = {}) {
   const status = followup.status || "pending";
   const files = followup.attachments || [];
   const states = [
-    ["pending","◷","Pendent de valorar","#f2eadb","#725a2c"],
+    ["pending","◷","Sense valorar","#f2eadb","#725a2c"],
     ["confirmed","✓","Confirmat per un professional","#e4efe8","#315f45"],
     ["discarded","×","Descartat per un professional","#f3e3e0","#7a433d"]
   ];
@@ -441,7 +441,7 @@ function followupEditorHtml(p, followup = {}) {
     <div style="font-size:var(--fs-xs);font-weight:700;margin-bottom:8px;">Seguiment amb el professional</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px;">
       ${[
-        ["pending","◷","Pendent de valorar","#f2eadb","#725a2c"],
+        ["pending","◷","Sense valorar","#f2eadb","#725a2c"],
         ["confirmed","✓","Confirmat","#e4efe8","#315f45"],
         ["discarded","×","Descartat","#f3e3e0","#7a433d"]
       ].map(([value,icon,label,bg,fg]) => {

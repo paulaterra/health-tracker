@@ -15,6 +15,7 @@ import { renderDashboard } from "./modules/dashboard/dashboard.js";
 import { renderReports } from "./modules/reports/reports.js";
 import { renderAbout } from "./modules/about/about.js";
 import { renderProfile } from "./modules/profile/profile.js";
+import { renderMedicalDocuments } from "./modules/medical-documents/medical-documents.js?v=1.6.31";
 import { renderAssistant } from "./modules/assistant/assistant.js";
 import { APP_INFO } from "./app-info.js";
 import { migrateUnifiedScoreDirection } from "./engine/score-scale-migration.js";
@@ -32,13 +33,14 @@ const ROUTES = {
   cicle:     { label: "Cicle menstrual",index: "07", render: renderCycle },
   pell:      { label: "Pell",           index: "08", render: renderSkin },
   medicacio: { label: "Medicació",      index: "09", render: renderMedication },
-  patrons:   { label: "Patrons detectats", index: "10", render: renderPatterns },
-  conclusions: { label: "Conclusions i recomanacions", index: "11", render: renderConclusions },
-  dashboard: { label: "Dashboard", index: "12", render: renderDashboard },
-  informes:  { label: "Informes", index: "13", render: renderReports },
-  perfil:    { label: "El meu cos", index: "14", render: renderProfile },
-  assistent: { label: "Pregunta a la IA", index: "15", render: renderAssistant },
-  configuracio: { label: "Versió i estat", index: "16", render: renderAbout },
+  documents: { label: "Informes i resultats", index: "10", render: renderMedicalDocuments },
+  patrons:   { label: "Patrons detectats", index: "11", render: renderPatterns },
+  conclusions: { label: "Conclusions i recomanacions", index: "12", render: renderConclusions },
+  dashboard: { label: "Dashboard", index: "13", render: renderDashboard },
+  informes:  { label: "Informes", index: "14", render: renderReports },
+  perfil:    { label: "El meu cos", index: "15", render: renderProfile },
+  assistent: { label: "Pregunta a la IA", index: "16", render: renderAssistant },
+  configuracio: { label: "Versió i estat", index: "17", render: renderAbout },
 };
 
 
@@ -54,6 +56,8 @@ const CATEGORY_META = {
   pell: { color: "#D66A2C", soft: "#FBEADF", icon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.2c2.8 3.6 5 6.3 5 9.4a5 5 0 0 1-10 0c0-3.1 2.2-5.8 5-9.4Z" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M4 5.5h4M16 5.5h4M3 9h3M18 9h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>` },
   medicacio: { color: "#32679B", soft: "#E5EEF7", icon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5.2 14.8 9.6-9.6a3 3 0 0 1 4.2 4.2L9.4 19a3 3 0 1 1-4.2-4.2Z" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m9.2 10.8 4 4" stroke="currentColor" stroke-width="1.7"/><circle cx="17.5" cy="17.5" r="3.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M15 17.5h5" stroke="currentColor" stroke-width="1.7"/></svg>` },
 };
+
+CATEGORY_META.documents = { color: "#56758A", soft: "#E7EEF2", icon: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h8l4 4V20.5H6z" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M14 3.5v4h4M9 12h6M9 15.5h6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>` };
 
 function categoryStyle(route) {
   const meta = CATEGORY_META[route] ?? CATEGORY_META.inici;
