@@ -1,5 +1,5 @@
 import { Repository, makeId } from "../../db/repository.js";
-import { escapeHtml, nowISO, formatDate, sliderField, wireSliders, flashSaved, chipGroup, wireChips, getChipValues } from "../../utils/dom.js";
+import { escapeHtml, nowISO, formatDate, sliderField, wireSliders, flashSaved, chipGroup, getChipValues } from "../../utils/dom.js";
 import { renderSkinBodyMapSvg, skinZoneLabel } from "./zones-skin.js";
 
 const repo = new Repository("skin_episodes");
@@ -40,7 +40,7 @@ export async function renderSkin(container) {
         <div class="field">
           <label class="field-label">Zones tocades ara (pendents d'assignar)</label>
           <div class="bodymap-selected-list" id="picking-list"><span class="ledger-empty" style="padding:0;">Cap zona tocada</span></div>
-          <button type="button" class="btn btn-ghost" id="assign-group-btn" style="margin-top: var(--sp-2);" disabled>Assigna tipus a aquestes zones</button>
+          <button type="button" class="btn btn-ghost" id="assign-group-btn" style="margin-top: var(--sp-2);" disabled>Selecciona el tipus</button>
         </div>
 
         <div class="card" id="assign-panel" style="display:none; background: var(--paper-alt); margin-top: var(--sp-3);">
@@ -83,7 +83,7 @@ export async function renderSkin(container) {
   `;
 
   wireSliders(container);
-  wireChips(container);
+  wireTypeChips(container);
   wireBodyMap(container);
   await refreshList(container);
 
@@ -93,7 +93,10 @@ export async function renderSkin(container) {
     renderMap(container);
     renderPickingList(container);
   });
-  container.querySelector("#assign-group-btn").addEventListener("click", () => openAssignPanel(container));
+  container.querySelector("#assign-group-btn").addEventListener("click", () => {
+    openAssignPanel(container, false);
+    container.querySelector("#assign-panel").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
   container.querySelector("#add-entry-btn").addEventListener("click", () => addEntry(container));
 
   container.querySelector("#skin-form").addEventListener("submit", async (e) => {
@@ -182,24 +185,47 @@ function renderPickingList(container) {
   if (pickingZones.length === 0) {
     list.innerHTML = `<span class="ledger-empty" style="padding:0;">Cap zona tocada</span>`;
     btn.disabled = true;
+    closeAssignPanel(container);
     return;
   }
   list.innerHTML = pickingZones.map(id => `<span class="badge">${escapeHtml(id === WHOLE_BODY_ID ? WHOLE_BODY_LABEL : skinZoneLabel(id))}</span>`).join("");
   btn.disabled = false;
+  openAssignPanel(container, false);
 }
 
-function openAssignPanel(container) {
+function wireTypeChips(container) {
+  container.querySelectorAll('.chip[data-chip-group="tipusZona"]').forEach((chip) => {
+    chip.setAttribute("aria-pressed", "false");
+    chip.addEventListener("click", () => {
+      const active = chip.classList.toggle("chip-active");
+      chip.setAttribute("aria-pressed", String(active));
+    });
+  });
+}
+
+function openAssignPanel(container, resetTypes = true) {
   if (pickingZones.length === 0) return;
   const panel = container.querySelector("#assign-panel");
   panel.style.display = "block";
   const labels = pickingZones.map(id => id === WHOLE_BODY_ID ? WHOLE_BODY_LABEL : skinZoneLabel(id));
   container.querySelector("#assign-panel-title").textContent = `Tipus per a: ${labels.join(", ")}`;
-  container.querySelectorAll('.chip[data-chip-group="tipusZona"]').forEach(c => c.classList.remove("chip-active"));
-  panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  if (resetTypes) {
+    container.querySelectorAll('.chip[data-chip-group="tipusZona"]').forEach((chip) => {
+      chip.classList.remove("chip-active");
+      chip.setAttribute("aria-pressed", "false");
+    });
+  }
+  if (resetTypes) panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 function closeAssignPanel(container) {
-  container.querySelector("#assign-panel").style.display = "none";
+  const panel = container.querySelector("#assign-panel");
+  if (!panel) return;
+  panel.style.display = "none";
+  panel.querySelectorAll('.chip[data-chip-group="tipusZona"]').forEach((chip) => {
+    chip.classList.remove("chip-active");
+    chip.setAttribute("aria-pressed", "false");
+  });
 }
 
 function addEntry(container) {
