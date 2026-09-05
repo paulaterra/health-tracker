@@ -15,7 +15,7 @@ import { renderDashboard } from "./modules/dashboard/dashboard.js";
 import { renderReports } from "./modules/reports/reports.js";
 import { renderAbout } from "./modules/about/about.js";
 import { renderProfile } from "./modules/profile/profile.js";
-import { renderMedicalDocuments } from "./modules/medical-documents/medical-documents.js?v=1.6.34";
+import { renderMedicalDocuments } from "./modules/medical-documents/medical-documents.js?v=1.6.35";
 import { renderAssistant } from "./modules/assistant/assistant.js";
 import { APP_INFO } from "./app-info.js";
 import { migrateUnifiedScoreDirection } from "./engine/score-scale-migration.js";
@@ -33,7 +33,7 @@ const ROUTES = {
   cicle:     { label: "Cicle menstrual",index: "07", render: renderCycle },
   pell:      { label: "Pell",           index: "08", render: renderSkin },
   medicacio: { label: "Medicació",      index: "09", render: renderMedication },
-  documents: { label: "Informes i resultats", index: "10", render: renderMedicalDocuments },
+  documents: { label: "Proves i resultats", index: "10", render: renderMedicalDocuments },
   patrons:   { label: "Patrons detectats", index: "11", render: renderPatterns },
   conclusions: { label: "Conclusions i recomanacions", index: "12", render: renderConclusions },
   dashboard: { label: "Dashboard", index: "13", render: renderDashboard },
@@ -330,6 +330,7 @@ function renderShell() {
           <button data-sheet-route="conclusions" type="button"><span>✓</span><span><strong>Conclusions</strong><small>Resum i recomanacions</small></span><b>›</b></button>
           <button data-sheet-route="perfil" type="button"><span>◎</span><span><strong>El meu cos</strong><small>Perfil personal viu</small></span><b>›</b></button>
           <button data-sheet-route="assistent" type="button"><span>✦</span><span><strong>Pregunta a la IA</strong><small>Respostes del teu historial</small></span><b>›</b></button>
+          <button data-sheet-route="documents" type="button"><span>▧</span><span><strong>Proves i resultats</strong><small>Documents mèdics i analítiques</small></span><b>›</b></button>
           <button data-sheet-route="informes" type="button"><span>▤</span><span><strong>Informes</strong><small>PDF i exportació</small></span><b>›</b></button>
           <button data-sheet-route="configuracio" type="button"><span>ⓘ</span><span><strong>Versió i estat</strong><small>v${APP_INFO.version} · Connexions</small></span><b>›</b></button>
           <button id="mobile-sheet-logout" class="danger" type="button"><span>↪</span><span><strong>Tancar sessió</strong><small>${currentUser?.email ?? ""}</small></span><b>›</b></button>

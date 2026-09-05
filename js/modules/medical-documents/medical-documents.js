@@ -88,7 +88,7 @@ function readonlyCard(r, editable=false) {
             ${r.type?`<span class="badge" style="background:#E7EEF2;color:#456274;">${escapeHtml(r.type)}</span>`:""}
             ${r.area?`<span class="badge" style="background:#EEF0EA;color:#5F705A;">${escapeHtml(r.area)}</span>`:""}
           </div>
-          <h2 class="card-title" style="margin:0;font-size:20px;">${escapeHtml(r.title||"Informe o resultat")}</h2>
+          <h2 class="card-title" style="margin:0;font-size:20px;">${escapeHtml(r.title||"Prova o resultat")}</h2>
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
           <div style="padding:7px 10px;border:1px solid var(--line);border-radius:999px;font-size:var(--fs-xs);color:var(--ink-soft);font-weight:700;background:var(--paper-alt);">${escapeHtml(formatDate(r.date))}</div>
@@ -162,10 +162,10 @@ export async function renderMedicalDocuments(container) {
     <div class="view-header" style="align-items:flex-end;">
       <div>
         <p class="view-eyebrow">Historial documental</p>
-        <h1 class="view-title">Informes i resultats</h1>
-        <p class="view-subtitle">Proves, informes i resultats mèdics ordenats en un sol lloc.</p>
+        <h1 class="view-title">Proves i resultats</h1>
+        <p class="view-subtitle">Proves mèdiques, analítiques i resultats ordenats en un sol lloc.</p>
       </div>
-      ${viewer?"":`<button class="btn btn-primary" id="md-add" type="button">+ Afegir informe o resultat</button>`}
+      ${viewer?"":`<button class="btn btn-primary" id="md-add" type="button">+ Afegir prova o resultat</button>`}
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px;">
@@ -192,7 +192,7 @@ export async function renderMedicalDocuments(container) {
         <select class="input" id="md-filter"><option value="">Tots els tipus</option>${typeOptions("")}</select>
       </div>
     </div>
-    <div id="md-list">${rows.length?rows.map(r=>readonlyCard(r,!viewer)).join(""):`<div class="card"><p class="ledger-empty">Encara no hi ha informes o resultats desats.</p></div>`}</div>`;
+    <div id="md-list">${rows.length?rows.map(r=>readonlyCard(r,!viewer)).join(""):`<div class="card"><p class="ledger-empty">Encara no hi ha proves o resultats desats.</p></div>`}</div>`;
 
   const list=container.querySelector("#md-list");
   const applyFilter=()=>{
@@ -229,7 +229,7 @@ export async function renderMedicalDocuments(container) {
     if(!editButton&&event.target.closest("a,button,input,textarea,select,label")) return;
 
     const record=await repo.get(card.dataset.documentId);
-    if(!record){alert("No s'ha pogut trobar aquest informe o resultat.");return;}
+    if(!record){alert("No s'ha pogut trobar aquesta prova o resultat.");return;}
 
     const template=document.createElement("template");
     template.innerHTML=editorCard(record).trim();
