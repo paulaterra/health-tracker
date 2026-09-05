@@ -493,7 +493,7 @@ function followupEditorHtml(p, followup = {}) {
 
 export function clinicalHypothesesHtml(hypotheses=[], { compact=false, interactive=false, followups={} }={}) {
   if(!hypotheses.length) return compact ? '' : `<p class="ledger-empty">Encara no hi ha prou combinacions repetides per proposar cap hipòtesi clínica amb evidència explícita.</p>`;
-  return hypotheses.map(h=>`<div class="card" style="border-left:3px solid var(--ink-soft);${compact?'padding:12px;':''}">
+  return `<div class="clinical-hypotheses-list">${hypotheses.map(h=>`<div class="card" style="border-left:3px solid var(--ink-soft);${compact?'padding:12px;':''}">
     <span class="badge" style="background:transparent;color:var(--ink-soft);padding-left:0;">${h.badge}</span>
     <p style="margin:var(--sp-1) 0 0;font-size:var(--fs-md);font-weight:600;">${h.title}</p>
     <p style="margin:var(--sp-1) 0 0;color:var(--ink-soft);">${h.summary}</p>
@@ -501,6 +501,5 @@ export function clinicalHypothesesHtml(hypotheses=[], { compact=false, interacti
     ${h.possibilities?.length?(()=>{const ps=rankedPossibilities(h.possibilities);const clinical=ps.find(p=>p.clinicalSummary)?.clinicalSummary;return `<div style="margin-top:var(--sp-3);font-size:var(--fs-sm);"><strong>Possibilitats a valorar amb el professional</strong>${clinical?`<div style="margin-top:8px;padding:10px 12px;border-left:3px solid var(--ink-soft);background:var(--paper-alt);border-radius:0 var(--radius-md) var(--radius-md) 0;font-weight:650;">${clinical}</div>`:''}<div style="display:grid;gap:8px;margin-top:8px;">${ps.map(p=>`<div style="padding:10px 12px;background:var(--paper-alt);border-radius:var(--radius-md);">${compatibilityScaleHtml(p)}<strong>${p.title}</strong><div style="margin-top:3px;">${p.why}</div><div style="margin-top:3px;color:var(--ink-faint);font-size:var(--fs-xs);">${p.limit}</div>${interactive && !isViewerMode() ? followupEditorHtml(p, followups[p.id] || {}) : (isViewerMode() ? followupReadonlyHtml(followups[p.id] || { status:"pending" }) : followupReadonlyHtml(followups[p.id]))}</div>`).join('')}</div><div style="margin-top:7px;color:var(--ink-faint);font-size:11px;">L’ordre indica compatibilitat amb els registres disponibles, no probabilitat diagnòstica. Verd = més compatible; groc = moderada; vermell = baixa/inicial.</div></div>`;})():''}
     <p style="margin:var(--sp-3) 0 0;font-size:var(--fs-sm);"><strong>Què no sabem:</strong> ${h.limits}</p>
     <p style="margin:var(--sp-3) 0 0;font-size:var(--fs-sm);">💡 ${h.action}</p>
-  </div>`).join('');
+  </div>`).join('')}</div>`;
 }
-

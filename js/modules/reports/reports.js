@@ -8,8 +8,8 @@ import { intelligentSummaryHtml, recommendationsHtml } from "../../engine/intell
 import { escapeHtml, formatDate } from "../../utils/dom.js";
 import { medicalSummaryData } from "../../engine/personal-insights.js";
 import { dayDetailHtml } from "../dashboard/dashboard.js";
-import { buildClinicalHypotheses, clinicalHypothesesHtml, loadHypothesisFollowups } from "../../engine/clinical-hypotheses.js?v=1.6.32";
-import { bindHypothesisFollowups } from "../conclusions/conclusions.js?v=1.6.32";
+import { buildClinicalHypotheses, clinicalHypothesesHtml, loadHypothesisFollowups } from "../../engine/clinical-hypotheses.js?v=1.6.36";
+import { bindHypothesisFollowups } from "../conclusions/conclusions.js?v=1.6.36";
 
 
 
@@ -354,7 +354,7 @@ export async function renderReports(container) {
       <button class="btn btn-ghost" id="export-json-btn">⬇ Exporta totes les dades (JSON)</button>
     </div>
 
-    <div id="report-output" style="margin-top: var(--sp-6);"></div>
+    <div id="report-output" class="report-output" style="margin-top: var(--sp-6);"></div>
   `;
 
   container.querySelector("#generate-btn").addEventListener("click", async () => {
@@ -818,7 +818,7 @@ async function generateReport(container, start, end) {
   output.innerHTML = `
     ${medicalSummaryHtml(medicalSummary, avgPeriod, avgPrev, start, end, periodDates.length)}
 
-    <div id="full-medical-report">
+    <div id="full-medical-report" class="report-card-stack">
     <div class="card">
       <h2 class="card-title" style="font-size: var(--fs-lg);">Informe del període</h2>
       <p style="color: var(--ink-soft); margin: 0;">${escapeHtml(formatDate(start))} — ${escapeHtml(formatDate(end))} (${periodDates.length} dies amb dades) · generat el ${escapeHtml(formatDate(todayISO()))}</p>
@@ -832,7 +832,7 @@ async function generateReport(container, start, end) {
     ${intelligentSummaryHtml(intel, { title: "Resum intel·ligent del període" })}
     ${temporalReportHtml(intel)}
     ${recommendationsHtml(intel, "Recomanacions i dades a seguir") }
-    ${clinicalHypotheses.length ? `<div style="margin-top:var(--sp-5);"><h2 class="card-title">Hipòtesis a explorar</h2><p style="font-size:var(--fs-xs);color:var(--ink-faint);">Aquesta secció interpreta combinacions de símptomes per orientar què comentar amb un professional. No són diagnòstics.</p>${clinicalHypothesesHtml(clinicalHypotheses,{interactive:true,followups:hypothesisFollowups})}</div>` : ""}
+    ${clinicalHypotheses.length ? `<section class="report-hypotheses-section"><h2 class="card-title">Hipòtesis a explorar</h2><p style="font-size:var(--fs-xs);color:var(--ink-faint);">Aquesta secció interpreta combinacions de símptomes per orientar què comentar amb un professional. No són diagnòstics.</p>${clinicalHypothesesHtml(clinicalHypotheses,{interactive:true,followups:hypothesisFollowups})}</section>` : ""}
 
     <div class="card" style="margin-top: var(--sp-5);">
       <h2 class="card-title">Índex de benestar del període</h2>

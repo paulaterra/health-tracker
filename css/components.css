@@ -13,6 +13,20 @@
   margin: 0 0 var(--sp-4);
 }
 
+/* Informes: separació coherent entre blocs i entre hipòtesis. */
+.report-output > .medical-summary + .report-card-stack {
+  margin-top: var(--sp-5);
+}
+.report-card-stack > * + * {
+  margin-top: var(--sp-5) !important;
+}
+.clinical-hypotheses-list {
+  margin-top: var(--sp-4);
+}
+.clinical-hypotheses-list > * + * {
+  margin-top: var(--sp-4);
+}
+
 /* ---- Control lliscant amb etiqueta d'escala clínica ---- */
 .field { margin-bottom: var(--sp-5); }
 .field:last-child { margin-bottom: 0; }
