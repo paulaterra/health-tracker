@@ -200,6 +200,14 @@ textarea { min-height: 72px; resize: vertical; }
 .chip:hover { border-color: var(--teal); }
 .chip-active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 
+.save-status {
+  min-height: 1.25em;
+  margin: var(--sp-2) 0 0;
+  color: var(--ink-soft);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+}
+
 /* ---- Badges d'intensitat ---- */
 .badge-low { background: var(--sage-bg); color: var(--sage); }
 .badge-mid { background: var(--amber-bg); color: var(--amber); }

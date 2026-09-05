@@ -46,12 +46,13 @@ export async function renderSkin(container) {
         <div class="card" id="assign-panel" style="display:none; background: var(--paper-alt); margin-top: var(--sp-3);">
           <h3 class="card-title" id="assign-panel-title" style="font-size: var(--fs-sm);"></h3>
           ${chipGroup("tipusZona", "Tipus per a aquest grup de zones", TYPES)}
-          <button type="button" class="btn btn-primary" id="add-entry-btn">Afegeix aquest grup a la llista</button>
+          <button type="button" class="btn btn-primary" id="add-entry-btn">Confirma la zona i el tipus</button>
         </div>
 
         <div class="field">
           <label class="field-label">Grups registrats avui</label>
           <div class="bodymap-selected-list" id="entries-list"><span class="ledger-empty" style="padding:0;">Cap grup afegit encara</span></div>
+          <p class="save-status" id="skin-group-status" role="status" aria-live="polite"></p>
         </div>
 
         ${sliderField("intensitat", "Intensitat / picor (general)", 0, "lleu", "molt intens")}
@@ -70,9 +71,10 @@ export async function renderSkin(container) {
         </div>
 
         <div style="display:flex; align-items:center; gap: var(--sp-4); margin-top: var(--sp-5);">
-          <button type="submit" class="btn btn-primary">Desar registre</button>
+          <button type="submit" class="btn btn-primary" id="save-skin-btn">Desar registre</button>
           <span class="save-flash" id="save-flash"><span class="dot"></span> Desat</span>
         </div>
+        <p class="save-status" id="skin-save-status" role="status" aria-live="polite"></p>
       </form>
 
       <div class="card">
@@ -85,7 +87,6 @@ export async function renderSkin(container) {
   wireSliders(container);
   wireTypeChips(container);
   wireBodyMap(container);
-  await refreshList(container);
 
   container.querySelector("#whole-body-btn").addEventListener("click", () => {
     if (committedZoneIds().length > 0) return;
@@ -93,48 +94,74 @@ export async function renderSkin(container) {
     renderMap(container);
     renderPickingList(container);
   });
-  container.querySelector("#assign-group-btn").addEventListener("click", () => {
+  container.querySelector("#assign-group-btn").addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     openAssignPanel(container, false);
-    container.querySelector("#assign-panel").scrollIntoView({ behavior: "smooth", block: "nearest" });
   });
-  container.querySelector("#add-entry-btn").addEventListener("click", () => addEntry(container));
+  container.querySelector("#add-entry-btn").addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    addEntry(container);
+  });
 
   container.querySelector("#skin-form").addEventListener("submit", async (e) => {
     e.preventDefault();
+    e.stopPropagation();
     if (entries.length === 0) {
       alert("Afegeix almenys una zona amb el seu tipus.");
       return;
     }
-    const form = e.target;
-    const fotoInput = form.querySelector("#foto");
-    const fotoBlob = fotoInput.files[0] || null;
+    const form = e.currentTarget;
+    const saveButton = form.querySelector("#save-skin-btn");
+    const saveStatus = form.querySelector("#skin-save-status");
+    const originalLabel = saveButton.textContent;
+    saveButton.disabled = true;
+    saveButton.textContent = "Desant…";
+    saveStatus.textContent = "";
 
-    const payload = {
-      id: editingId || makeId(),
-      entries: entries.map(en => ({ ...en })),
-      intensitat: Number(form.querySelector('[name="intensitat"]').value),
-      dataInici: form.querySelector("#dataInici").value,
-      dataFi: null,
-      comentari: form.querySelector("#comentari").value.trim(),
-      foto: fotoBlob,
-    };
-    await repo.put(payload);
-    flashSaved(container);
-    editingId = null;
-    container.querySelector("#form-title").textContent = "Nou registre";
-    container.querySelector("#editing-banner").innerHTML = "";
-    entries = [];
-    pickingZones = [];
-    renderEntriesList(container);
-    closeAssignPanel(container);
-    renderMap(container);
-    renderPickingList(container);
-    form.querySelectorAll('input[type="range"]').forEach(i => { i.value = 0; i.dispatchEvent(new Event("input")); });
-    form.querySelector("#comentari").value = "";
-    form.querySelector("#foto").value = "";
-    form.querySelector("#dataInici").value = nowISO().slice(0, 10);
-    await refreshList(container);
+    try {
+      const fotoInput = form.querySelector("#foto");
+      const fotoBlob = fotoInput.files[0] || null;
+      const payload = {
+        id: editingId || makeId(),
+        entries: entries.map(en => ({ ...en, zonaIds: [...en.zonaIds], zonaLabels: [...en.zonaLabels], tipus: [...en.tipus] })),
+        intensitat: Number(form.querySelector('[name="intensitat"]').value),
+        dataInici: form.querySelector("#dataInici").value,
+        dataFi: null,
+        comentari: form.querySelector("#comentari").value.trim(),
+        foto: fotoBlob,
+      };
+      await repo.put(payload);
+      flashSaved(container);
+      saveStatus.textContent = "Registre de pell desat correctament.";
+      editingId = null;
+      container.querySelector("#form-title").textContent = "Nou registre";
+      container.querySelector("#editing-banner").innerHTML = "";
+      entries = [];
+      pickingZones = [];
+      container.querySelector("#skin-group-status").textContent = "";
+      renderEntriesList(container);
+      closeAssignPanel(container);
+      renderMap(container);
+      renderPickingList(container);
+      form.querySelectorAll('input[type="range"]').forEach(i => { i.value = 0; i.dispatchEvent(new Event("input")); });
+      form.querySelector("#comentari").value = "";
+      form.querySelector("#foto").value = "";
+      form.querySelector("#dataInici").value = nowISO().slice(0, 10);
+      await refreshList(container);
+    } catch (error) {
+      console.error("No s'ha pogut desar el registre de pell", error);
+      saveStatus.textContent = error?.message || "No s'ha pogut desar el registre. Torna-ho a provar.";
+    } finally {
+      saveButton.disabled = false;
+      saveButton.textContent = originalLabel;
+    }
   });
+
+  // La càrrega de l'historial no pot impedir que el formulari quedi connectat.
+  // Tots els controls i el submit ja tenen els seus listeners abans d'aquest await.
+  await refreshList(container);
 }
 
 function wireBodyMap(container) {
@@ -190,6 +217,8 @@ function renderPickingList(container) {
   }
   list.innerHTML = pickingZones.map(id => `<span class="badge">${escapeHtml(id === WHOLE_BODY_ID ? WHOLE_BODY_LABEL : skinZoneLabel(id))}</span>`).join("");
   btn.disabled = false;
+  const status = container.querySelector("#skin-group-status");
+  if (status) status.textContent = "";
   openAssignPanel(container, false);
 }
 
@@ -245,6 +274,8 @@ function addEntry(container) {
     zonaLabel: zonaLabels.join(" + "),
     tipus,
   });
+  const status = container.querySelector("#skin-group-status");
+  if (status) status.textContent = `${zonaLabels.join(" + ")}: ${tipus.join(", ")} afegit. Ara pots desar el registre.`;
   pickingZones = [];
   closeAssignPanel(container);
   renderMap(container);
@@ -294,8 +325,16 @@ async function editSkinEntry(container,id){
   container.querySelector('#skin-form').scrollIntoView({behavior:'smooth'});
 }
 async function refreshList(container) {
-  const recent = await repo.getRecent("dataInici", 10);
   const list = container.querySelector("#event-list");
+  if (!list) return;
+  let recent;
+  try {
+    recent = (await repo.getRecent("dataInici", 10)).filter((entry) => typeof entry?.dataInici === "string" && entry.dataInici);
+  } catch (error) {
+    console.error("No s'han pogut carregar els registres de pell", error);
+    list.innerHTML = `<p class="ledger-empty">No s'han pogut carregar els últims registres. Pots continuar desant-ne de nous.</p>`;
+    return;
+  }
   if (recent.length === 0) {
     list.innerHTML = `<p class="ledger-empty">Encara no hi ha cap registre de pell.</p>`;
     return;
@@ -317,7 +356,11 @@ async function refreshList(container) {
 }
 
 function rowTemplate(e) {
-  const entriesLabel = (e.entries || []).map(en => `${labelsForEntry(en).join(" + ")}: ${(en.tipus || []).join(", ")}`).join(" · ");
+  const safeEntries = Array.isArray(e.entries) ? e.entries : [];
+  const entriesLabel = safeEntries.map((en) => {
+    const tipus = Array.isArray(en.tipus) ? en.tipus : (en.tipus ? [en.tipus] : []);
+    return `${labelsForEntry(en).join(" + ")}: ${tipus.join(", ")}`;
+  }).join(" · ");
   return `
     <div class="event-row">
       <div class="event-row-top">
